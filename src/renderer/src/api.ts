@@ -1,0 +1,60 @@
+// Small HTTP client the UI uses to talk to the store server.
+import type {
+  DailyReport,
+  Health,
+  Product,
+  ProductInput,
+  Sale,
+  SaleRequest,
+  SaleSummary,
+  StoreSettings
+} from '../../shared/types'
+
+let baseUrl = ''
+let apiKey = ''
+
+export function configureApi(url: string, key: string): void {
+  baseUrl = url.replace(/\/+$/, '')
+  apiKey = key
+}
+
+async function request<T>(method: string, path: string, body?: unknown, base = baseUrl, key = apiKey): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(base + path, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': key },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(8000)
+    })
+  } catch {
+    throw new Error('Cannot reach the store server. Check the network and that the server PC is running.')
+  }
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? `Server error ${res.status}`)
+  return data as T
+}
+
+export const api = {
+  health: () => request<Health>('GET', '/api/health'),
+  /** Used by the setup screen before the till is configured */
+  testConnection: (url: string, key: string) =>
+    request<StoreSettings>('GET', '/api/settings', undefined, url.replace(/\/+$/, ''), key),
+
+  getSettings: () => request<StoreSettings>('GET', '/api/settings'),
+  saveSettings: (s: Partial<StoreSettings>) => request<StoreSettings>('PUT', '/api/settings', s),
+
+  listProducts: (search = '', includeInactive = false) =>
+    request<Product[]>(
+      'GET',
+      `/api/products?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
+    ),
+  lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
+  createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
+  updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
+
+  createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
+  getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
+  listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
+  dailyReport: (date: string) => request<DailyReport>('GET', `/api/reports/daily?date=${date}`)
+}

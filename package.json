@@ -1,0 +1,37 @@
+{
+  "name": "store-pos",
+  "productName": "Store POS",
+  "version": "0.1.0",
+  "description": "Multi-till point of sale for a single location (Electron + React + TypeScript)",
+  "author": "Your Company",
+  "private": true,
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "npm run build && electron-builder --win --publish never",
+    "release": "npm run build && electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "electron-updater": "^6.3.9",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
