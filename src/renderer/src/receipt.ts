@@ -26,7 +26,7 @@ export function receiptHtml(sale: Sale, settings: StoreSettings): string {
     .big td { font-weight: bold; font-size: 14px; }
   </style></head><body>
     <h1>${escapeHtml(settings.storeName)}</h1>
-    <div class="c">Receipt #${sale.id}<br>${dateTime(sale.createdAt)}<br>${escapeHtml(sale.tillName)}</div>
+    <div class="c">Receipt #${sale.id}<br>${dateTime(sale.createdAt)}<br>${escapeHtml(sale.tillName)}${sale.customerName ? `<br>Customer: ${escapeHtml(sale.customerName)}` : ''}</div>
     <hr><table>${rows}</table><hr>
     <table>
       <tr class="big"><td>TOTAL</td><td class="r">${money(sale.totalCents)}</td></tr>

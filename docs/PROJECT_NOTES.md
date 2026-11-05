@@ -56,6 +56,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 | `src/main/server/index.ts` | API routes: products, sales, reports, settings |
 | `src/main/server/migrations.ts` | DB schema changes. **Add only**; never edit released migrations. |
 | `src/renderer/src/screens/*` | UI: Setup, Home (Navigator), Sell, Products (Item List), Reports, Settings, Updates |
+| `src/main/server/products.ts`, `customers.ts` | Item / customer fields, validation, import, search, stats |
 | `src/renderer/src/icons.tsx` | Our own SVG icon set used by the Home screen |
 | `electron-builder.yml` | Installer settings and GitHub publish target |
 | `.github/workflows/release.yml` | Builds and publishes on a `v*` tag |
@@ -152,12 +153,28 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] **Item List**: **Import from Excel** (template download → choose file → preview with New / Update / Problem per row and recognised + ignored columns → Import) and **Export to Excel** (all items in the same layout, so export → edit in Excel → import is a bulk-edit round trip)
 - Verified: TypeScript checks pass (with a stand-in for the xlsx types, since npm is blocked in Claude's sandbox); server tests for mapping, preview vs real import, blank-keeps-value, UPC matching, add-only mode, UPC conflicts and the export round trip; preview of the import window
 
+### 5 Nov 2026: Customers (to release as **v0.2.5**)
+- [x] **DB migration 5**: new `customers` table (name, title, company, track-as-company, phone/mobile/email, OK-to-email, address, Customer ID, alt phone/contact, type, tax-exempt, discount %, accept cheques, ship-to address, notes, active) + `sales.customer_id`. Additive only; existing sales simply have no customer.
+- [x] Server **`src/main/server/customers.ts`** (same field-list pattern as products):
+  - `GET /api/customers?search=` matches name, "first last", company, email, Customer ID and phone numbers ignoring spaces / dashes
+  - `GET /api/customers/:id` → customer + **statistics** (sales count, total, average receipt, last sale) + **history** (last 50 receipts)
+  - `POST` / `PUT` (PUT merges, like items). Customer ID auto-generated as `C000123` if left blank; unique.
+  - Rules: need a last name, first name or company; "Track as Company" needs a company; basic email check; discount 0–100%
+  - `customerDisplayName()` in `shared/types.ts`: company for businesses, otherwise "First Last"
+- [x] **Customer List** screen (`screens/Customers.tsx`), opened from the Home tile / quick button: search, show inactive, New customer
+- [x] **Customer window** (`screens/CustomerEditor.tsx`), same structure as a desktop POS customer form: big Customer Info fields across the top; Contact Info + Customer Settings; Customer Notes (with **Date Stamp**) + Statistics; History + Ship-To Address; Save & New / Save / Cancel
+- [x] **Sale screen**: a customer box in the header and an **F5 Customer** key → `screens/CustomerPicker.tsx` (search, ↑/↓/Enter, **+ New customer** pre-filled from what you typed). The customer is saved with the sale and cleared after it; Clear sale (F6) clears it too.
+- [x] The customer name prints on the **receipt** and shows in the **Reports** sales list and the "Sale complete" box
+- Stored but **not applied to prices yet**: Tax-Exempt and Discount % (they need the discounts / tax-exempt pricing work), Accept Cheques (no cheque tender yet)
+- Verified: TypeScript checks pass; server test (v4→v5 upgrade with an existing sale, validation, Customer ID auto/unique, search incl. phone digits, partial update, sales linking, stats/history, sales list names); previews of the customer window and the Sale screen with a customer
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
 0. `npm install` (new xlsx dependency), test the item window and Excel import/export with `npm run dev`, commit **including package-lock.json**, then release **v0.2.4** (DB migration 4: update the Store Server PC first). **Items section considered done.**
-   - Later, build out the "coming soon" tiles: Customers, Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
+   - Then release **v0.2.5** (Customers, DB migration 5): update the Store Server PC first
+   - Later, build out the "coming soon" tiles: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)

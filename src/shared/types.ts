@@ -95,6 +95,8 @@ export interface PaymentInput {
 
 export interface SaleRequest {
   tillName: string
+  /** Optional customer / business the sale is for */
+  customerId?: number | null
   items: { productId: number; qty: number }[]
   payments: PaymentInput[]
 }
@@ -114,6 +116,8 @@ export interface Sale {
   totalCents: number
   taxCents: number
   changeCents: number
+  customerId: number | null
+  customerName: string | null
   items: SaleItem[]
   payments: PaymentInput[]
 }
@@ -123,6 +127,71 @@ export interface SaleSummary {
   createdAt: string
   tillName: string
   totalCents: number
+  customerName: string | null
+}
+
+// ----- Customers -------------------------------------------------------------
+
+export interface Customer {
+  id: number
+  // Customer info
+  firstName: string | null
+  lastName: string | null
+  title: string | null
+  company: string | null
+  /** Show and search this customer by company name */
+  trackAsCompany: boolean
+  // Contact info
+  phone: string | null
+  mobile: string | null
+  email: string | null
+  okToEmail: boolean
+  street: string | null
+  street2: string | null
+  city: string | null
+  region: string | null
+  postcode: string | null
+  // Customer settings
+  /** Customer ID shown on screen (auto-generated, e.g. C000123, if left blank) */
+  customerNo: string | null
+  altPhone: string | null
+  altContact: string | null
+  customerType: string | null
+  taxExempt: boolean
+  discountPct: number | null
+  acceptCheques: boolean
+  // Ship-to address
+  shipSameAsBilling: boolean
+  shipStreet: string | null
+  shipStreet2: string | null
+  shipCity: string | null
+  shipRegion: string | null
+  shipPostcode: string | null
+  notes: string | null
+  active: boolean
+}
+
+export type CustomerInput = Omit<Customer, 'id'>
+
+export interface CustomerStats {
+  saleCount: number
+  totalCents: number
+  averageCents: number
+  lastSaleAt: string | null
+}
+
+/** GET /api/customers/:id returns the customer plus statistics and recent receipts */
+export interface CustomerDetail {
+  customer: Customer
+  stats: CustomerStats
+  history: SaleSummary[]
+}
+
+/** Display name: "Company" for businesses, otherwise "First Last" */
+export function customerDisplayName(c: Pick<Customer, 'firstName' | 'lastName' | 'company' | 'trackAsCompany'>): string {
+  const person = [c.firstName, c.lastName].filter(Boolean).join(' ')
+  if (c.trackAsCompany && c.company) return c.company
+  return person || c.company || '(no name)'
 }
 
 export interface DailyReport {

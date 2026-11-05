@@ -123,6 +123,52 @@ export const migrations: Migration[] = [
       ALTER TABLE products ADD COLUMN comments TEXT;
       CREATE INDEX idx_products_alu ON products(alu);
     `
+  },
+  {
+    version: 5,
+    name: 'customers, and a customer on each sale',
+    up: `
+      CREATE TABLE customers (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name          TEXT,
+        last_name           TEXT,
+        title               TEXT,
+        company             TEXT,
+        track_as_company    INTEGER NOT NULL DEFAULT 0,
+        phone               TEXT,
+        mobile              TEXT,
+        email               TEXT,
+        ok_to_email         INTEGER NOT NULL DEFAULT 0,
+        street              TEXT,
+        street2             TEXT,
+        city                TEXT,
+        region              TEXT,
+        postcode            TEXT,
+        customer_no         TEXT UNIQUE,
+        alt_phone           TEXT,
+        alt_contact         TEXT,
+        customer_type       TEXT,
+        tax_exempt          INTEGER NOT NULL DEFAULT 0,
+        discount_pct        REAL,
+        accept_cheques      INTEGER NOT NULL DEFAULT 0,
+        ship_same_as_billing INTEGER NOT NULL DEFAULT 1,
+        ship_street         TEXT,
+        ship_street2        TEXT,
+        ship_city           TEXT,
+        ship_region         TEXT,
+        ship_postcode       TEXT,
+        notes               TEXT,
+        active              INTEGER NOT NULL DEFAULT 1,
+        created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_customers_last_name ON customers(last_name);
+      CREATE INDEX idx_customers_company ON customers(company);
+      CREATE INDEX idx_customers_phone ON customers(phone);
+
+      ALTER TABLE sales ADD COLUMN customer_id INTEGER REFERENCES customers(id);
+      CREATE INDEX idx_sales_customer ON sales(customer_id);
+    `
   }
 ]
 

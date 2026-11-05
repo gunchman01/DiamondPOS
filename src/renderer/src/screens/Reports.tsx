@@ -57,6 +57,7 @@ export default function Reports() {
             <th>#</th>
             <th>Time</th>
             <th>Till</th>
+            <th>Customer</th>
             <th className="r">Total</th>
             <th />
           </tr>
@@ -67,6 +68,7 @@ export default function Reports() {
               <td>{s.id}</td>
               <td>{dateTime(s.createdAt)}</td>
               <td>{s.tillName}</td>
+              <td>{s.customerName ?? ''}</td>
               <td className="r">{money(s.totalCents)}</td>
               <td className="r">
                 <button onClick={() => reprint(s.id)}>Reprint</button>

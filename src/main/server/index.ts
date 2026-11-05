@@ -21,7 +21,17 @@ import {
   updateProduct,
   validateProduct
 } from './products'
+import {
+  CUSTOMER_DEFAULTS,
+  customerDetail,
+  getCustomer,
+  insertCustomer,
+  searchCustomers,
+  updateCustomer,
+  validateCustomer
+} from './customers'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
+import { customerDisplayName } from '../../shared/types'
 import type {
   DailyReport,
   Health,
@@ -174,6 +184,30 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     res.json(getProduct(db, id))
   })
 
+  // ----- Customers ---------------------------------------------------------
+  app.get('/api/customers', (req, res) => {
+    res.json(searchCustomers(db, String(req.query.search ?? ''), req.query.includeInactive === '1'))
+  })
+
+  app.get('/api/customers/:id', (req, res) => {
+    const detail = customerDetail(db, Number(req.params.id))
+    if (!detail) throw new HttpError(404, 'Customer not found')
+    res.json(detail)
+  })
+
+  app.post('/api/customers', (req, res) => {
+    const id = insertCustomer(db, validateCustomer(req.body, CUSTOMER_DEFAULTS))
+    res.status(201).json(getCustomer(db, id))
+  })
+
+  app.put('/api/customers/:id', (req, res) => {
+    const id = Number(req.params.id)
+    const existing = getCustomer(db, id)
+    if (!existing) throw new HttpError(404, 'Customer not found')
+    updateCustomer(db, id, validateCustomer(req.body, existing))
+    res.json(getCustomer(db, id))
+  })
+
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
     const sale = createSale(db, req.body as SaleRequest)
@@ -185,15 +219,18 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError(400, 'date=YYYY-MM-DD is required')
     const rows = db
       .prepare(
-        `SELECT id, created_at, till_name, total_cents FROM sales
-         WHERE date(created_at, 'localtime') = ? ORDER BY id DESC`
+        `SELECT s.id, s.created_at, s.till_name, s.total_cents, c.id AS cid,
+                c.first_name, c.last_name, c.company, c.track_as_company
+         FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+         WHERE date(s.created_at, 'localtime') = ? ORDER BY s.id DESC`
       )
-      .all(date) as { id: number; created_at: string; till_name: string; total_cents: number }[]
+      .all(date) as SaleListRow[]
     const list: SaleSummary[] = rows.map((r) => ({
       id: r.id,
       createdAt: sqliteToIso(r.created_at),
       tillName: r.till_name,
-      totalCents: r.total_cents
+      totalCents: r.total_cents,
+      customerName: rowCustomerName(r)
     }))
     res.json(list)
   })
@@ -241,6 +278,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message })
     const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('UNIQUE constraint failed: customers.customer_no'))
+      return res.status(409).json({ error: 'That Customer ID is already used by another customer' })
     if (msg.includes('UNIQUE constraint failed')) return res.status(409).json({ error: 'Item No. or UPC already used by another item' })
     console.error('[server]', err)
     res.status(500).json({ error: msg })
@@ -251,6 +290,29 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
 // ---------------------------------------------------------------------------
 // Helpers
+
+interface SaleListRow {
+  id: number
+  created_at: string
+  till_name: string
+  total_cents: number
+  cid: number | null
+  first_name: string | null
+  last_name: string | null
+  company: string | null
+  track_as_company: number | null
+}
+
+/** Customer display name from a sales ⟕ customers join row (null = no customer) */
+function rowCustomerName(r: Pick<SaleListRow, 'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'>) {
+  if (r.cid === null || r.cid === undefined) return null
+  return customerDisplayName({
+    firstName: r.first_name,
+    lastName: r.last_name,
+    company: r.company,
+    trackAsCompany: r.track_as_company === 1
+  })
+}
 
 /** SQLite's datetime('now') gives "2026-11-04 23:17:49" in UTC -> "2026-11-04T23:17:49Z" */
 function sqliteToIso(s: string): string {
@@ -276,6 +338,11 @@ function createSale(db: DB, req: SaleRequest): Sale {
   if (!req || !Array.isArray(req.items) || req.items.length === 0) throw new HttpError(400, 'Sale has no items')
   if (!Array.isArray(req.payments) || req.payments.length === 0) throw new HttpError(400, 'Sale has no payment')
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)
+  let customerId: number | null = null
+  if (req.customerId !== undefined && req.customerId !== null) {
+    customerId = Number(req.customerId)
+    if (!getCustomer(db, customerId)) throw new HttpError(400, 'The selected customer no longer exists')
+  }
 
   const getActive = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1')
   const lines = req.items.map((it) => {
@@ -315,8 +382,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
 
   const id = db.transaction(() => {
     const info = db
-      .prepare('INSERT INTO sales (till_name, total_cents, tax_cents, change_cents) VALUES (?, ?, ?, ?)')
-      .run(tillName, totalCents, taxCents, changeCents)
+      .prepare('INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id) VALUES (?, ?, ?, ?, ?)')
+      .run(tillName, totalCents, taxCents, changeCents, customerId)
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
       'INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents) VALUES (?, ?, ?, ?, ?, ?)'
@@ -335,8 +402,16 @@ function createSale(db: DB, req: SaleRequest): Sale {
 }
 
 function getSale(db: DB, id: number): Sale | null {
-  const s = db.prepare('SELECT * FROM sales WHERE id = ?').get(id) as
-    | { id: number; created_at: string; till_name: string; total_cents: number; tax_cents: number; change_cents: number }
+  const s = db
+    .prepare(
+      `SELECT s.*, c.id AS cid, c.first_name, c.last_name, c.company, c.track_as_company
+       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ?`
+    )
+    .get(id) as
+    | ({ id: number; created_at: string; till_name: string; total_cents: number; tax_cents: number; change_cents: number } & Pick<
+        SaleListRow,
+        'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
+      >)
     | undefined
   if (!s) return null
   const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id').all(id) as {
@@ -358,6 +433,8 @@ function getSale(db: DB, id: number): Sale | null {
     totalCents: s.total_cents,
     taxCents: s.tax_cents,
     changeCents: s.change_cents,
+    customerId: s.cid ?? null,
+    customerName: rowCustomerName(s),
     items: items.map((i) => ({
       productId: i.product_id,
       name: i.name,

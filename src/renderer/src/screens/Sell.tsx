@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BootInfo, PaymentMethod, Product, Sale, StoreSettings } from '../../../shared/types'
+import { customerDisplayName, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney } from '../format'
 import { receiptHtml } from '../receipt'
+import CustomerPicker from './CustomerPicker'
 
 interface CartLine {
   product: Product
@@ -32,6 +33,8 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const [editingQty, setEditingQty] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const [message, setMessage] = useState<Message>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [pickingCustomer, setPickingCustomer] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -52,7 +55,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const gst = Math.round((taxableTotal * rate) / (1 + rate))
   const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
-  const dialogOpen = paying !== null || editingQty || findQuery !== null
+  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -82,9 +85,10 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }
 
   function clearSale() {
-    if (cart.length && !confirm('Clear all items from this sale?')) return
+    if ((cart.length || customer) && !confirm('Clear this sale (items and customer)?')) return
     setCart([])
     setSelectedId(null)
+    setCustomer(null)
     focusScan()
   }
 
@@ -117,12 +121,14 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   async function completeSale(method: PaymentMethod, amountCents: number, reference: string) {
     const sale = await api.createSale({
       tillName: boot.config.tillName,
+      customerId: customer?.id ?? null,
       items: cart.map((l) => ({ productId: l.product.id, qty: l.qty })),
       payments: [{ method, amountCents, reference: reference || undefined }]
     })
     setPaying(null)
     setCart([])
     setSelectedId(null)
+    setCustomer(null)
     setLastSale(sale)
     setMessage({ kind: 'info', text: `Sale #${sale.id} saved` })
     focusScan()
@@ -146,6 +152,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
       F2: () => setFindQuery(''),
       F3: () => selectedLine && setEditingQty(true),
       F4: removeSelected,
+      F5: () => setPickingCustomer(true),
       F6: clearSale,
       F7: () => startPayment('cash'),
       F8: () => startPayment('card')
@@ -176,6 +183,29 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         </div>
         <div className="field">
           Last receipt<b>{lastSale ? `#${lastSale.id}` : '—'}</b>
+        </div>
+        <div className={customer ? 'cust-box set' : 'cust-box'}>
+          {customer ? (
+            <>
+              <div className="cust-text">
+                <span className="cust-label">Customer</span>
+                <b>{customerDisplayName(customer)}</b>
+                <span className="dim">
+                  {[customer.customerNo, customer.phone || customer.mobile, customer.customerType].filter(Boolean).join(' · ')}
+                </span>
+              </div>
+              <button onClick={() => setPickingCustomer(true)} title="Change customer (F5)">
+                Change
+              </button>
+              <button className="danger" onClick={() => setCustomer(null)} title="Remove customer from this sale">
+                ✕
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setPickingCustomer(true)}>
+              <kbd>F5</kbd> Add customer
+            </button>
+          )}
         </div>
         {message && <div className={`msg ${message.kind}`}>{message.text}</div>}
       </div>
@@ -327,6 +357,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               <div>
                 <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
               </div>
+              {lastSale.customerName && <div className="small">Customer: {lastSale.customerName}</div>}
               {lastSale.changeCents > 0 && <div className="change">Change due: {money(lastSale.changeCents)}</div>}
               <button onClick={() => printReceipt(lastSale)}>Print receipt</button>
             </div>
@@ -356,13 +387,32 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         <button className="fkey" disabled={!selectedLine} onClick={removeSelected}>
           <kbd>F4</kbd> Remove line
         </button>
-        <button className="fkey" disabled={!cart.length} onClick={clearSale}>
+        <button className="fkey" onClick={() => setPickingCustomer(true)}>
+          <kbd>F5</kbd> Customer
+        </button>
+        <button className="fkey" disabled={!cart.length && !customer} onClick={clearSale}>
           <kbd>F6</kbd> Clear sale
         </button>
         <button className="fkey spacer" disabled={!lastSale} onClick={() => lastSale && printReceipt(lastSale)}>
           Reprint last receipt
         </button>
       </div>
+
+      {pickingCustomer && (
+        <CustomerPicker
+          onCancel={() => {
+            setPickingCustomer(false)
+            focusScan()
+          }}
+          onPick={(c) => {
+            setCustomer(c)
+            setPickingCustomer(false)
+            setLastSale(null)
+            setMessage({ kind: 'info', text: `Customer: ${customerDisplayName(c)}` })
+            focusScan()
+          }}
+        />
+      )}
 
       {findQuery !== null && (
         <FindItemDialog

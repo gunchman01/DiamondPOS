@@ -8,7 +8,10 @@ import type {
   SaleRequest,
   SaleSummary,
   StoreSettings,
-  ImportSummary
+  ImportSummary,
+  Customer,
+  CustomerDetail,
+  CustomerInput
 } from '../../shared/types'
 import type { ImportItem } from '../../shared/itemImport'
 
@@ -59,6 +62,15 @@ export const api = {
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
   importProducts: (items: ImportItem[], opts: { dryRun: boolean; updateExisting: boolean }) =>
     request<ImportSummary>('POST', '/api/products/import', { items, ...opts }),
+
+  listCustomers: (search = '', includeInactive = false) =>
+    request<Customer[]>(
+      'GET',
+      `/api/customers?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
+    ),
+  getCustomer: (id: number) => request<CustomerDetail>('GET', `/api/customers/${id}`),
+  createCustomer: (c: CustomerInput) => request<Customer>('POST', '/api/customers', c),
+  updateCustomer: (id: number, c: CustomerInput) => request<Customer>('PUT', `/api/customers/${id}`, c),
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),

@@ -5,7 +5,7 @@ import { money, today } from '../format'
 import { IconName, Icons } from '../icons'
 
 /** Tabs that already exist; tiles for these open the real page. */
-export type NavTarget = 'sell' | 'products' | 'reports' | 'settings' | 'updates'
+export type NavTarget = 'sell' | 'products' | 'customers' | 'reports' | 'settings' | 'updates'
 
 interface Tile {
   icon: IconName
@@ -26,7 +26,7 @@ interface Section {
 const POS: Section = {
   title: 'Point of Sale',
   cells: [
-    { kind: 'tile', col: 1, row: 1, icon: 'customers', label: 'Customer List' },
+    { kind: 'tile', col: 1, row: 1, icon: 'customers', label: 'Customer List', go: 'customers' },
     { kind: 'arrow', col: 2, row: 1, dir: 'right' },
     { kind: 'tile', col: 3, row: 1, icon: 'workOrders', label: 'Work Orders' },
     { kind: 'arrow', col: 4, row: 1, dir: 'right' },
@@ -75,7 +75,7 @@ const QUICK_BUTTONS: Tile[] = [
   { icon: 'makeSale', label: 'Make a Sale', go: 'sell' },
   { icon: 'workOrders', label: 'Work Orders' },
   { icon: 'itemList', label: 'Item List', go: 'products' },
-  { icon: 'customers', label: 'Customer List' },
+  { icon: 'customers', label: 'Customer List', go: 'customers' },
   { icon: 'salesHistory', label: 'Sales History', go: 'reports' },
   { icon: 'endOfDay', label: 'End of Day' }
 ]
