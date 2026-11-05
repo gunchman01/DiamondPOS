@@ -7,8 +7,10 @@ import type {
   Sale,
   SaleRequest,
   SaleSummary,
-  StoreSettings
+  StoreSettings,
+  ImportSummary
 } from '../../shared/types'
+import type { ImportItem } from '../../shared/itemImport'
 
 let baseUrl = ''
 let apiKey = ''
@@ -49,10 +51,14 @@ export const api = {
       'GET',
       `/api/products?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
     ),
+  /** Every item including inactive ones, no limit (for Export to Excel) */
+  listAllProducts: () => request<Product[]>('GET', '/api/products?includeInactive=1&all=1'),
   listQuickPicks: () => request<Product[]>('GET', '/api/products?quickPick=1'),
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
   createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
+  importProducts: (items: ImportItem[], opts: { dryRun: boolean; updateExisting: boolean }) =>
+    request<ImportSummary>('POST', '/api/products/import', { items, ...opts }),
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),

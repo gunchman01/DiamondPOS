@@ -4,7 +4,7 @@
  * validated everywhere automatically.
  */
 import type { DB } from './db'
-import type { ItemType, Product, ProductInput } from '../../shared/types'
+import type { ImportRowResult, ImportSummary, ItemType, Product, ProductInput } from '../../shared/types'
 
 type Kind = 'text' | 'cents' | 'int' | 'real' | 'bool' | 'type'
 interface Field {
@@ -164,6 +164,75 @@ export function insertProduct(db: DB, p: ProductInput): number {
     .prepare(`INSERT INTO products (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
     .run(...FIELDS.map((f) => toDb(f, p[f.key])))
   return Number(info.lastInsertRowid)
+}
+
+class Rollback extends Error {}
+
+/**
+ * Bulk import (spreadsheet). Each row is matched to an existing item by
+ * Item No. (sku), then UPC (barcode). Matches are updated (blank cells keep the
+ * current value), everything else is created. Rows with problems are skipped
+ * and reported. With dryRun the whole thing runs and is then rolled back, so
+ * the preview shows exactly what a real import would do.
+ */
+export function importProducts(
+  db: DB,
+  items: Record<string, unknown>[],
+  opts: { dryRun: boolean; updateExisting: boolean }
+): ImportSummary {
+  const results: ImportRowResult[] = []
+  const bySku = db.prepare('SELECT * FROM products WHERE sku = ? LIMIT 1')
+  const byUpc = db.prepare('SELECT * FROM products WHERE barcode = ? LIMIT 1')
+  const text = (v: unknown) => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim())
+
+  try {
+    db.transaction(() => {
+      items.forEach((raw, i) => {
+        const row = Number(raw.__row) || i + 2
+        const name = text(raw.name) ?? ''
+        try {
+          const sku = text(raw.sku)
+          const upc = text(raw.barcode)
+          let existing = sku ? (bySku.get(sku) as ProductRow | undefined) : undefined
+          if (!existing && upc) {
+            existing = byUpc.get(upc) as ProductRow | undefined
+            // Don't let a row with a different Item No. take over another item via its UPC
+            const otherSku = existing ? text(existing.sku) : null
+            if (existing && sku && otherSku && otherSku !== sku)
+              throw new ValidationError(`UPC ${upc} already belongs to item ${otherSku}`)
+          }
+          if (existing) {
+            const current = toProduct(existing)
+            if (!opts.updateExisting) throw new ValidationError('Already exists (same Item No. or UPC)')
+            updateProduct(db, current.id, validateProduct(raw, current))
+            results.push({ row, name: name || current.name, action: 'update' })
+          } else {
+            insertProduct(db, validateProduct(raw, DEFAULTS))
+            results.push({ row, name, action: 'create' })
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          results.push({
+            row,
+            name,
+            action: 'error',
+            message: msg.includes('UNIQUE') ? 'Item No. or UPC is already used by another item' : msg
+          })
+        }
+      })
+      if (opts.dryRun) throw new Rollback()
+    })()
+  } catch (e) {
+    if (!(e instanceof Rollback)) throw e
+  }
+
+  return {
+    dryRun: opts.dryRun,
+    created: results.filter((r) => r.action === 'create').length,
+    updated: results.filter((r) => r.action === 'update').length,
+    errors: results.filter((r) => r.action === 'error').length,
+    results
+  }
 }
 
 export function updateProduct(db: DB, id: number, p: ProductInput): void {

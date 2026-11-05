@@ -3,6 +3,10 @@ import type { Product } from '../../../shared/types'
 import { api } from '../api'
 import { money } from '../format'
 import ItemEditor from './ItemEditor'
+import ImportItems from './ImportItems'
+import { COLUMNS, itemToRow } from '../../../shared/itemImport'
+import { today } from '../format'
+import { writeSpreadsheet } from '../spreadsheet'
 
 const TYPE_LABEL: Record<Product['type'], string> = {
   inventory: 'Inventory',
@@ -16,7 +20,20 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
+
+  // Export every item (including inactive) in the same layout the importer reads
+  async function exportItems() {
+    try {
+      const all = await api.listAllProducts()
+      writeSpreadsheet(`DiamondPOS items ${today()}.xlsx`, [
+        { name: 'Items', headers: COLUMNS.map((c) => c.header), rows: all.map(itemToRow) }
+      ])
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   const load = () =>
     api
@@ -44,9 +61,13 @@ export default function Products() {
     <div className="page wide">
       <div className="row between">
         <h2>Item List</h2>
-        <button className="primary" onClick={() => setEditing('new')}>
-          + Add item
-        </button>
+        <div className="row gap">
+          <button onClick={() => setImporting(true)}>Import from Excel</button>
+          <button onClick={exportItems}>Export to Excel</button>
+          <button className="primary" onClick={() => setEditing('new')}>
+            + Add item
+          </button>
+        </div>
       </div>
       <div className="row gap">
         <input
@@ -95,6 +116,8 @@ export default function Products() {
         </tbody>
       </table>
       {shown.length === 0 && <p className="muted">No items found.</p>}
+
+      {importing && <ImportItems onClose={() => setImporting(false)} onImported={load} />}
 
       {editing && (
         <ItemEditor

@@ -139,11 +139,24 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Verified: TypeScript checks pass; server test (v3→v4 upgrade with backup, old-till merge, validation, taxable GST, on-hand, ALU lookup); preview of the edit window
 - Not yet: Style / Pricing / Available / Alt. Vendor buttons (QB-style extras), departments and vendors as their own managed lists (they're free text with suggestions for now)
 
+### 5 Nov 2026: Bulk import / export items with Excel (same release v0.2.4)
+- [x] **New dependency `xlsx` (SheetJS 0.20.3)**, installed from the SheetJS CDN tarball (the npm-registry `xlsx` package is outdated). It's in devDependencies because it's bundled into the UI. **Run `npm install` and commit `package-lock.json`**, or the GitHub build (`npm ci`) will fail.
+- [x] `src/shared/itemImport.ts`: the spreadsheet column definitions (template headers + accepted aliases such as SKU, Barcode, Dept, Price, Cost, Qty, GST, Supplier), cell conversion (money, Yes/No, Tax/Non-taxable, item types, barcodes stored as numbers) and item ↔ row conversion
+- [x] `src/renderer/src/spreadsheet.ts`: reads the first sheet of .xlsx/.xls/.csv and writes .xlsx (Electron shows a Save dialog)
+- [x] Server **`POST /api/products/import`** (`importProducts` in `products.ts`):
+  - Matches by **Item No.**, then **UPC** (only if the row has no Item No., or the matched item has none, so a row can't hijack another item via its UPC)
+  - Matched → update (**blank cells keep the current value**); unmatched → create; bad rows are skipped and reported
+  - `dryRun: true` runs everything in a transaction and rolls it back, so the **preview is exactly what the real import will do**
+  - `updateExisting: false` = add new items only. Up to 10,000 rows; JSON body limit raised to 20 MB.
+  - `GET /api/products?all=1` removes the 500-row limit (used by Export)
+- [x] **Item List**: **Import from Excel** (template download → choose file → preview with New / Update / Problem per row and recognised + ignored columns → Import) and **Export to Excel** (all items in the same layout, so export → edit in Excel → import is a bulk-edit round trip)
+- Verified: TypeScript checks pass (with a stand-in for the xlsx types, since npm is blocked in Claude's sandbox); server tests for mapping, preview vs real import, blank-keeps-value, UPC matching, add-only mode, UPC conflicts and the export round trip; preview of the import window
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-0. Test the new item window with `npm run dev`, then release **v0.2.4** (DB migration 4: update the Store Server PC first)
+0. `npm install` (new xlsx dependency), test the item window and Excel import/export with `npm run dev`, commit **including package-lock.json**, then release **v0.2.4** (DB migration 4: update the Store Server PC first). **Items section considered done.**
    - Later, build out the "coming soon" tiles: Customers, Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)

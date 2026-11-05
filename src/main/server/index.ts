@@ -15,6 +15,7 @@ import {
   ProductRow,
   ValidationError,
   getProduct,
+  importProducts,
   insertProduct,
   toProduct,
   updateProduct,
@@ -75,7 +76,7 @@ export async function stopServer(): Promise<void> {
 
 export function createApp(db: DB, opts: ServerOptions): express.Express {
   const app = express()
-  app.use(express.json({ limit: '1mb' }))
+  app.use(express.json({ limit: '20mb' })) // large enough for bulk item imports
 
   // Allow the UI (loaded from a local file) to call this server
   app.use((req, res, next) => {
@@ -133,7 +134,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       where.push('(name LIKE ? OR sku LIKE ? OR barcode = ? OR alu = ? OR department LIKE ?)')
       params.push(`%${search}%`, `%${search}%`, search, search, `%${search}%`)
     }
-    const sql = `SELECT * FROM products ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY name LIMIT 500`
+    const limit = req.query.all === '1' ? '' : 'LIMIT 500' // all=1 is used by Export to Excel
+    const sql = `SELECT * FROM products ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY name ${limit}`
     res.json((db.prepare(sql).all(...params) as ProductRow[]).map(toProduct))
   })
 
@@ -150,6 +152,18 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   app.post('/api/products', (req, res) => {
     const id = insertProduct(db, validateProduct(req.body, DEFAULTS))
     res.status(201).json(getProduct(db, id))
+  })
+
+  // Bulk import from a spreadsheet. dryRun=true returns a preview without saving.
+  app.post('/api/products/import', (req, res) => {
+    const { items, dryRun, updateExisting } = (req.body ?? {}) as {
+      items?: Record<string, unknown>[]
+      dryRun?: boolean
+      updateExisting?: boolean
+    }
+    if (!Array.isArray(items) || items.length === 0) throw new HttpError(400, 'No rows to import')
+    if (items.length > 10000) throw new HttpError(400, 'Too many rows (maximum 10,000 per import)')
+    res.json(importProducts(db, items, { dryRun: dryRun === true, updateExisting: updateExisting !== false }))
   })
 
   app.put('/api/products/:id', (req, res) => {

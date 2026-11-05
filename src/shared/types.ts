@@ -69,6 +69,21 @@ export interface Product {
 
 export type ProductInput = Omit<Product, 'id'>
 
+/** Result of a bulk item import (or a preview of one) */
+export interface ImportRowResult {
+  row: number // spreadsheet row number
+  name: string
+  action: 'create' | 'update' | 'error'
+  message?: string
+}
+export interface ImportSummary {
+  dryRun: boolean
+  created: number
+  updated: number
+  errors: number
+  results: ImportRowResult[]
+}
+
 export type PaymentMethod = 'cash' | 'card'
 
 export interface PaymentInput {
