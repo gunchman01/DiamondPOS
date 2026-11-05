@@ -11,5 +11,5 @@ export const SERVER_PORT = 4580
 export const MIN_CLIENT_VERSION = '0.1.0'
 
 /** >>> CHANGE THESE to match the "publish" section of electron-builder.yml <<< */
-export const GITHUB_OWNER = 'YOUR_GITHUB_ORG'
+export const GITHUB_OWNER = 'gunchman01'
 export const GITHUB_REPO = 'store-pos'

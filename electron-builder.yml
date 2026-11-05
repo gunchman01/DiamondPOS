@@ -28,6 +28,6 @@ publish:
   provider: github
   # >>> CHANGE THESE to your GitHub account/org and repository name <<<
   # They must match GITHUB_OWNER / GITHUB_REPO in src/shared/constants.ts
-  owner: YOUR_GITHUB_ORG
+  owner: gunchman01 
   repo: store-pos
   releaseType: release
