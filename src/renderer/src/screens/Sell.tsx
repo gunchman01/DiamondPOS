@@ -7,7 +7,14 @@ import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
 import TaxExemptBadge from '../TaxExemptBadge'
 import CustomerEditor from './CustomerEditor'
-import { priceSale } from '../../../shared/pricing'
+import {
+  priceWithFeeCredit,
+  workOrderSaleLines,
+  type EstimateFeeSettings,
+  type WoSaleMode,
+  type WorkOrder
+} from '../../../shared/workorders'
+import WoPayPicker from './WoPayPicker'
 
 interface CartLine {
   /** product id, plus the serial number for serial-numbered items (one per line) */
@@ -29,7 +36,16 @@ type Message = { kind: 'error' | 'info'; text: string } | null
  *   - Totals + tender
  *   - Function-key bar, also driven by the keyboard
  */
-export default function Sell({ boot }: { boot: BootInfo }) {
+export default function Sell({
+  boot,
+  workOrder,
+  onWorkOrderDone
+}: {
+  boot: BootInfo
+  /** Opened from a work order ticket: load it onto this sale */
+  workOrder?: { id: number; mode: WoSaleMode } | null
+  onWorkOrderDone?: () => void
+}) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** Item waiting for its serial number to be typed or scanned */
@@ -48,6 +64,9 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   /** Apply the customer's tax exemption to this sale */
   const [exempt, setExempt] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(false)
+  /** Work order being paid on this sale (estimate fee, repair pick-up, or fee credit) */
+  const [wo, setWo] = useState<{ order: WorkOrder; mode: WoSaleMode; fee: EstimateFeeSettings } | null>(null)
+  const [pickingWo, setPickingWo] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -60,6 +79,30 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }
   useEffect(load, [])
 
+  async function loadWorkOrder(id: number, mode: WoSaleMode) {
+    try {
+      const [order, s] = await Promise.all([api.wo(id), api.woSettings()])
+      const detail = await api.getCustomer(order.customerId)
+      setWo({ order, mode, fee: s.estimateFee })
+      attachCustomer(detail.customer, order.number)
+      setMessage({
+        kind: 'info',
+        text:
+          mode === 'fee'
+            ? `${order.number}: collect the estimate fee`
+            : mode === 'repair'
+              ? `${order.number}: repair pick-up loaded`
+              : `${order.number}: scan the new item(s); the estimate fee is credited`
+      })
+      focusScan()
+    } catch (e) {
+      setMessage({ kind: 'error', text: (e as Error).message })
+    }
+  }
+  useEffect(() => {
+    if (workOrder) loadWorkOrder(workOrder.id, workOrder.mode)
+  }, [workOrder?.id, workOrder?.mode])
+
   // ----- derived values -----
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
   const rate = settings?.taxRate ?? 0.15
@@ -67,19 +110,35 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const exemptState = customer ? taxExemptState(customer, today()) : ({ kind: 'none' } as const)
   const canExempt = !!customer?.taxExempt && !!customer.taxExemptId && exemptState.kind !== 'expired'
   const applyExempt = exempt && canExempt
+  // Work order lines (locked) come after the scanned items, then the estimate fee credit, same order as the server
+  const woLines = wo ? workOrderSaleLines(wo.order, wo.mode, wo.fee) : []
+  const creditAvailable = wo && wo.mode !== 'fee' && wo.order.feeStatus === 'paid' ? wo.order.feeCents : 0
   // Same pricing function the server uses, so the total shown is exactly what's charged
-  const priced = priceSale(
-    cart.map((l) => ({ unitPriceCents: l.product.priceCents, qty: l.qty, taxable: l.product.taxable !== false })),
+  const priced = priceWithFeeCredit(
+    [
+      ...cart.map((l) => ({ unitPriceCents: l.product.priceCents, qty: l.qty, taxable: l.product.taxable !== false })),
+      ...woLines.map((l) => ({ unitPriceCents: l.unitPriceCents, qty: l.qty, taxable: l.taxable }))
+    ],
     rate,
-    applyExempt
+    applyExempt,
+    creditAvailable
   )
   const total = priced.totalCents
-  const shelfTotal = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
+  const shelfTotal =
+    cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
+  const hasLines = cart.length > 0 || woLines.length > 0
   const gst = priced.taxCents
   const selectedLine = cart.find((l) => l.key === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
   const dialogOpen =
-    paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen || editingCustomer || serialFor !== null
+    paying !== null ||
+    editingQty ||
+    findQuery !== null ||
+    pickingCustomer ||
+    kioskOpen ||
+    editingCustomer ||
+    serialFor !== null ||
+    pickingWo
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -129,6 +188,10 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     setSelectedId(null)
     setCustomer(null)
     setExempt(false)
+    if (wo) {
+      setWo(null)
+      onWorkOrderDone?.()
+    }
     focusScan()
   }
 
@@ -152,11 +215,20 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }
 
   function startPayment(method: PaymentMethod) {
-    if (!cart.length) return
+    if (!hasLines) return
+    if (wo?.mode === 'credit' && cart.length === 0) {
+      setMessage({ kind: 'error', text: 'Scan the new item(s) the estimate fee is being credited toward' })
+      return
+    }
     // A serial-numbered unit is saved under the customer, so one must be attached
     if (cart.some((l) => l.serial) && !customer) {
       setMessage({ kind: 'error', text: 'This sale has a serial-numbered item. Add the customer (F5) so the unit is saved to them.' })
       setPickingCustomer(true)
+      return
+    }
+    // Nothing to pay (e.g. the estimate fee covers the whole repair): finish without a payment
+    if (total === 0) {
+      if (confirm('Nothing to pay on this sale. Complete it?')) completeSale(null, 0, '').catch((e) => setMessage({ kind: 'error', text: e.message }))
       return
     }
     setPaying(method)
@@ -184,14 +256,19 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     }
   }
 
-  async function completeSale(method: PaymentMethod, amountCents: number, reference: string) {
+  async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string) {
     const sale = await api.createSale({
       tillName: boot.config.tillName,
       customerId: customer?.id ?? null,
       taxExempt: applyExempt,
       items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial })),
-      payments: [{ method, amountCents, reference: reference || undefined }]
+      payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
+      workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined
     })
+    if (wo) {
+      setWo(null)
+      onWorkOrderDone?.()
+    }
     setPaying(null)
     setCart([])
     setSelectedId(null)
@@ -264,9 +341,15 @@ export default function Sell({ boot }: { boot: BootInfo }) {
                 </span>
                 <TaxExemptBadge customer={customer} long />
               </div>
-              <button onClick={() => setPickingCustomer(true)} title="Change customer (F5)">
-                Change
-              </button>
+              {wo ? (
+                <span className="wo-chip" title="This sale is for a work order">
+                  {wo.order.number}
+                </span>
+              ) : (
+                <button onClick={() => setPickingCustomer(true)} title="Change customer (F5)">
+                  Change
+                </button>
+              )}
               {customer.taxExempt && !canExempt && (
                 <button className="primary" onClick={() => setEditingCustomer(true)} title="Enter the details from their new card">
                   Update Tax ID
@@ -275,10 +358,15 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               <button
                 className="danger"
                 onClick={() => {
+                  if (wo) {
+                    if (!confirm(`Take ${wo.order.number} off this sale?`)) return
+                    setWo(null)
+                    onWorkOrderDone?.()
+                  }
                   setCustomer(null)
                   setExempt(false)
                 }}
-                title="Remove customer from this sale"
+                title={wo ? 'Take the work order off this sale' : 'Remove customer from this sale'}
               >
                 ✕
               </button>
@@ -348,9 +436,32 @@ export default function Sell({ boot }: { boot: BootInfo }) {
                   <td className="num">{money(priced.lines[i].lineTotalCents)}</td>
                 </tr>
               ))}
+              {woLines.map((l, j) => {
+                const p = priced.lines[cart.length + j]
+                return (
+                  <tr key={`wo-${j}`} className="wo-row" title="From the work order (can't be changed here)">
+                    <td className="dim">🔧</td>
+                    <td className="dim">{wo!.order.number}</td>
+                    <td>{l.description.replace(` - ${wo!.order.number}`, '')}</td>
+                    <td className="num">{l.qty}</td>
+                    <td className="num">{money(p.unitPriceCents)}</td>
+                    <td className="num">{money(p.lineTotalCents)}</td>
+                  </tr>
+                )
+              })}
+              {priced.creditCents > 0 && (
+                <tr className="wo-row credit-row">
+                  <td className="dim">🔧</td>
+                  <td className="dim">{wo!.order.number}</td>
+                  <td>Estimate fee credit{wo!.order.feeSaleId ? ` (paid on receipt #${wo!.order.feeSaleId})` : ''}</td>
+                  <td className="num">1</td>
+                  <td className="num">−{money(priced.creditCents)}</td>
+                  <td className="num">−{money(priced.creditCents)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
-          {cart.length === 0 && (
+          {!hasLines && (
             <div className="grid-empty">
               Scan a barcode or type an item # below{hasQuickPicks ? ', or tap a Quick Pick' : ''}. Press F2 to search
               for any item.
@@ -464,8 +575,20 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               </span>
             </label>
           )}
+          {priced.creditCents > 0 && (
+            <div className="tline exempt-line">
+              <span>Estimate fee credit</span>
+              <span>−{money(priced.creditCents)}</span>
+            </div>
+          )}
+          {priced.creditKeptCents > 0 && wo?.mode !== 'fee' && (
+            <div className="tline muted small">
+              <span>Fee not used (kept)</span>
+              <span>{money(priced.creditKeptCents)}</span>
+            </div>
+          )}
           <div className="tbox">
-            <span>Total</span>
+            <span>{wo?.mode === 'repair' ? 'Balance due' : 'Total'}</span>
             <strong>{money(total)}</strong>
           </div>
 
@@ -486,11 +609,11 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           )}
 
           <div className="tender">
-            <button className="primary" disabled={!cart.length} onClick={() => startPayment('cash')}>
+            <button className="primary" disabled={!hasLines} onClick={() => startPayment('cash')}>
               <span>Cash</span>
               <kbd>F7</kbd>
             </button>
-            <button className="primary" disabled={!cart.length} onClick={() => startPayment('card')}>
+            <button className="primary" disabled={!hasLines} onClick={() => startPayment('card')}>
               <span>Card</span>
               <kbd>F8</kbd>
             </button>
@@ -512,16 +635,35 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         <button className="fkey" onClick={() => setPickingCustomer(true)}>
           <kbd>F5</kbd> Customer
         </button>
+        <button className="fkey" onClick={() => setPickingWo(true)}>
+          🔧 Work order
+        </button>
         <button className="fkey" onClick={() => setKioskOpen(true)}>
           <kbd>F9</kbd> Kiosk
         </button>
-        <button className="fkey" disabled={!cart.length && !customer} onClick={clearSale}>
+        <button className="fkey" disabled={!cart.length && !customer && !wo} onClick={clearSale}>
           <kbd>F6</kbd> Clear sale
         </button>
         <button className="fkey spacer" disabled={!lastSale} onClick={() => lastSale && printReceipt(lastSale)}>
           Reprint last receipt
         </button>
       </div>
+
+      {pickingWo && (
+        <WoPayPicker
+          onCancel={() => {
+            setPickingWo(false)
+            focusScan()
+          }}
+          onPick={(id, mode) => {
+            setPickingWo(false)
+            if (cart.length || wo) {
+              if (!confirm('Put this work order on the current sale? Items already scanned stay on it.')) return
+            }
+            loadWorkOrder(id, mode)
+          }}
+        />
+      )}
 
       {serialFor && (
         <SerialDialog

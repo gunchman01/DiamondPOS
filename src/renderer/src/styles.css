@@ -558,6 +558,22 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .template-box { border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--panel-alt); }
 .wo-settings label { color: var(--text); font-weight: 600; font-size: 12px; }
 
+/* ---------- Estimate fee + paying for work orders ---------- */
+.fee-bar { border-radius: 6px; padding: 8px 12px; font-size: 13px; background: #f3f4f6; border: 1px solid var(--border-soft); }
+.fee-bar.unpaid { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff7e6; border-color: #f0c24b; color: #5c4600; }
+.fee-bar.paid { background: #e7f6ec; border-color: #b6e3c4; color: #166534; }
+.fee-pill { margin-left: 6px; background: #fff4d6; color: #7a5300; }
+.wo-totals .due { color: var(--red-dark); }
+button.primary.pay-btn { background: linear-gradient(#1a7f37, #146c2e); border-color: #0f5a26; }
+.fee-check { color: var(--text); font-size: 13px; font-weight: 600; }
+.fee-grid { display: flex; gap: 18px; flex-wrap: wrap; }
+.wo-row td { background: #f3f6fb !important; }
+.wo-row { cursor: default !important; }
+.credit-row td { color: var(--ok); font-weight: 600; }
+.wo-chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: var(--red-dark); color: #fff; }
+.pay-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.pay-actions button { font-size: 12px; padding: 4px 10px; white-space: nowrap; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

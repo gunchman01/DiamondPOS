@@ -340,6 +340,18 @@ export const migrations: Migration[] = [
         by_name       TEXT NOT NULL DEFAULT ''
       );
     `
+  },
+  {
+    version: 12,
+    name: 'estimate fees and paying for work orders at the till',
+    up: `
+      ALTER TABLE work_orders ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE work_orders ADD COLUMN fee_status TEXT NOT NULL DEFAULT 'none'; -- none | unpaid | paid | applied | kept
+      ALTER TABLE work_orders ADD COLUMN fee_sale_id INTEGER REFERENCES sales(id);
+      ALTER TABLE work_orders ADD COLUMN fee_applied_sale_id INTEGER REFERENCES sales(id);
+      ALTER TABLE work_orders ADD COLUMN sale_id INTEGER REFERENCES sales(id);  -- pick-up receipt
+      ALTER TABLE sales ADD COLUMN work_order_id INTEGER REFERENCES work_orders(id);
+    `
   }
 ]
 

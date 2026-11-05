@@ -34,7 +34,15 @@ import { registerKioskRoutes } from './kiosk'
 import { registerQuickBooksRoutes } from './quickbooks/qbwc'
 import { registerMarketingRoutes } from './marketing/routes'
 import { startMarketingSender, stopMarketingSender } from './marketing/mailer'
-import { addUnitFromSale, registerWorkOrderRoutes } from './workorders'
+import {
+  addUnitFromSale,
+  feeCreditLine,
+  finishWorkOrderSale,
+  prepareWorkOrderSale,
+  registerWorkOrderRoutes,
+  type PreparedWoSale
+} from './workorders'
+import { priceWithFeeCredit } from '../../shared/workorders'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
@@ -371,13 +379,30 @@ export function readSettings(db: DB): StoreSettings {
  * Prices are tax-inclusive (e.g. NZ GST); tax is the GST portion of the taxable items.
  */
 function createSale(db: DB, req: SaleRequest): Sale {
-  if (!req || !Array.isArray(req.items) || req.items.length === 0) throw new HttpError(400, 'Sale has no items')
-  if (!Array.isArray(req.payments) || req.payments.length === 0) throw new HttpError(400, 'Sale has no payment')
+  if (!req || !Array.isArray(req.items)) throw new HttpError(400, 'Sale has no items')
+  if (!Array.isArray(req.payments)) throw new HttpError(400, 'Sale has no payment')
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)
-  let customerId: number | null = null
+  const { taxRate } = readSettings(db)
+
+  // Paying for a work order (estimate fee, repair pick-up, or fee credited on a new purchase)
+  let woSale: PreparedWoSale | null = null
+  if (req.workOrder) {
+    try {
+      woSale = prepareWorkOrderSale(db, Number(req.workOrder.id), req.workOrder.mode, taxRate)
+    } catch (e) {
+      throw new HttpError(400, (e as Error).message)
+    }
+    if (req.customerId && Number(req.customerId) !== woSale.wo.customerId)
+      throw new HttpError(400, `${woSale.wo.number} belongs to a different customer`)
+    if (woSale.mode === 'credit' && req.items.length === 0)
+      throw new HttpError(400, 'Add the new item(s) the estimate fee is being credited toward')
+  }
+  if (req.items.length === 0 && !woSale) throw new HttpError(400, 'Sale has no items')
+
+  let customerId: number | null = woSale ? woSale.wo.customerId : null
   let customer: ReturnType<typeof getCustomer> = null
-  if (req.customerId !== undefined && req.customerId !== null) {
-    customerId = Number(req.customerId)
+  if (!woSale && req.customerId !== undefined && req.customerId !== null) customerId = Number(req.customerId)
+  if (customerId !== null) {
     customer = getCustomer(db, customerId)
     if (!customer) throw new HttpError(400, 'The selected customer no longer exists')
   }
@@ -414,14 +439,47 @@ function createSale(db: DB, req: SaleRequest): Sale {
     }
   })
 
-  // Prices are tax inclusive; tax applies to taxable items only, and is removed for exempt sales
-  const { taxRate } = readSettings(db)
-  const priced = priceSale(lines, taxRate, taxExempt)
+  // Work order lines: priced from the ticket; parts were already taken from stock when it was approved
+  if (woSale)
+    for (const l of woSale.lines)
+      lines.push({
+        productId: l.productId as number,
+        serial: '',
+        manufacturer: null,
+        name: l.description,
+        unitPriceCents: l.unitPriceCents,
+        qty: l.qty,
+        lineTotalCents: l.unitPriceCents * l.qty,
+        taxable: l.taxable,
+        department: l.department,
+        tracksStock: false
+      })
+
+  // Prices are tax inclusive; tax applies to taxable items only, and is removed for exempt sales.
+  // A paid estimate fee is credited last (never more than the sale total).
+  const priced = priceWithFeeCredit(lines, taxRate, taxExempt, woSale?.creditAvailableCents ?? 0)
+  const creditCents = priced.creditCents
+  if (woSale && creditCents > 0) {
+    const c = feeCreditLine(woSale.wo, creditCents)
+    lines.push({
+      productId: null as unknown as number,
+      serial: '',
+      manufacturer: null,
+      name: c.description,
+      unitPriceCents: c.unitPriceCents,
+      qty: 1,
+      lineTotalCents: c.unitPriceCents,
+      taxable: false,
+      department: c.department,
+      tracksStock: false
+    })
+  }
   lines.forEach((l, i) => {
     l.unitPriceCents = priced.lines[i].unitPriceCents
     l.lineTotalCents = priced.lines[i].lineTotalCents
   })
   const { totalCents, taxCents, taxExemptCents } = priced
+  if (totalCents > 0 && req.payments.length === 0) throw new HttpError(400, 'Sale has no payment')
 
   const payments: PaymentInput[] = req.payments.map((p) => {
     const amountCents = Number(p.amountCents)
@@ -438,8 +496,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
   const id = db.transaction(() => {
     const info = db
       .prepare(
-        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         tillName,
@@ -449,7 +507,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
         customerId,
         taxExempt ? 1 : 0,
         taxExempt ? customer!.taxExemptId : null,
-        taxExemptCents
+        taxExemptCents,
+        woSale ? woSale.wo.id : null
       )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
@@ -466,6 +525,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
     }
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
+    if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
     return saleId
   })()
 
@@ -489,6 +549,7 @@ function getSale(db: DB, id: number): Sale | null {
         tax_exempt: number
         tax_exempt_id: string | null
         tax_exempt_cents: number
+        work_order_id: number | null
       } & Pick<
         SaleListRow,
         'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
@@ -520,6 +581,7 @@ function getSale(db: DB, id: number): Sale | null {
     taxExempt: s.tax_exempt === 1,
     taxExemptId: s.tax_exempt_id,
     taxExemptCents: s.tax_exempt_cents,
+    workOrderId: s.work_order_id ?? null,
     items: items.map((i) => ({
       productId: i.product_id,
       name: i.name,

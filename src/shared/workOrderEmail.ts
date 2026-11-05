@@ -13,7 +13,12 @@ export interface WoEmailContent {
   storeName: string
   storeAddress: string
   body: string // already filled in
-  bill: { lines: Pick<WoLine, 'kind' | 'description' | 'qty' | 'unitPriceCents'>[]; totals: WoTotals } | null
+  bill: {
+    lines: Pick<WoLine, 'kind' | 'description' | 'qty' | 'unitPriceCents'>[]
+    totals: WoTotals
+    feeCreditCents: number
+    balanceDueCents: number
+  } | null
   woNumber: string
   unit: string
   serial: string
@@ -43,6 +48,8 @@ ${c.bill.lines
   .join('')}
 ${c.bill.totals.taxExempt ? `<tr><td colspan="3" align="right" style="padding:6px 8px">Tax exempt</td><td align="right" style="padding:6px 8px">-${money(c.bill.totals.taxExemptCents)}</td></tr>` : `<tr><td colspan="3" align="right" style="padding:6px 8px;color:#6b7280">Tax included</td><td align="right" style="padding:6px 8px;color:#6b7280">${money(c.bill.totals.taxCents)}</td></tr>`}
 <tr><td colspan="3" align="right" style="padding:8px;font-size:16px"><b>Total</b></td><td align="right" style="padding:8px;font-size:16px"><b>${money(c.bill.totals.totalCents)}</b></td></tr>
+${c.bill.feeCreditCents ? `<tr><td colspan="3" align="right" style="padding:6px 8px">Estimate fee already paid</td><td align="right" style="padding:6px 8px">-${money(c.bill.feeCreditCents)}</td></tr>
+<tr><td colspan="3" align="right" style="padding:8px;font-size:16px;color:#9b0c23"><b>Balance due</b></td><td align="right" style="padding:8px;font-size:16px;color:#9b0c23"><b>${money(c.bill.balanceDueCents)}</b></td></tr>` : ''}
 </table>`
     : ''
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -66,6 +73,9 @@ export function woEmailText(c: WoEmailContent): string {
         ),
         c.bill.totals.taxExempt ? `Tax exempt: -${money(c.bill.totals.taxExemptCents)}` : `Tax included: ${money(c.bill.totals.taxCents)}`,
         `TOTAL: ${money(c.bill.totals.totalCents)}`,
+        ...(c.bill.feeCreditCents
+          ? [`Estimate fee already paid: -${money(c.bill.feeCreditCents)}`, `BALANCE DUE: ${money(c.bill.balanceDueCents)}`]
+          : []),
         ''
       ].join('\n')
     : ''

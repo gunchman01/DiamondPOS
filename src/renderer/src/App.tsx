@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BootInfo, Health } from '../../shared/types'
+import type { WoSaleMode } from '../../shared/workorders'
 import { compareVersions } from '../../shared/version'
 import { api, configureApi } from './api'
 import Setup from './screens/Setup'
@@ -43,6 +44,8 @@ const TITLES: Record<Tab, string> = {
 export default function App() {
   const [boot, setBoot] = useState<BootInfo | null>(null)
   const [tab, setTab] = useState<Tab>('home')
+  /** A work order sent from its ticket to the Sale screen to be paid */
+  const [saleWo, setSaleWo] = useState<{ id: number; mode: WoSaleMode } | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [online, setOnline] = useState(true)
 
@@ -116,12 +119,20 @@ export default function App() {
 
       <main className={tab === 'sell' || tab === 'home' ? 'content flush' : 'content'}>
         {tab === 'home' && <Home onNavigate={setTab} />}
-        {tab === 'sell' && <Sell boot={boot} />}
+        {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} />}
         {tab === 'products' && <Products />}
         {tab === 'customers' && <Customers />}
         {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
         {tab === 'marketing' && <Marketing />}
-        {tab === 'workorders' && <WorkOrders boot={boot} />}
+        {tab === 'workorders' && (
+          <WorkOrders
+            boot={boot}
+            onPayAtTill={(id, mode) => {
+              setSaleWo({ id, mode })
+              setTab('sell')
+            }}
+          />
+        )}
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}

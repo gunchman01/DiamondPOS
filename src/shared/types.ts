@@ -101,6 +101,8 @@ export interface SaleRequest {
   customerId?: number | null
   /** Apply the customer's tax exemption (their Farm Tax ID must be on file and not expired) */
   taxExempt?: boolean
+  /** Paying for a work order: fee = estimate fee at drop-off, repair = pick-up, credit = fee toward a new purchase */
+  workOrder?: { id: number; mode: 'fee' | 'repair' | 'credit' }
   /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
   items: { productId: number; qty: number; serial?: string }[]
   payments: PaymentInput[]
@@ -128,6 +130,7 @@ export interface Sale {
   taxExemptId: string | null
   /** Tax removed because the sale was tax exempt */
   taxExemptCents: number
+  workOrderId: number | null
   items: SaleItem[]
   payments: PaymentInput[]
 }

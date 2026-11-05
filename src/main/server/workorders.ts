@@ -22,10 +22,16 @@ import {
   type UnitCategory,
   type WoLine,
   type WoLineKind,
+  type FeeStatus,
+  type WoSaleLine,
+  type WoSaleMode,
   type WoSettings,
   type WoStatus,
   type WoSummary,
-  type WorkOrder
+  type WorkOrder,
+  WO_DEPARTMENTS,
+  woSaleProblem,
+  workOrderSaleLines
 } from '../../shared/workorders'
 import { fillTemplate, woEmailHtml, woEmailText } from '../../shared/workOrderEmail'
 import { sendEmail } from './marketing/mailer'
@@ -57,6 +63,11 @@ export function getWoSettings(db: DB): WoSettings {
   }
   const d = DEFAULT_WO_SETTINGS
   return {
+    estimateFee: {
+      cents: { ...d.estimateFee.cents, ...(saved.estimateFee?.cents ?? {}) },
+      description: saved.estimateFee?.description ?? d.estimateFee.description,
+      taxable: saved.estimateFee?.taxable ?? d.estimateFee.taxable
+    },
     laborRateCents: saved.laborRateCents ?? d.laborRateCents,
     laborTaxable: saved.laborTaxable ?? d.laborTaxable,
     shopTaxable: saved.shopTaxable ?? d.shopTaxable,
@@ -79,12 +90,19 @@ function saveWoSettings(db: DB, input: Partial<WoSettings>): WoSettings {
     return n
   }
   const next: WoSettings = {
+    estimateFee: {
+      cents: { ...cur.estimateFee.cents },
+      description: String(input.estimateFee?.description ?? cur.estimateFee.description).trim().slice(0, 120) || cur.estimateFee.description,
+      taxable: input.estimateFee?.taxable ?? cur.estimateFee.taxable
+    },
     laborRateCents: input.laborRateCents !== undefined ? cents(input.laborRateCents, 'Labor rate') : cur.laborRateCents,
     laborTaxable: input.laborTaxable ?? cur.laborTaxable,
     shopTaxable: input.shopTaxable ?? cur.shopTaxable,
     shopSupplies: { ...cur.shopSupplies },
     templates: { ...cur.templates }
   }
+  for (const c of CATEGORIES)
+    if (input.estimateFee?.cents?.[c] !== undefined) next.estimateFee.cents[c] = cents(input.estimateFee.cents[c], 'Estimate fee')
   for (const c of CATEGORIES) {
     const s = input.shopSupplies?.[c]
     if (s)
@@ -213,6 +231,11 @@ type WoRow = {
   last_emailed_status: WoStatus | null
   created_at: string
   updated_at: string
+  fee_cents: number
+  fee_status: FeeStatus
+  fee_sale_id: number | null
+  fee_applied_sale_id: number | null
+  sale_id: number | null
 }
 type LineRow = {
   id: number
@@ -229,16 +252,16 @@ type LineRow = {
   sku: string | null
 }
 
-export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettings: (db: DB) => StoreSettings) {
-  const linesFor = (woId: number): LineRow[] =>
-    db
+function woLines(db: DB, woId: number): LineRow[] {
+  return db
       .prepare(
         `SELECT l.*, p.on_hand, p.type AS ptype, p.sku FROM work_order_lines l LEFT JOIN products p ON p.id = l.product_id
          WHERE l.work_order_id = ? ORDER BY CASE l.kind WHEN 'part' THEN 0 WHEN 'labor' THEN 1 WHEN 'shop' THEN 2 ELSE 3 END, l.id`
       )
       .all(woId) as LineRow[]
+}
 
-  const toLine = (l: LineRow): WoLine => {
+const toLine = (l: LineRow): WoLine => {
     const tracks = l.kind === 'part' && l.product_id !== null && l.ptype === 'inventory'
     const onHand = tracks ? (l.on_hand ?? 0) : null
     const stillNeeded = Math.max(0, l.qty - l.stock_taken)
@@ -258,12 +281,14 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     }
   }
 
-  /** Make the stock match the ticket's stage (see top of file) */
-  function reconcileStock(woId: number) {
+/** Make the stock match the ticket's stage (see top of file) */
+export function reconcileStock(db: DB, woId: number) {
     const wo = db.prepare('SELECT status FROM work_orders WHERE id = ?').get(woId) as { status: WoStatus } | undefined
     if (!wo) return
+    // Closing a ticket never moves stock: a repaired unit's parts stay used, a NOT FIXED unit's stay on the shelf
+    if (wo.status === 'closed') return
     const take = stage(wo.status).partsTaken
-    for (const l of linesFor(woId)) {
+    for (const l of woLines(db, woId)) {
       if (l.kind !== 'part' || l.product_id === null || l.ptype !== 'inventory') continue
       const target = take ? l.qty : 0
       const delta = target - l.stock_taken
@@ -274,16 +299,16 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     }
   }
 
-  const addHistory = (woId: number, note: string, by: string, status: WoStatus | null = null) =>
+export const addHistory = (db: DB, woId: number, note: string, by: string, status: WoStatus | null = null) =>
     db.prepare('INSERT INTO work_order_history (work_order_id, status, note, by_name) VALUES (?, ?, ?, ?)').run(
       woId,
       status,
       note.slice(0, 500),
       by.slice(0, 60)
     )
-  const touch = (woId: number) => db.prepare("UPDATE work_orders SET updated_at = datetime('now') WHERE id = ?").run(woId)
+const touch = (db: DB, woId: number) => db.prepare("UPDATE work_orders SET updated_at = datetime('now') WHERE id = ?").run(woId)
 
-  function getWo(id: number): WorkOrder | null {
+export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | null {
     const r = db.prepare('SELECT * FROM work_orders WHERE id = ?').get(id) as WoRow | undefined
     if (!r) return null
     const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(r.customer_id) as Record<string, unknown>
@@ -298,7 +323,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     }
     const st = taxExemptState(customer, today())
     const exempt = customer.taxExempt && !!customer.taxExemptId && st.kind !== 'expired'
-    const lines = linesFor(id).map(toLine)
+    const lines = woLines(db, id).map(toLine)
+    const totals = woTotals(lines, taxRate, exempt)
     const history = (
       db.prepare('SELECT * FROM work_order_history WHERE work_order_id = ? ORDER BY id DESC').all(id) as {
         at: string
@@ -322,7 +348,13 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       internalNotes: r.internal_notes,
       hoursIn: r.hours_in,
       lines,
-      totals: woTotals(lines, readSettings(db).taxRate, exempt),
+      totals,
+      feeCents: r.fee_cents,
+      feeStatus: r.fee_status,
+      feeSaleId: r.fee_sale_id,
+      feeAppliedSaleId: r.fee_applied_sale_id,
+      saleId: r.sale_id,
+      balanceDueCents: Math.max(0, totals.totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0)),
       createdAt: iso(r.created_at)!,
       updatedAt: iso(r.updated_at)!,
       lastEmailedAt: iso(r.last_emailed_at),
@@ -331,6 +363,87 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     }
   }
 
+
+// ---------------- Paying for a work order at the till (used by createSale) ----------------
+
+export interface PreparedWoSale {
+  wo: WorkOrder
+  mode: WoSaleMode
+  lines: WoSaleLine[]
+  /** Estimate fee available to credit on this sale */
+  creditAvailableCents: number
+}
+
+/** Check the ticket can be paid this way and build its sale lines (prices come from the ticket, never the till) */
+export function prepareWorkOrderSale(db: DB, woId: number, mode: WoSaleMode, taxRate: number): PreparedWoSale {
+  if (!['fee', 'repair', 'credit'].includes(mode)) throw new WoError(400, 'Unknown work order payment type')
+  const wo = loadWorkOrder(db, woId, taxRate)
+  if (!wo) throw new WoError(400, 'Work order not found')
+  const problem = woSaleProblem(wo, mode)
+  if (problem) throw new WoError(400, `${wo.number}: ${problem}`)
+  const settings = getWoSettings(db)
+  const partDepartments: Record<number, string | null> = {}
+  for (const l of wo.lines)
+    if (l.kind === 'part' && l.productId) {
+      const p = db.prepare('SELECT department FROM products WHERE id = ?').get(l.productId) as { department: string | null } | undefined
+      partDepartments[l.id] = p?.department ?? null
+    }
+  return {
+    wo,
+    mode,
+    lines: workOrderSaleLines({ ...wo, partDepartments }, mode, settings.estimateFee),
+    creditAvailableCents: mode !== 'fee' && wo.feeStatus === 'paid' ? wo.feeCents : 0
+  }
+}
+
+/** Credit line for the estimate fee on a sale */
+export function feeCreditLine(wo: WorkOrder, creditCents: number): WoSaleLine {
+  return {
+    description: `Estimate fee credit - ${wo.number}${wo.feeSaleId ? ` (paid on receipt #${wo.feeSaleId})` : ''}`,
+    productId: null,
+    department: WO_DEPARTMENTS.fee,
+    unitPriceCents: -creditCents,
+    qty: 1,
+    taxable: false,
+    credit: true
+  }
+}
+
+/** After the sale is saved (same transaction): update the ticket */
+export function finishWorkOrderSale(db: DB, prep: PreparedWoSale, saleId: number, creditCents: number, by: string) {
+  const { wo, mode } = prep
+  const money = (c: number) => `$${(c / 100).toFixed(2)}`
+  if (mode === 'fee') {
+    db.prepare("UPDATE work_orders SET fee_status = 'paid', fee_sale_id = ?, updated_at = datetime('now') WHERE id = ?").run(saleId, wo.id)
+    addHistory(db, wo.id, `Estimate fee ${money(wo.feeCents)} paid (receipt #${saleId})`, by)
+    return
+  }
+  const kept = prep.creditAvailableCents - creditCents
+  const feeNote = prep.creditAvailableCents
+    ? `; estimate fee ${money(creditCents)} credited${kept > 0 ? `, ${money(kept)} kept (sale was less than the fee)` : ''}`
+    : ''
+  if (prep.creditAvailableCents)
+    db.prepare("UPDATE work_orders SET fee_status = ?, fee_applied_sale_id = ? WHERE id = ?").run(
+      creditCents > 0 ? 'applied' : 'kept',
+      saleId,
+      wo.id
+    )
+  db.prepare("UPDATE work_orders SET status = 'closed', sale_id = ?, updated_at = datetime('now') WHERE id = ?").run(saleId, wo.id)
+  addHistory(
+    db,
+    wo.id,
+    mode === 'repair'
+      ? `Paid and picked up (receipt #${saleId})${feeNote}`
+      : `Customer bought new instead (receipt #${saleId})${feeNote}`,
+    by,
+    'closed'
+  )
+}
+
+export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettings: (db: DB) => StoreSettings) {
+  const linesFor = (woId: number) => woLines(db, woId)
+  const getWo = (id: number) => loadWorkOrder(db, id, readSettings(db).taxRate)
+  const hist = (woId: number, note: string, by: string, status: WoStatus | null = null) => addHistory(db, woId, note, by, status)
   const need = (id: number) => {
     const wo = getWo(id)
     if (!wo) throw new WoError(404, 'Work order not found')
@@ -449,7 +562,10 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         createdAt: iso(r.created_at)!,
         updatedAt: iso(r.updated_at)!,
         totalCents: woTotals(lines, rate, exempt).totalCents,
-        shortParts: lines.filter((l) => l.short).length
+        shortParts: lines.filter((l) => l.short).length,
+        feeCents: r.fee_cents,
+        feeStatus: r.fee_status,
+        balanceDueCents: Math.max(0, woTotals(lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
       }
     })
     res.json(list)
@@ -482,9 +598,10 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       if (!problem) throw new WoError(400, "Describe what's wrong with the unit")
       const settings = getWoSettings(db)
       const id = db.transaction(() => {
+        const fee = b.noFee === true ? 0 : settings.estimateFee.cents[unit.category]
         const info = db
-          .prepare('INSERT INTO work_orders (customer_id, unit_id, problem, hours_in) VALUES (?, ?, ?, ?)')
-          .run(unit.customerId, unit.id, problem, unit.category === 'mower' ? hoursIn : null)
+          .prepare('INSERT INTO work_orders (customer_id, unit_id, problem, hours_in, fee_cents, fee_status) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(unit.customerId, unit.id, problem, unit.category === 'mower' ? hoursIn : null, fee, fee > 0 ? 'unpaid' : 'none')
         const woId = Number(info.lastInsertRowid)
         const shop = settings.shopSupplies[unit.category]
         if (shop.priceCents > 0)
@@ -493,7 +610,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
           ).run(woId, shop.description, shop.priceCents, settings.shopTaxable ? 1 : 0)
         if (unit.category === 'mower' && hoursIn !== null)
           db.prepare('UPDATE customer_units SET hours = ? WHERE id = ?').run(hoursIn, unit.id)
-        addHistory(woId, 'Checked in', by(req), 'needs_estimate')
+        hist(woId, 'Checked in', by(req), 'needs_estimate')
         return woId
       })()
       res.status(201).json(need(id))
@@ -536,13 +653,13 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       if (to === wo.status) return res.json(wo)
       db.transaction(() => {
         db.prepare("UPDATE work_orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(to, wo.id)
-        reconcileStock(wo.id)
+        reconcileStock(db, wo.id)
         const was = stage(wo.status), now = stage(to)
         let note = `${was.label} → ${now.label}`
         if (!was.partsTaken && now.partsTaken && wo.lines.some((l) => l.kind === 'part')) note += ' (parts taken from stock)'
         if (was.partsTaken && !now.partsTaken && wo.lines.some((l) => l.kind === 'part' && l.stockTaken > 0))
           note += ' (parts returned to stock)'
-        addHistory(wo.id, note, by(req), to)
+        hist(wo.id, note, by(req), to)
       })()
       res.json(need(wo.id))
     })
@@ -592,8 +709,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         db.prepare(
           'INSERT INTO work_order_lines (work_order_id, kind, product_id, description, qty, unit_price_cents, taxable) VALUES (?, ?, ?, ?, ?, ?, ?)'
         ).run(wo.id, kind, productId, description.slice(0, 200), qty, price, taxable ? 1 : 0)
-        reconcileStock(wo.id)
-        touch(wo.id)
+        reconcileStock(db, wo.id)
+        touch(db, wo.id)
       })()
       res.status(201).json(need(wo.id))
     })
@@ -622,8 +739,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
           taxable ? 1 : 0,
           line.id
         )
-        reconcileStock(wo.id)
-        touch(wo.id)
+        reconcileStock(db, wo.id)
+        touch(db, wo.id)
       })()
       res.json(need(wo.id))
     })
@@ -641,7 +758,32 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         if (line.stockTaken && line.productId)
           db.prepare('UPDATE products SET on_hand = on_hand + ? WHERE id = ?').run(Math.round(line.stockTaken), line.productId)
         db.prepare('DELETE FROM work_order_lines WHERE id = ?').run(line.id)
-        touch(wo.id)
+        touch(db, wo.id)
+      })()
+      res.json(need(wo.id))
+    })
+  )
+
+  // Customer declined and takes the unit back: the store keeps the estimate fee
+  app.post(
+    '/api/workorders/:id/pickup-not-fixed',
+    wrap((req, res) => {
+      const wo = need(Number(req.params.id))
+      if (wo.status !== 'not_fixed') throw new WoError(409, 'Only NOT FIXED tickets can be picked up this way')
+      db.transaction(() => {
+        if (wo.feeStatus === 'paid') db.prepare("UPDATE work_orders SET fee_status = 'kept' WHERE id = ?").run(wo.id)
+        db.prepare("UPDATE work_orders SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(wo.id)
+        reconcileStock(db, wo.id)
+        hist(
+          wo.id,
+          wo.feeStatus === 'paid'
+            ? `Picked up, not repaired. Estimate fee $${(wo.feeCents / 100).toFixed(2)} kept`
+            : wo.feeStatus === 'unpaid'
+              ? 'Picked up, not repaired (estimate fee was never paid)'
+              : 'Picked up, not repaired',
+          by(req),
+          'closed'
+        )
       })()
       res.json(need(wo.id))
     })
@@ -660,6 +802,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       serial: wo.unit.serial,
       status: stage(wo.status).label,
       total: `$${(wo.totals.totalCents / 100).toFixed(2)}`,
+      balance_due: `$${(wo.balanceDueCents / 100).toFixed(2)}`,
+      estimate_fee: `$${(wo.feeCents / 100).toFixed(2)}`,
       diagnosis: wo.diagnosis.trim(),
       work_done: wo.workDone.trim() || '(see the list below)',
       store: store.storeName
@@ -668,7 +812,14 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       storeName: store.storeName,
       storeAddress: store.storeAddress,
       body: fillTemplate(t.body, values),
-      bill: t.includeBill ? { lines: wo.lines, totals: wo.totals } : null,
+      bill: t.includeBill
+        ? {
+            lines: wo.lines,
+            totals: wo.totals,
+            feeCreditCents: wo.feeStatus === 'paid' ? Math.min(wo.feeCents, wo.totals.totalCents) : 0,
+            balanceDueCents: wo.balanceDueCents
+          }
+        : null,
       woNumber: wo.number,
       unit: unitLabel(wo.unit),
       serial: wo.unit.serial,
@@ -690,7 +841,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       const mail = buildEmail(wo)
       await sendEmail(db, readSettings(db), { to: wo.customerEmail, ...mail })
       db.prepare("UPDATE work_orders SET last_emailed_at = datetime('now'), last_emailed_status = ? WHERE id = ?").run(wo.status, wo.id)
-      addHistory(wo.id, `Emailed customer: ${stage(wo.status).label} (${wo.customerEmail})`, by(req), wo.status)
+      hist(wo.id, `Emailed customer: ${stage(wo.status).label} (${wo.customerEmail})`, by(req), wo.status)
       res.json(need(wo.id))
     })
   )

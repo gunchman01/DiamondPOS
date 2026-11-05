@@ -17,6 +17,7 @@ const centsText = (c: number) => (c / 100).toFixed(2)
 export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
   const [s, setS] = useState<WoSettings | null>(null)
   const [rate, setRate] = useState('')
+  const [fees, setFees] = useState<Record<UnitCategory, string> | null>(null)
   const [shop, setShop] = useState<Record<UnitCategory, { description: string; price: string }> | null>(null)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
@@ -24,6 +25,11 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
   const show = (x: WoSettings) => {
     setS(x)
     setRate(centsText(x.laborRateCents))
+    setFees({
+      handheld: centsText(x.estimateFee.cents.handheld),
+      mower: centsText(x.estimateFee.cents.mower),
+      other: centsText(x.estimateFee.cents.other)
+    })
     setShop({
       handheld: { description: x.shopSupplies.handheld.description, price: centsText(x.shopSupplies.handheld.priceCents) },
       mower: { description: x.shopSupplies.mower.description, price: centsText(x.shopSupplies.mower.priceCents) },
@@ -36,8 +42,10 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
   if (!s || !shop) return <div className="page">{error || 'Loading…'}</div>
 
   const loadedShop = shop
+  const loadedFees = fees
   async function save() {
     const shop = loadedShop
+    const fees = loadedFees!
     setMsg('')
     setError('')
     const laborRateCents = parseMoney(rate)
@@ -48,8 +56,14 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
       if (isNaN(p)) return setError(`Enter the ${CAT_LABEL[c].toLowerCase()} shop supplies price like 7.95`)
       shopSupplies[c] = { description: shop[c].description, priceCents: p }
     }
+    const feeCents = {} as WoSettings['estimateFee']['cents']
+    for (const c of Object.keys(fees) as UnitCategory[]) {
+      const f = parseMoney(fees[c] || '0')
+      if (isNaN(f)) return setError(`Enter the ${CAT_LABEL[c].toLowerCase()} estimate fee like 35.00 (0 = no fee)`)
+      feeCents[c] = f
+    }
     try {
-      show(await api.woSaveSettings({ ...s!, laborRateCents, shopSupplies }))
+      show(await api.woSaveSettings({ ...s!, laborRateCents, shopSupplies, estimateFee: { ...s!.estimateFee, cents: feeCents } }))
       setMsg('Work order settings saved')
     } catch (e) {
       setError((e as Error).message)
@@ -72,6 +86,39 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
       <h2>Work order settings</h2>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
+
+      {fees && (
+        <div className="card form">
+          <h3>Estimate fee (taken at drop-off)</h3>
+          <p className="muted small">
+            Credited toward the repair, or toward a new item if the customer buys new instead. Kept if they decline and take
+            the unit back. Set to 0.00 for no fee.
+          </p>
+          <div className="fee-grid">
+            {(Object.keys(fees) as UnitCategory[]).map((c) => (
+              <label key={c} className="inline">
+                {CAT_LABEL[c]}
+                <input className="money" style={{ width: 90 }} value={fees[c]} onChange={(e) => setFees({ ...fees, [c]: e.target.value })} />
+              </label>
+            ))}
+          </div>
+          <label>
+            Wording on the receipt
+            <input
+              value={s.estimateFee.description}
+              onChange={(e) => setS({ ...s, estimateFee: { ...s.estimateFee, description: e.target.value } })}
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={s.estimateFee.taxable}
+              onChange={(e) => setS({ ...s, estimateFee: { ...s.estimateFee, taxable: e.target.checked } })}
+            />
+            Estimate fee is taxable
+          </label>
+        </div>
+      )}
 
       <div className="card form">
         <h3>Labor</h3>

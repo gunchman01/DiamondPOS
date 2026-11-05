@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { customerDisplayName, type Customer } from '../../../shared/types'
-import { unitLabel, type CustomerUnit, type WorkOrder } from '../../../shared/workorders'
+import { unitLabel, type CustomerUnit, type WoSettings, type WorkOrder } from '../../../shared/workorders'
+import { money } from '../format'
 import { api } from '../api'
 import CustomerPicker from './CustomerPicker'
 import UnitEditor from './UnitEditor'
 
 /** Check in a unit: 1. customer → 2. unit (theirs, or add one) → 3. what's wrong. */
-export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOrder) => void; onCancel: () => void }) {
+export default function NewWorkOrder(props: {
+  by: string
+  /** collectFee = go straight to the till to take the estimate fee */
+  onCreated: (wo: WorkOrder, collectFee: boolean) => void
+  onCancel: () => void
+}) {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [picking, setPicking] = useState(true)
   const [units, setUnits] = useState<CustomerUnit[]>([])
@@ -16,10 +22,13 @@ export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOr
   const [problem, setProblem] = useState('')
   const [hours, setHours] = useState('')
   const [error, setError] = useState('')
+  const [settings, setSettings] = useState<WoSettings | null>(null)
+  const [chargeFee, setChargeFee] = useState(true)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     api.mkOptions().then((o) => setBrands(o.manufacturers)).catch(() => {})
+    api.woSettings().then(setSettings).catch(() => {})
   }, [])
   useEffect(() => {
     if (!customer) return
@@ -31,7 +40,9 @@ export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOr
   }, [customer])
   useEffect(() => setHours(unit?.hours !== null && unit?.hours !== undefined ? String(unit.hours) : ''), [unit])
 
-  async function create() {
+  const feeCents = unit && settings ? settings.estimateFee.cents[unit.category] : 0
+
+  async function create(collectNow: boolean) {
     if (!customer || !unit) return
     setBusy(true)
     setError('')
@@ -42,8 +53,10 @@ export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOr
           unitId: unit.id,
           problem,
           hoursIn: unit.category === 'mower' && hours.trim() ? Number(hours) : null,
-          by: props.by
-        })
+          by: props.by,
+          noFee: !chargeFee
+        }),
+        collectNow && chargeFee && feeCents > 0
       )
     } catch (e) {
       setError((e as Error).message)
@@ -116,6 +129,13 @@ export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOr
             placeholder="What the customer says, e.g. Hard to start, runs rough at full throttle"
             onChange={(e) => setProblem(e.target.value)}
           />
+          {feeCents > 0 && (
+            <label className="check fee-check">
+              <input type="checkbox" checked={chargeFee} onChange={(e) => setChargeFee(e.target.checked)} />
+              Charge the {money(feeCents)} estimate fee ({unit?.category === 'mower' ? 'mower' : unit?.category === 'handheld' ? 'hand-held' : 'other'})
+              {' '}<span className="muted small">credited toward the repair or a new purchase, kept if they decline</span>
+            </label>
+          )}
           {unit?.category === 'mower' && (
             <label className="inline">
               Hour meter now (optional)
@@ -127,9 +147,20 @@ export default function NewWorkOrder(props: { by: string; onCreated: (wo: WorkOr
         {error && <div className="error-text">{error}</div>}
         <div className="row gap end">
           <button onClick={props.onCancel}>Cancel</button>
-          <button className="primary" disabled={!unit || !problem.trim() || busy} onClick={create}>
-            {busy ? 'Creating…' : 'Check in (Needs Estimate)'}
-          </button>
+          {feeCents > 0 && chargeFee ? (
+            <>
+              <button disabled={!unit || !problem.trim() || busy} onClick={() => create(false)}>
+                Check in (collect fee later)
+              </button>
+              <button className="primary" disabled={!unit || !problem.trim() || busy} onClick={() => create(true)}>
+                {busy ? 'Creating…' : `Check in & collect ${money(feeCents)} at till`}
+              </button>
+            </>
+          ) : (
+            <button className="primary" disabled={!unit || !problem.trim() || busy} onClick={() => create(false)}>
+              {busy ? 'Creating…' : 'Check in (Needs Estimate)'}
+            </button>
+          )}
         </div>
       </div>
 

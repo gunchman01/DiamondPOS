@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
-import { STAGES, stage, type WoStatus, type WoSummary } from '../../../shared/workorders'
+import { STAGES, stage, type WoSaleMode, type WoStatus, type WoSummary } from '../../../shared/workorders'
 import { api } from '../api'
 import { money } from '../format'
 import NewWorkOrder from './NewWorkOrder'
@@ -15,7 +15,14 @@ const age = (iso: string) => {
 }
 
 /** Work orders: tickets by stage, check in a unit, open a ticket, settings. */
-export default function WorkOrders({ boot }: { boot: BootInfo }) {
+export default function WorkOrders({
+  boot,
+  onPayAtTill
+}: {
+  boot: BootInfo
+  /** Open the Sale screen with this work order loaded */
+  onPayAtTill: (id: number, mode: WoSaleMode) => void
+}) {
   const [view, setView] = useState<View>({ kind: 'list' })
   const [filter, setFilter] = useState<WoStatus | 'open' | 'all'>('open')
   const [search, setSearch] = useState('')
@@ -38,7 +45,8 @@ export default function WorkOrders({ boot }: { boot: BootInfo }) {
     return () => clearTimeout(t)
   }, [filter, search, view.kind])
 
-  if (view.kind === 'ticket') return <WorkOrderTicket id={view.id} by={by} onBack={() => setView({ kind: 'list' })} />
+  if (view.kind === 'ticket')
+    return <WorkOrderTicket id={view.id} by={by} onBack={() => setView({ kind: 'list' })} onPayAtTill={onPayAtTill} />
   if (view.kind === 'settings') return <WorkOrderSettings onBack={() => setView({ kind: 'list' })} />
 
   const openCount = STAGES.filter((s) => s.status !== 'closed').reduce((n, s) => n + (counts[s.status] ?? 0), 0)
@@ -106,6 +114,7 @@ export default function WorkOrders({ boot }: { boot: BootInfo }) {
               <td>
                 {w.unitLabel}
                 {w.shortParts > 0 && w.status !== 'closed' && <span className="pill short-pill">{w.shortParts} part(s) not in stock</span>}
+                {w.feeStatus === 'unpaid' && w.status !== 'closed' && <span className="pill fee-pill">fee not paid</span>}
               </td>
               <td className="muted">{w.serial}</td>
               <td>
@@ -114,7 +123,10 @@ export default function WorkOrders({ boot }: { boot: BootInfo }) {
                 </span>
               </td>
               <td className="muted">{age(w.createdAt)}</td>
-              <td className="r">{money(w.totalCents)}</td>
+              <td className="r">
+                {money(w.totalCents)}
+                {w.feeStatus === 'paid' && w.status !== 'closed' && <div className="muted small">{money(w.balanceDueCents)} due</div>}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -125,9 +137,10 @@ export default function WorkOrders({ boot }: { boot: BootInfo }) {
         <NewWorkOrder
           by={by}
           onCancel={() => setCreating(false)}
-          onCreated={(wo) => {
+          onCreated={(wo, collectFee) => {
             setCreating(false)
-            setView({ kind: 'ticket', id: wo.id })
+            if (collectFee) onPayAtTill(wo.id, 'fee')
+            else setView({ kind: 'ticket', id: wo.id })
           }}
         />
       )}

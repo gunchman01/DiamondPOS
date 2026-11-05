@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Product } from '../../../shared/types'
-import { STAGES, stage, unitLabel, type WoLine, type WoStatus, type WorkOrder } from '../../../shared/workorders'
+import { STAGES, stage, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
 import { dateTime, money, parseMoney } from '../format'
 
@@ -8,7 +8,12 @@ const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 
 const FLOW: WoStatus[] = ['needs_estimate', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
 
 /** One repair ticket. */
-export default function WorkOrderTicket(props: { id: number; by: string; onBack: () => void }) {
+export default function WorkOrderTicket(props: {
+  id: number
+  by: string
+  onBack: () => void
+  onPayAtTill: (id: number, mode: WoSaleMode) => void
+}) {
   const [wo, setWo] = useState<WorkOrder | null>(null)
   const [notes, setNotes] = useState({ problem: '', diagnosis: '', workDone: '', internalNotes: '' })
   const [picking, setPicking] = useState(false)
@@ -118,12 +123,39 @@ export default function WorkOrderTicket(props: { id: number; by: string; onBack:
         )}
       </div>
       <div className="row gap stage-buttons">
-        {st.next.map((n) => (
+        {wo.status === 'ready_pickup' && (
+          <button className="primary big-ish pay-btn" disabled={busy} onClick={() => props.onPayAtTill(wo.id, 'repair')}>
+            💳 Ring up at till · {money(wo.balanceDueCents)} due
+          </button>
+        )}
+        {wo.status === 'not_fixed' && wo.feeStatus === 'paid' && (
+          <button className="primary big-ish" disabled={busy} onClick={() => props.onPayAtTill(wo.id, 'credit')}>
+            Buying new instead → credit {money(wo.feeCents)} at till
+          </button>
+        )}
+        {wo.status === 'not_fixed' && (
+          <button
+            className="big-ish"
+            disabled={busy}
+            onClick={() =>
+              confirm(
+                wo.feeStatus === 'paid'
+                  ? `Customer is taking the unit back without the repair. Keep the ${money(wo.feeCents)} estimate fee and close the ticket?`
+                  : 'Customer is taking the unit back without the repair. Close the ticket?'
+              ) && run(() => api.woPickupNotFixed(wo.id, props.by), 'Picked up')
+            }
+          >
+            {wo.feeStatus === 'paid' ? `Picked up: keep ${money(wo.feeCents)} fee` : 'Picked up (no charge)'}
+          </button>
+        )}
+        {st.next
+          .filter((n) => !(n === 'closed' && (wo.status === 'ready_pickup' || wo.status === 'not_fixed')))
+          .map((n) => (
           <button key={n} className={n === 'not_fixed' ? 'danger big-ish' : 'primary big-ish'} disabled={busy} onClick={() => move(n)}>
             {n === 'not_fixed' ? 'Customer declined → ' : '→ '}
             {stage(n).label}
           </button>
-        ))}
+          ))}
         <label className="inline small">
           or move to
           <select value="" onChange={(e) => e.target.value && move(e.target.value as WoStatus)} disabled={busy}>
@@ -138,6 +170,7 @@ export default function WorkOrderTicket(props: { id: number; by: string; onBack:
       </div>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
+      <FeeBar wo={wo} onCollect={() => props.onPayAtTill(wo.id, 'fee')} />
       {wo.status === 'needs_estimate' && (
         <div className="info-bar">Parts on the estimate are not taken from stock until it's moved to <b>Approved to Fix</b>.</div>
       )}
@@ -240,6 +273,14 @@ export default function WorkOrderTicket(props: { id: number; by: string; onBack:
             )}
             <b>Total</b>
             <b>{money(wo.totals.totalCents)}</b>
+            {wo.feeStatus === 'paid' && (
+              <>
+                <span className="ok-text">Estimate fee paid</span>
+                <span className="ok-text">−{money(Math.min(wo.feeCents, wo.totals.totalCents))}</span>
+                <b className="due">Balance due</b>
+                <b className="due">{money(wo.balanceDueCents)}</b>
+              </>
+            )}
           </div>
         </div>
 
@@ -472,4 +513,43 @@ function MiscLine(props: { onSave: (description: string, cents: number) => void;
       </form>
     </div>
   )
+}
+
+/** Estimate fee status for the ticket header */
+function FeeBar({ wo, onCollect }: { wo: WorkOrder; onCollect: () => void }) {
+  const fee = money(wo.feeCents)
+  switch (wo.feeStatus) {
+    case 'none':
+      return null
+    case 'unpaid':
+      return wo.status === 'closed' ? (
+        <div className="fee-bar">Estimate fee {fee} was never paid.</div>
+      ) : (
+        <div className="fee-bar unpaid">
+          <span>
+            <b>Estimate fee {fee} not paid yet.</b> It's credited toward the repair or a new purchase, or kept if the customer
+            declines.
+          </span>
+          <button className="primary" onClick={onCollect}>
+            Collect {fee} at till
+          </button>
+        </div>
+      )
+    case 'paid':
+      return (
+        <div className="fee-bar paid">
+          Estimate fee {fee} paid{wo.feeSaleId ? ` (receipt #${wo.feeSaleId})` : ''}. It will be credited at pick-up or toward a new
+          purchase.
+        </div>
+      )
+    case 'applied':
+      return (
+        <div className="fee-bar">
+          Estimate fee {fee} credited{wo.feeAppliedSaleId ? ` on receipt #${wo.feeAppliedSaleId}` : ''}.
+          {wo.saleId ? ` Paid on receipt #${wo.saleId}.` : ''}
+        </div>
+      )
+    case 'kept':
+      return <div className="fee-bar">Estimate fee {fee} kept (not repaired).</div>
+  }
 }

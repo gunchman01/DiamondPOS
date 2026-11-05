@@ -122,7 +122,7 @@ export const api = {
     request<WoSummary[]>('GET', `/api/workorders?status=${status}&search=${encodeURIComponent(search)}`),
   woCounts: () => request<Record<WoStatus, number>>('GET', '/api/workorders/counts'),
   wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
-  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string }) =>
+  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean }) =>
     request<WorkOrder>('POST', '/api/workorders', b),
   woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}`, b),
@@ -133,6 +133,7 @@ export const api = {
   woRemoveLine: (id: number, lineId: number) => request<WorkOrder>('POST', `/api/workorders/${id}/lines/${lineId}/remove`),
   woEmailPreview: (id: number) => request<{ subject: string; html: string; text: string }>('GET', `/api/workorders/${id}/email-preview`),
   woEmail: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by }),
+  woPickupNotFixed: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/pickup-not-fixed`, { by }),
 
   // Marketing mailers
   mkOptions: () => request<AudienceOptions>('GET', '/api/marketing/options'),

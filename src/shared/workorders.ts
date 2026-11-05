@@ -75,7 +75,7 @@ export interface StageDef {
   status: WoStatus
   label: string
   color: string // badge colour
-  /** Parts are taken out of stock while the ticket is in this stage */
+  /** Parts are taken out of stock while the ticket is in this stage (Picked Up leaves stock as it was) */
   partsTaken: boolean
   /** Shows the "Email customer" button */
   canEmail: boolean
@@ -127,10 +127,22 @@ export interface WoHistory {
   by: string
 }
 
+/** none = no fee; unpaid; paid = held as a credit; applied = credited on a sale; kept = customer declined */
+export type FeeStatus = 'none' | 'unpaid' | 'paid' | 'applied' | 'kept'
+
 export interface WorkOrder {
   id: number
   number: string // WO-000123
   status: WoStatus
+  /** Estimate fee charged at drop-off (credited toward the repair or a new purchase) */
+  feeCents: number
+  feeStatus: FeeStatus
+  feeSaleId: number | null // receipt the fee was paid on
+  feeAppliedSaleId: number | null // receipt the fee was credited on
+  /** Receipt the repair was paid on (pick-up) */
+  saleId: number | null
+  /** Total minus a paid estimate fee */
+  balanceDueCents: number
   customerId: number
   customerName: string
   customerEmail: string | null
@@ -161,6 +173,9 @@ export interface WoSummary {
   updatedAt: string
   totalCents: number
   shortParts: number
+  feeCents: number
+  feeStatus: FeeStatus
+  balanceDueCents: number
 }
 
 export interface WoTotals {
@@ -179,9 +194,13 @@ export interface WoTotals {
 export function woTotals(lines: Pick<WoLine, 'kind' | 'qty' | 'unitPriceCents' | 'taxable'>[], taxRate: number, taxExempt: boolean): WoTotals {
   const lineCents = (l: (typeof lines)[number]) => Math.round(l.unitPriceCents * l.qty)
   const sum = (k: WoLineKind) => lines.filter((l) => l.kind === k).reduce((s, l) => s + lineCents(l), 0)
-  // priceSale works per unit × whole qty; labor hours can be fractional, so price each line as qty 1
+  // Same pricing as the till: whole quantities per unit, part hours as one line (see workOrderSaleLines)
   const priced = priceSale(
-    lines.map((l) => ({ unitPriceCents: lineCents(l), qty: 1, taxable: l.taxable })),
+    lines.map((l) =>
+      Number.isInteger(l.qty)
+        ? { unitPriceCents: l.unitPriceCents, qty: l.qty, taxable: l.taxable }
+        : { unitPriceCents: lineCents(l), qty: 1, taxable: l.taxable }
+    ),
     taxRate,
     taxExempt
   )
@@ -212,7 +231,15 @@ export interface WoTemplate {
   includeBill: boolean
 }
 
+export interface EstimateFeeSettings {
+  /** Fee per unit category (0 = no fee) */
+  cents: Record<UnitCategory, number>
+  description: string
+  taxable: boolean
+}
+
 export interface WoSettings {
+  estimateFee: EstimateFeeSettings
   laborRateCents: number // per hour, tax inclusive
   laborTaxable: boolean
   shopTaxable: boolean
@@ -228,12 +255,19 @@ export const TEMPLATE_PLACEHOLDERS: { key: string; meaning: string }[] = [
   { key: '{serial}', meaning: 'Serial number' },
   { key: '{status}', meaning: 'Stage name' },
   { key: '{total}', meaning: 'Current total' },
+  { key: '{balance_due}', meaning: 'Total minus the estimate fee already paid' },
+  { key: '{estimate_fee}', meaning: 'Estimate fee amount' },
   { key: '{diagnosis}', meaning: "Mechanic's estimate notes" },
   { key: '{work_done}', meaning: 'Work performed notes' },
   { key: '{store}', meaning: 'Store name' }
 ]
 
 export const DEFAULT_WO_SETTINGS: WoSettings = {
+  estimateFee: {
+    cents: { handheld: 3500, mower: 7000, other: 3500 },
+    description: 'Estimate fee (credited toward the repair or a new purchase)',
+    taxable: false
+  },
   laborRateCents: 8500,
   laborTaxable: false,
   shopTaxable: true,
@@ -265,7 +299,7 @@ export const DEFAULT_WO_SETTINGS: WoSettings = {
     },
     ready_pickup: {
       subject: 'Your {unit} is ready for pick up ({wo_number})',
-      body: 'Hi {first_name},\n\nYour {unit} is repaired and ready for pick up.\n\nWork performed:\n{work_done}\n\nYour bill is below. Total due: {total}.\n\nThank you,\n{store}',
+      body: 'Hi {first_name},\n\nYour {unit} is repaired and ready for pick up.\n\nWork performed:\n{work_done}\n\nYour bill is below. Balance due at pick up: {balance_due}.\n\nThank you,\n{store}',
       includeBill: true
     },
     not_fixed: {
@@ -278,3 +312,86 @@ export const DEFAULT_WO_SETTINGS: WoSettings = {
 
 export type EmailableStatus = keyof WoSettings['templates']
 export const isEmailable = (s: WoStatus): s is EmailableStatus => stage(s).canEmail
+
+// ---------------- Paying at the till ----------------
+
+/**
+ * fee    = take the estimate fee at drop-off
+ * repair = pick up a repaired unit: the ticket's lines, minus the estimate fee already paid
+ * credit = the customer buys something new instead: the estimate fee is credited on that sale
+ */
+export type WoSaleMode = 'fee' | 'repair' | 'credit'
+
+/** Departments used on receipts, reports and the QuickBooks summary */
+export const WO_DEPARTMENTS = { labor: 'Service Labor', shop: 'Shop Supplies', misc: 'Service Other', fee: 'Estimate Fees' } as const
+
+export interface WoSaleLine {
+  description: string
+  productId: number | null
+  department: string | null
+  unitPriceCents: number // per unit, tax inclusive (negative for the fee credit)
+  qty: number // whole number
+  taxable: boolean
+  credit?: boolean
+}
+
+/** Is this action possible for the ticket right now? (explains why not) */
+export function woSaleProblem(wo: Pick<WorkOrder, 'status' | 'feeStatus' | 'feeCents'>, mode: WoSaleMode): string | null {
+  if (mode === 'fee') return wo.feeStatus === 'unpaid' ? null : 'The estimate fee is not waiting to be paid'
+  if (mode === 'repair') return wo.status === 'ready_pickup' ? null : 'Only tickets that are Ready for Pick Up can be rung up'
+  if (wo.feeStatus !== 'paid') return 'There is no paid estimate fee to credit'
+  return wo.status === 'closed' ? 'This work order is closed' : null
+}
+
+/**
+ * The ticket's lines as sale lines (before the fee credit). Parts keep their product id
+ * for reports but are NOT taken from stock again (that happened when the repair was approved).
+ * Labor with part hours becomes one line priced at hours x rate.
+ */
+export function workOrderSaleLines(
+  wo: Pick<WorkOrder, 'number' | 'lines' | 'feeCents'> & { partDepartments?: Record<number, string | null> },
+  mode: WoSaleMode,
+  fee: Pick<EstimateFeeSettings, 'description' | 'taxable'>
+): WoSaleLine[] {
+  if (mode === 'fee')
+    return [
+      {
+        description: `${fee.description} - ${wo.number}`,
+        productId: null,
+        department: WO_DEPARTMENTS.fee,
+        unitPriceCents: wo.feeCents,
+        qty: 1,
+        taxable: fee.taxable
+      }
+    ]
+  if (mode === 'credit') return []
+  return wo.lines.map((l) => {
+    const whole = Number.isInteger(l.qty)
+    const label = l.kind === 'labor' ? `${l.description} (${l.qty} hr)` : l.description
+    return {
+      description: `${label} - ${wo.number}`,
+      productId: l.kind === 'part' ? l.productId : null,
+      department: l.kind === 'part' ? (wo.partDepartments?.[l.id] ?? null) : WO_DEPARTMENTS[l.kind as 'labor' | 'shop' | 'misc'],
+      unitPriceCents: whole ? l.unitPriceCents : Math.round(l.unitPriceCents * l.qty),
+      qty: whole ? l.qty : 1,
+      taxable: l.taxable
+    }
+  })
+}
+
+/**
+ * Price a sale that may include a work order, applying the estimate fee credit last.
+ * The credit can't make the sale negative: anything above the sale total is kept.
+ */
+export function priceWithFeeCredit(
+  items: { unitPriceCents: number; qty: number; taxable: boolean }[],
+  taxRate: number,
+  taxExempt: boolean,
+  creditAvailableCents: number
+) {
+  const before = priceSale(items, taxRate, taxExempt)
+  const credit = Math.max(0, Math.min(creditAvailableCents, before.totalCents))
+  if (credit === 0) return { ...before, creditCents: 0, creditKeptCents: creditAvailableCents }
+  const after = priceSale([...items, { unitPriceCents: -credit, qty: 1, taxable: false }], taxRate, taxExempt)
+  return { ...after, creditCents: credit, creditKeptCents: creditAvailableCents - credit }
+}
