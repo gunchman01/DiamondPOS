@@ -158,6 +158,12 @@ export interface Customer {
   altContact: string | null
   customerType: string | null
   taxExempt: boolean
+  /** Farm / tax-exempt certificate number */
+  taxExemptId: string | null
+  /** Staff have taken a copy of the customer's tax-exempt card */
+  taxExemptCardCopied: boolean
+  /** Expiry date of the tax-exempt ID (YYYY-MM-DD) */
+  taxExemptExpires: string | null
   discountPct: number | null
   acceptCheques: boolean
   // Ship-to address
@@ -185,6 +191,26 @@ export interface CustomerDetail {
   customer: Customer
   stats: CustomerStats
   history: SaleSummary[]
+}
+
+export type TaxExemptState =
+  | { kind: 'none' } // not tax exempt
+  | { kind: 'ok'; daysLeft: number | null } // daysLeft null = no expiry recorded
+  | { kind: 'expiring'; daysLeft: number } // within 30 days
+  | { kind: 'expired'; daysAgo: number }
+
+/** Is this customer's tax-exempt ID current? `today` is YYYY-MM-DD in local time. */
+export function taxExemptState(
+  c: Pick<Customer, 'taxExempt' | 'taxExemptExpires'>,
+  today: string
+): TaxExemptState {
+  if (!c.taxExempt) return { kind: 'none' }
+  if (!c.taxExemptExpires) return { kind: 'ok', daysLeft: null }
+  const day = 86_400_000
+  const diff = Math.round((Date.parse(c.taxExemptExpires + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / day)
+  if (diff < 0) return { kind: 'expired', daysAgo: -diff }
+  if (diff <= 30) return { kind: 'expiring', daysLeft: diff }
+  return { kind: 'ok', daysLeft: diff }
 }
 
 /** Display name: "Company" for businesses, otherwise "First Last" */

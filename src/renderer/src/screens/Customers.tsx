@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { customerDisplayName, type Customer } from '../../../shared/types'
 import { api } from '../api'
 import CustomerEditor from './CustomerEditor'
+import TaxExemptBadge from '../TaxExemptBadge'
 
 /** Customer List: search, add and edit customers / businesses. */
 export default function Customers() {
@@ -63,7 +64,8 @@ export default function Customers() {
               <td>{c.customerNo}</td>
               <td>
                 <b>{customerDisplayName(c)}</b>
-                {c.trackAsCompany && <span className="pill company-pill">Business</span>}
+                {c.trackAsCompany && <span className="pill company-pill">Business</span>}{' '}
+                <TaxExemptBadge customer={c} />
               </td>
               <td>{c.trackAsCompany ? [c.firstName, c.lastName].filter(Boolean).join(' ') : c.company}</td>
               <td>{c.phone}</td>

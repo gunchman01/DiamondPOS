@@ -22,7 +22,7 @@ import type { Response } from 'express'
 import crypto from 'crypto'
 import type { DB } from './db'
 import { ValidationError } from './products'
-import { CUSTOMER_DEFAULTS, getCustomer, insertCustomer, updateCustomer, validateCustomer } from './customers'
+import { CUSTOMER_DEFAULTS, getCustomer, insertCustomer, isIsoDate, updateCustomer, validateCustomer } from './customers'
 import type { Customer, KioskInfo, KioskSession, StoreSettings } from '../../shared/types'
 import { kioskPageHtml } from './kioskPage'
 
@@ -174,56 +174,75 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       if (!s || s.kioskId !== k.id || s.status !== 'waiting')
         throw new HttpErr(409, 'This sign-up has finished. Please ask the staff member to send it again.')
 
-      const str = (v: unknown) => String(v ?? '').trim().slice(0, 100)
-      const firstName = str(b.firstName)
-      const lastName = str(b.lastName)
-      const mobile = str(b.mobile)
-      const email = str(b.email).toLowerCase()
-      const okToEmail = b.okToEmail === true
-      if (!firstName || !lastName) throw new ValidationError('Please enter your first and last name')
-      if (!mobile && !email) throw new ValidationError('Please enter a mobile number or an email address')
+      const f = readKioskForm(b)
+      const digits = f.phone.replace(/\D/g, '')
 
-      // Match an existing customer by mobile digits or email, so people aren't added twice
-      const digits = mobile.replace(/\D/g, '')
+      // Match an existing customer by email or phone digits, so people aren't added twice
       const existingRow = db
         .prepare(
           `SELECT id FROM customers WHERE active = 1 AND (
-             (? <> '' AND LOWER(email) = ?)
-             OR (LENGTH(?) >= 6 AND (
-               REPLACE(REPLACE(REPLACE(COALESCE(mobile,''),' ',''),'-',''),'+','') = ?
-               OR REPLACE(REPLACE(REPLACE(COALESCE(phone,''),' ',''),'-',''),'+','') = ?)))
+             LOWER(email) = ?
+             OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(mobile,''),' ',''),'-',''),'+',''),'(',''),')','') = ?
+             OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(phone,''),' ',''),'-',''),'+',''),'(',''),')','') = ?)
            ORDER BY id LIMIT 1`
         )
-        .get(email, email, digits, digits, digits) as { id: number } | undefined
+        .get(f.email, digits, digits) as { id: number } | undefined
 
+      const stamp = new Date().toLocaleString()
+      const note = `${stamp} - Signed up at kiosk "${k.name}"${f.taxExempt ? ` (tax exempt, Farm Tax ID ${f.taxExemptId}, expires ${f.taxExemptExpires})` : ''}`
       let customer: Customer
       if (existingRow) {
-        const current = getCustomer(db, existingRow.id)!
-        // Only fill in blanks (and the email opt-in); never overwrite what the store already has
-        const update = validateCustomer(
-          {
-            mobile: current.mobile || mobile || null,
-            email: current.email || email || null,
-            okToEmail: current.okToEmail || okToEmail
-          },
-          current
+        const c = getCustomer(db, existingRow.id)!
+        // Only fill in blanks (plus opt-ins); never overwrite what the store already has
+        const fill = <T,>(current: T | null, value: T) => (current === null || current === '' ? value : current)
+        // A tax-exempt ID typed at the kiosk is the customer's newest card, so it replaces
+        // the stored one when the number or expiry differs. Staff must copy the new card.
+        const newTaxId =
+          f.taxExempt && (c.taxExemptId !== f.taxExemptId || c.taxExemptExpires !== f.taxExemptExpires)
+        updateCustomer(
+          db,
+          c.id,
+          validateCustomer(
+            {
+              company: fill(c.company, f.company || null),
+              phone: fill(c.phone, f.phone),
+              email: fill(c.email, f.email),
+              street: fill(c.street, f.street),
+              city: fill(c.city, f.city),
+              region: fill(c.region, f.state),
+              postcode: fill(c.postcode, f.zip),
+              okToEmail: c.okToEmail || f.okToEmail,
+              taxExempt: c.taxExempt || f.taxExempt,
+              taxExemptId: newTaxId ? f.taxExemptId : c.taxExemptId,
+              taxExemptExpires: newTaxId ? f.taxExemptExpires : c.taxExemptExpires,
+              taxExemptCardCopied: newTaxId ? false : c.taxExemptCardCopied,
+              notes: c.notes ? `${note}\n${c.notes}` : note
+            },
+            c
+          )
         )
-        updateCustomer(db, current.id, update)
-        customer = getCustomer(db, current.id)!
+        customer = getCustomer(db, c.id)!
         s.matchedExisting = true
       } else {
-        const stamp = new Date().toLocaleString('en-NZ')
         const id = insertCustomer(
           db,
           validateCustomer(
             {
-              firstName,
-              lastName,
-              mobile: mobile || null,
-              email: email || null,
-              okToEmail,
+              firstName: f.firstName,
+              lastName: f.lastName,
+              company: f.company || null,
+              phone: f.phone,
+              email: f.email,
+              okToEmail: f.okToEmail,
+              street: f.street,
+              city: f.city,
+              region: f.state,
+              postcode: f.zip,
+              taxExempt: f.taxExempt,
+              taxExemptId: f.taxExempt ? f.taxExemptId : null,
+              taxExemptExpires: f.taxExempt ? f.taxExemptExpires : null,
               customerType: 'Retail',
-              notes: `${stamp} - Signed up at kiosk "${k.name}"`
+              notes: note
             },
             CUSTOMER_DEFAULTS
           )
@@ -233,8 +252,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       s.customer = customer
       finish(s, 'submitted')
       // Tell the kiosk to say thanks; it goes back to the logo by itself
-      send(k.id, { type: 'thanks', firstName })
-      res.json({ ok: true, firstName }) // never send customer data back to the kiosk
+      send(k.id, { type: 'thanks', firstName: f.firstName, taxExempt: f.taxExempt })
+      res.json({ ok: true, firstName: f.firstName, taxExempt: f.taxExempt }) // never send customer data back to the kiosk
     })
   )
 
@@ -391,4 +410,60 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       res.json({ ok: true })
     })
   )
+}
+
+/**
+ * Read and check the kiosk sign-up form. Required: first & last name, street,
+ * city, state, ZIP, phone and email. Business name is optional. Ticking
+ * "tax exempt" makes the Farm Tax ID required.
+ */
+export function readKioskForm(b: Record<string, unknown>) {
+  const str = (v: unknown, max = 100) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, max)
+  const f = {
+    firstName: str(b.firstName, 60),
+    lastName: str(b.lastName, 60),
+    company: str(b.company, 100),
+    street: str(b.street, 120),
+    city: str(b.city, 60),
+    state: str(b.state, 40),
+    zip: str(b.zip, 12),
+    phone: str(b.phone, 30),
+    email: str(b.email, 100).toLowerCase(),
+    okToEmail: b.okToEmail === true,
+    taxExempt: b.taxExempt === true,
+    taxExemptId: str(b.taxExemptId, 40),
+    taxExemptExpires: str(b.taxExemptExpires, 10) // YYYY-MM-DD from the date picker
+  }
+  const missing: string[] = []
+  if (!f.firstName) missing.push('first name')
+  if (!f.lastName) missing.push('last name')
+  if (!f.street) missing.push('street address')
+  if (!f.city) missing.push('city')
+  if (!f.state) missing.push('state')
+  if (!f.zip) missing.push('ZIP code')
+  if (!f.phone) missing.push('phone number')
+  if (!f.email) missing.push('email')
+  if (f.taxExempt && !f.taxExemptId) missing.push('Farm Tax ID')
+  if (f.taxExempt && !f.taxExemptExpires) missing.push('Farm Tax ID expiration date')
+  if (missing.length) throw new ValidationError(`Please enter your ${missing.join(', ')}`)
+  if (f.phone.replace(/\D/g, '').length < 7) throw new ValidationError('Please check your phone number')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) throw new ValidationError('Please check your email address')
+  if (!/^[A-Za-z0-9 -]{3,12}$/.test(f.zip)) throw new ValidationError('Please check your ZIP code')
+  if (f.taxExempt) {
+    if (!isIsoDate(f.taxExemptExpires)) throw new ValidationError('Please check the expiration date')
+    if (f.taxExemptExpires < localToday())
+      throw new ValidationError(
+        'That Farm Tax ID has expired. Untick "tax exempt" to continue, and please see the cashier about your exemption.'
+      )
+  } else {
+    f.taxExemptId = ''
+    f.taxExemptExpires = ''
+  }
+  return f
+}
+
+/** Today's date (YYYY-MM-DD) in the store's local time */
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

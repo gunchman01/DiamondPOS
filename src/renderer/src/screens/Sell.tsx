@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { customerDisplayName, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
+import { customerDisplayName, taxExemptState, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
-import { money, parseMoney } from '../format'
+import { money, parseMoney, today } from '../format'
 import { receiptHtml } from '../receipt'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
+import TaxExemptBadge from '../TaxExemptBadge'
 
 interface CartLine {
   product: Product
@@ -92,6 +93,18 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     setSelectedId(null)
     setCustomer(null)
     focusScan()
+  }
+
+  /** Attach a customer to the sale and warn if their tax-exempt ID has expired */
+  function attachCustomer(c: Customer, how: string) {
+    setCustomer(c)
+    setLastSale(null)
+    const st = taxExemptState(c, today())
+    if (st.kind === 'expired')
+      setMessage({ kind: 'error', text: `${customerDisplayName(c)}: Farm Tax ID has EXPIRED. Ask for their new card.` })
+    else if (st.kind === 'expiring')
+      setMessage({ kind: 'error', text: `${customerDisplayName(c)}: Farm Tax ID expires in ${st.daysLeft} day(s).` })
+    else setMessage({ kind: 'info', text: `${how}: ${customerDisplayName(c)}` })
   }
 
   function startPayment(method: PaymentMethod) {
@@ -196,6 +209,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
                 <span className="dim">
                   {[customer.customerNo, customer.phone || customer.mobile, customer.customerType].filter(Boolean).join(' · ')}
                 </span>
+                <TaxExemptBadge customer={customer} long />
               </div>
               <button onClick={() => setPickingCustomer(true)} title="Change customer (F5)">
                 Change
@@ -413,12 +427,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         <KioskSignup
           tillName={boot.config.tillName}
           onDone={(c, matched) => {
-            setCustomer(c)
-            setLastSale(null)
-            setMessage({
-              kind: 'info',
-              text: `${matched ? 'Found existing customer' : 'New customer from kiosk'}: ${customerDisplayName(c)}`
-            })
+            attachCustomer(c, matched ? 'Found existing customer' : 'New customer from kiosk')
             setTimeout(() => {
               setKioskOpen(false)
               focusScan()
@@ -442,10 +451,8 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             focusScan()
           }}
           onPick={(c) => {
-            setCustomer(c)
+            attachCustomer(c, 'Customer')
             setPickingCustomer(false)
-            setLastSale(null)
-            setMessage({ kind: 'info', text: `Customer: ${customerDisplayName(c)}` })
             focusScan()
           }}
         />

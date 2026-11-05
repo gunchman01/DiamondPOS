@@ -190,6 +190,22 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - **Fix (logo upload):** "That file is not an image Windows can read" on every upload. The resize step loaded the image from a `blob:` URL, which the renderer CSP (`img-src 'self' data: http:`) blocks. It now reads the file with FileReader as a `data:` URL. JPEGs get a white background and the error messages are clearer. ⚠️ Don't use `URL.createObjectURL` for images in the renderer unless `blob:` is added to the CSP.
 - Ideas next: the iPad as a **customer-facing display** (items + total while scanning, "Thank you" + change after payment), using the same event stream
 
+### 5 Nov 2026: Kiosk sign-up fields + tax exempt with expiry (next release)
+- [x] **DB migration 7**: `customers.tax_exempt_id`, `tax_exempt_card_copied`, `tax_exempt_expires` (YYYY-MM-DD). Additive. (Columns were added to migration 7 before it was released.)
+- [x] **Kiosk form** (`kioskPage.ts`), **required**: first & last name, street address, city, state, ZIP, phone, email. **Optional**: business name (saved as Company, not "track as company"). "Yes, email me" opt-in.
+  - **"I'm tax exempt"** reveals the required **Farm Tax ID** + **Expiration date** (iPad date picker) and a yellow note: *hand your tax-exempt card to the cashier so they can make a copy*. The thank-you screen repeats the reminder (shown for 9 s).
+  - An already-expired date is refused ("please see the cashier"). Invalid phone (< 7 digits), email or ZIP are refused with the field highlighted.
+- [x] **Server** `readKioskForm()` in `kiosk.ts` re-checks everything. Address → street/city/region(state)/postcode(zip); phone → `phone`.
+  - Existing customer (matched by email or phone digits, ignoring spaces, dashes, brackets and dots): fills blanks only, **except** a tax ID / expiry typed at the kiosk **replaces** the stored one (it's their newest card) and resets "card copied"
+  - Kiosk response only includes `{ok, firstName, taxExempt}` (still no customer data)
+- [x] Shared **`taxExemptState(customer, today)`** in `shared/types.ts` → none / ok / expiring (≤ 30 days) / expired. Shown by **`TaxExemptBadge.tsx`** (green / amber / red):
+  - **Sale screen** customer box + header message when a customer is attached: "Farm Tax ID has EXPIRED. Ask for their new card."
+  - **Customer List** name column; **Customer window** has Farm Tax ID, ID Expires (date), Card copied fields + the badge
+- [x] **Till after a kiosk sign-up**: if tax exempt and the card isn't copied, the kiosk dialog shows the Farm Tax ID + expiry with **"Card copied ✓"** (saves `taxExemptCardCopied`) or **"Do it later"**
+- Still **not applied to pricing**: tax-exempt customers are still charged tax. Needs the tax-exempt sale work; should block or warn on an **expired** ID.
+- Note: the kiosk form uses US wording (State, ZIP) as requested; the till's customer window still says Region / Postcode
+- Verified: TypeScript checks pass; kiosk server test (required fields, phone/email/ZIP checks, tax ID + expiry required, invalid / past dates, renewal on a return visit, existing details kept, card-copied update, `taxExemptState`); kiosk page script syntax check; iPad preview with tax exempt ticked
+
 ---
 
 ## Next up (backlog, in rough priority order)
@@ -197,7 +213,8 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 **Latest release: v0.2.6** (Customers). Next release will be **v0.2.7** (customer kiosk, DB migration 6: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
-   - Ideas: apply customer Discount % / Tax-Exempt to sales, Quick Pick order/colours, hold/recall sale
+   - **Apply tax-exempt to sales** (no GST/sales tax when the customer's ID is current; warn or block if expired) and customer Discount %;
+   - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)
 3. Receipt printer (ESC/POS) and cash drawer kick

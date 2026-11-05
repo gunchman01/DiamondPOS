@@ -431,6 +431,18 @@ textarea.comments { flex: 1; min-height: 70px; background: #fffdf4; }
 .pair-code { font-size: 18px; letter-spacing: 2px; font-weight: 700; }
 .inline-input { padding: 3px 6px; font-size: 13px; max-width: 200px; }
 
+/* ---------- Tax-exempt ---------- */
+.tx-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; margin-top: 2px; }
+.tx-badge.ok { background: #e7f6ec; color: #166534; }
+.tx-badge.expiring { background: #fff4d6; color: #7a5300; }
+.tx-badge.expired { background: var(--red); color: #fff; }
+.tx-row { padding: 2px 0 4px 128px; }
+.fctl input.date { max-width: 170px; }
+.card-step { background: #fff8e6; border: 1px solid #f0c24b; border-radius: 8px; padding: 10px 14px; margin-bottom: 4px; }
+.card-step-title { font-weight: 700; margin-bottom: 6px; }
+.card-step-grid { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 15px; }
+.card-step p { margin: 8px 0 0; color: #5c4600; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

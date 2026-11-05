@@ -35,6 +35,9 @@ export const CUSTOMER_FIELDS: Field[] = [
   { key: 'altContact', col: 'alt_contact', kind: 'text' },
   { key: 'customerType', col: 'customer_type', kind: 'text' },
   { key: 'taxExempt', col: 'tax_exempt', kind: 'bool' },
+  { key: 'taxExemptId', col: 'tax_exempt_id', kind: 'text' },
+  { key: 'taxExemptCardCopied', col: 'tax_exempt_card_copied', kind: 'bool' },
+  { key: 'taxExemptExpires', col: 'tax_exempt_expires', kind: 'text' },
   { key: 'discountPct', col: 'discount_pct', kind: 'pct' },
   { key: 'acceptCheques', col: 'accept_cheques', kind: 'bool' },
   { key: 'shipSameAsBilling', col: 'ship_same_as_billing', kind: 'bool' },
@@ -67,6 +70,9 @@ export const CUSTOMER_DEFAULTS: CustomerInput = {
   altContact: null,
   customerType: null,
   taxExempt: false,
+  taxExemptId: null,
+  taxExemptCardCopied: false,
+  taxExemptExpires: null,
   discountPct: null,
   acceptCheques: false,
   shipSameAsBilling: true,
@@ -115,7 +121,16 @@ export function validateCustomer(body: unknown, base: CustomerInput): CustomerIn
   if (!c.firstName && !c.lastName && !c.company) throw new ValidationError('Enter a last name or a company name')
   if (c.trackAsCompany && !c.company) throw new ValidationError('Enter the company name, or untick "Track as Company"')
   if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)) throw new ValidationError('That email address doesn\'t look right')
+  if (c.taxExemptExpires && !isIsoDate(c.taxExemptExpires))
+    throw new ValidationError('Tax ID expiry must be a valid date')
   return c
+}
+
+/** True for a real calendar date written as YYYY-MM-DD */
+export function isIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(s + 'T00:00:00Z')
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
 }
 
 const toDb = (f: Field, v: unknown) => (f.kind === 'bool' ? (v ? 1 : 0) : (v ?? null))

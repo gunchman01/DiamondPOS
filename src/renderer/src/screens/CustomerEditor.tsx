@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money } from '../format'
+import TaxExemptBadge from '../TaxExemptBadge'
 
 const TITLES = ['', 'Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.', 'Mx.']
 const CUSTOMER_TYPES = ['Retail', 'Wholesale', 'Trade', 'Staff', 'VIP']
@@ -28,6 +29,9 @@ const EMPTY: Form = {
   altContact: '',
   customerType: 'Retail',
   taxExempt: false,
+  taxExemptId: '',
+  taxExemptExpires: '',
+  taxExemptCardCopied: false,
   discountPct: '',
   acceptCheques: false,
   shipSameAsBilling: true,
@@ -246,6 +250,30 @@ export default function CustomerEditor(props: CustomerEditorProps) {
                   <input {...check('taxExempt')} /> Tax-Exempt
                 </label>
               </Row>
+              {form.taxExempt && (
+                <>
+                  <Row label="Farm Tax ID">
+                    <input {...text('taxExemptId')} />
+                  </Row>
+                  <Row label="ID Expires">
+                    <input type="date" className="date" {...text('taxExemptExpires')} />
+                  </Row>
+                  <Row label="Card copied">
+                    <input {...check('taxExemptCardCopied')} className="lone-check" />
+                  </Row>
+                  <div className="tx-row">
+                    <TaxExemptBadge
+                      long
+                      customer={{
+                        taxExempt: true,
+                        taxExemptId: form.taxExemptId || null,
+                        taxExemptExpires: form.taxExemptExpires || null,
+                        taxExemptCardCopied: form.taxExemptCardCopied
+                      }}
+                    />
+                  </div>
+                </>
+              )}
               <Row label="Discount %">
                 <input className="num" placeholder="None" {...text('discountPct')} />
               </Row>

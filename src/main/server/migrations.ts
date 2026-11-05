@@ -186,6 +186,15 @@ export const migrations: Migration[] = [
         ('kiosk_welcome', 'Welcome! We''ll be with you in a moment.')
         ON CONFLICT(key) DO NOTHING;
     `
+  },
+  {
+    version: 7,
+    name: 'tax-exempt ID and card copied flag on customers',
+    up: `
+      ALTER TABLE customers ADD COLUMN tax_exempt_id TEXT;
+      ALTER TABLE customers ADD COLUMN tax_exempt_card_copied INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE customers ADD COLUMN tax_exempt_expires TEXT; -- YYYY-MM-DD
+    `
   }
 ]
 
