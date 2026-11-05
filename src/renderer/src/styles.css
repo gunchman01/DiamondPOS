@@ -312,6 +312,56 @@ kbd {
   background: #1c1f26; color: #fff; padding: 10px 18px; border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
 }
 
+/* ---------- Add / Edit Item window ---------- */
+.page.wide { max-width: none; }
+.table td.low { color: var(--bad); font-weight: 700; }
+.item-dialog {
+  width: min(980px, 96vw); max-height: 94vh; display: flex; flex-direction: column;
+  background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+}
+.id-title {
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 14px;
+  background: linear-gradient(var(--red), var(--red-dark)); color: #fff; font-weight: 600; font-size: 15px;
+}
+.id-name { display: flex; align-items: center; gap: 6px; padding: 10px 14px 4px; }
+.id-name input { font-size: 20px; font-weight: 600; padding: 8px 12px; }
+.req { color: var(--red); font-weight: 700; margin-left: 3px; }
+.id-body {
+  flex: 1; min-height: 0; overflow: auto; padding: 6px 14px 10px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.id-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.id-panel {
+  margin: 0; padding: 8px 12px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+}
+.id-panel legend {
+  padding: 2px 10px; border-radius: 4px; background: var(--red-dark); color: #fff; font-weight: 600; font-size: 12px;
+}
+.id-panel.grow { flex: 1; }
+.frow { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 8px; }
+.frow.tall { align-items: start; }
+.flabel { font-size: 12px; color: var(--muted); text-align: right; }
+.frow.tall .flabel { padding-top: 6px; }
+.fctl input, .fctl select, .fctl textarea { padding: 4px 8px; font-size: 13px; }
+.fctl textarea, textarea.comments {
+  width: 100%; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; resize: vertical;
+}
+textarea.comments { flex: 1; min-height: 70px; background: #fffdf4; }
+.fctl input.money, .fctl input.num { max-width: 130px; text-align: right; }
+.fctl input:disabled { background: #f1f2f4; color: #9aa0a8; }
+.with-hint { display: flex; align-items: center; gap: 10px; }
+.with-hint .hint { font-size: 12px; color: var(--ok); white-space: nowrap; }
+.inline-check { white-space: nowrap; color: var(--text); }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 2px 0 6px 20px; }
+.checks .check { color: var(--text); font-size: 13px; }
+.id-foot {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--panel); border-top: 1px solid var(--border);
+}
+.id-msg { flex: 1; text-align: center; }
+.id-msg .error-text, .id-msg .ok-text { margin: 0; }
+
 /* ---------- Generic list / grid used elsewhere ---------- */
 .list { display: flex; flex-direction: column; gap: 4px; }
 .list-item { display: flex; justify-content: space-between; text-align: left; }

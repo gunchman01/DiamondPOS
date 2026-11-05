@@ -1,17 +1,21 @@
-import { useEffect, useState } from 'react'
-import type { Product, ProductInput } from '../../../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Product } from '../../../shared/types'
 import { api } from '../api'
-import { money, parseMoney } from '../format'
+import { money } from '../format'
+import ItemEditor from './ItemEditor'
 
-const empty = { name: '', sku: '', barcode: '', price: '', active: true, quickPick: false }
+const TYPE_LABEL: Record<Product['type'], string> = {
+  inventory: 'Inventory',
+  non_inventory: 'Non-inv.',
+  service: 'Service'
+}
 
-/** Add and edit products. Changes are visible on every till immediately. */
+/** Item List: every item, with Add / Edit opening the full item window. */
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
-  const [form, setForm] = useState(empty)
   const [error, setError] = useState('')
 
   const load = () =>
@@ -24,55 +28,29 @@ export default function Products() {
     load()
   }, [search])
 
-  function open(p: Product | 'new') {
-    setError('')
-    setEditing(p)
-    setForm(
-      p === 'new'
-        ? empty
-        : {
-            name: p.name,
-            sku: p.sku ?? '',
-            barcode: p.barcode ?? '',
-            price: (p.priceCents / 100).toFixed(2),
-            active: p.active,
-            quickPick: p.quickPick
-          }
-    )
-  }
+  // Suggestions for the editor's Department / Vendor / Quick Pick Group boxes
+  const lists = useMemo(() => {
+    const uniq = (vals: (string | null)[]) => [...new Set(vals.filter((v): v is string => !!v))].sort()
+    return {
+      departments: uniq(products.map((p) => p.department)),
+      vendors: uniq(products.map((p) => p.vendor)),
+      groups: uniq(products.map((p) => p.quickPickGroup))
+    }
+  }, [products])
 
-  async function save() {
-    const priceCents = parseMoney(form.price)
-    if (isNaN(priceCents)) return setError('Enter a valid price, e.g. 4.50')
-    const input: ProductInput = {
-      name: form.name,
-      sku: form.sku || null,
-      barcode: form.barcode || null,
-      priceCents,
-      active: form.active,
-      quickPick: form.quickPick
-    }
-    try {
-      if (editing === 'new') await api.createProduct(input)
-      else if (editing) await api.updateProduct(editing.id, input)
-      setEditing(null)
-      load()
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
+  const shown = products.filter((p) => !quickOnly || p.quickPick)
 
   return (
-    <div className="page">
+    <div className="page wide">
       <div className="row between">
-        <h2>Items</h2>
-        <button className="primary" onClick={() => open('new')}>
+        <h2>Item List</h2>
+        <button className="primary" onClick={() => setEditing('new')}>
           + Add item
         </button>
       </div>
       <div className="row gap">
         <input
-          placeholder="Search name, item # or barcode…"
+          placeholder="Search name, item #, UPC, ALU or department…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ flex: 1, width: 'auto' }}
@@ -82,27 +60,33 @@ export default function Products() {
           Quick Picks only
         </label>
       </div>
-      {error && !editing && <div className="error-text">{error}</div>}
+      {error && <div className="error-text">{error}</div>}
 
       <table className="table">
         <thead>
           <tr>
+            <th>Item No.</th>
             <th>Name</th>
-            <th>SKU</th>
-            <th>Barcode</th>
+            <th>Department</th>
+            <th>Type</th>
+            <th>UPC</th>
+            <th className="r">On Hand</th>
             <th className="r">Price</th>
             <th>Quick Pick</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {products
-            .filter((p) => !quickOnly || p.quickPick)
-            .map((p) => (
-            <tr key={p.id} onClick={() => open(p)} className={p.active ? 'clickable' : 'clickable muted'}>
-              <td>{p.name}</td>
+          {shown.map((p) => (
+            <tr key={p.id} onClick={() => setEditing(p)} className={p.active ? 'clickable' : 'clickable muted'}>
               <td>{p.sku}</td>
+              <td>{p.name}</td>
+              <td>{p.department}</td>
+              <td>{TYPE_LABEL[p.type]}</td>
               <td>{p.barcode}</td>
+              <td className={p.type === 'inventory' && p.reorderPoint !== null && p.onHand <= p.reorderPoint ? 'r low' : 'r'}>
+                {p.type === 'inventory' ? p.onHand : ''}
+              </td>
               <td className="r">{money(p.priceCents)}</td>
               <td className="qp-cell">{p.quickPick ? '✓' : ''}</td>
               <td>{p.active ? 'Active' : 'Inactive'}</td>
@@ -110,48 +94,17 @@ export default function Products() {
           ))}
         </tbody>
       </table>
+      {shown.length === 0 && <p className="muted">No items found.</p>}
 
       {editing && (
-        <div className="modal-backdrop">
-          <div className="modal form">
-            <h2>{editing === 'new' ? 'Add product' : 'Edit product'}</h2>
-            <label>
-              Name
-              <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </label>
-            <label>
-              Price (incl. GST)
-              <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-            </label>
-            <label>
-              SKU
-              <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-            </label>
-            <label>
-              Barcode (click here and scan)
-              <input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-              Active (available for sale)
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={form.quickPick}
-                onChange={(e) => setForm({ ...form, quickPick: e.target.checked })}
-              />
-              Quick Pick (show as a button on the Sale screen)
-            </label>
-            {error && <div className="error-text">{error}</div>}
-            <div className="row gap end">
-              <button onClick={() => setEditing(null)}>Cancel</button>
-              <button className="primary" onClick={save}>
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
+        <ItemEditor
+          item={editing === 'new' ? null : editing}
+          departments={lists.departments}
+          vendors={lists.vendors}
+          groups={lists.groups}
+          onSaved={load}
+          onClose={() => setEditing(null)}
+        />
       )}
     </div>
   )

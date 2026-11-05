@@ -20,15 +20,51 @@ export interface BootInfo {
   lanAddresses: string[]
 }
 
+export type ItemType = 'inventory' | 'non_inventory' | 'service'
+
 export interface Product {
   id: number
-  sku: string | null
-  barcode: string | null
+  // --- Basic info ---
   name: string
+  type: ItemType
+  department: string | null
+  description: string | null
+  size: string | null
+  attribute: string | null
+  /** Regular selling price, GST inclusive */
   priceCents: number
-  active: boolean
+  /** Average unit cost */
+  costCents: number | null
+  onHand: number
+  /** false = no GST on this item */
+  taxable: boolean
+  /** UPC / barcode */
+  barcode: string | null
   /** Shown as a button in the Quick Picks panel on the Sale screen */
   quickPick: boolean
+  quickPickGroup: string | null
+  // --- More info ---
+  vendor: string | null
+  orderCostCents: number | null
+  reorderPoint: number | null
+  /** Item No. */
+  sku: string | null
+  /** Alternate lookup code (also scannable) */
+  alu: string | null
+  unitOfMeasure: string | null
+  manufacturer: string | null
+  // --- Misc & shipping ---
+  active: boolean
+  printTags: boolean
+  unorderable: boolean
+  useSerial: boolean
+  earnCommission: boolean
+  earnRewards: boolean
+  shipWeight: number | null
+  shipHeight: number | null
+  shipLength: number | null
+  shipWidth: number | null
+  comments: string | null
 }
 
 export type ProductInput = Omit<Product, 'id'>

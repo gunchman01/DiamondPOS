@@ -91,6 +91,38 @@ export const migrations: Migration[] = [
     up: `
       ALTER TABLE products ADD COLUMN quick_pick INTEGER NOT NULL DEFAULT 0;
     `
+  },
+  {
+    version: 4,
+    name: 'full item details (inventory item form)',
+    up: `
+      ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'inventory';
+      ALTER TABLE products ADD COLUMN department TEXT;
+      ALTER TABLE products ADD COLUMN description TEXT;
+      ALTER TABLE products ADD COLUMN size TEXT;
+      ALTER TABLE products ADD COLUMN attribute TEXT;
+      ALTER TABLE products ADD COLUMN cost_cents INTEGER;
+      ALTER TABLE products ADD COLUMN on_hand INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN taxable INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE products ADD COLUMN quick_pick_group TEXT;
+      ALTER TABLE products ADD COLUMN vendor TEXT;
+      ALTER TABLE products ADD COLUMN order_cost_cents INTEGER;
+      ALTER TABLE products ADD COLUMN reorder_point INTEGER;
+      ALTER TABLE products ADD COLUMN alu TEXT;
+      ALTER TABLE products ADD COLUMN unit_of_measure TEXT;
+      ALTER TABLE products ADD COLUMN manufacturer TEXT;
+      ALTER TABLE products ADD COLUMN print_tags INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE products ADD COLUMN unorderable INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN use_serial INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN earn_commission INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN earn_rewards INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN ship_weight REAL;
+      ALTER TABLE products ADD COLUMN ship_height REAL;
+      ALTER TABLE products ADD COLUMN ship_length REAL;
+      ALTER TABLE products ADD COLUMN ship_width REAL;
+      ALTER TABLE products ADD COLUMN comments TEXT;
+      CREATE INDEX idx_products_alu ON products(alu);
+    `
   }
 ]
 

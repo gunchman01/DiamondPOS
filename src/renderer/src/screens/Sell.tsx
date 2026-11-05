@@ -48,7 +48,8 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const total = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
   const rate = settings?.taxRate ?? 0.15
-  const gst = Math.round((total * rate) / (1 + rate))
+  const taxableTotal = cart.filter((l) => l.product.taxable !== false).reduce((s, l) => s + l.product.priceCents * l.qty, 0)
+  const gst = Math.round((taxableTotal * rate) / (1 + rate))
   const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
   const dialogOpen = paying !== null || editingQty || findQuery !== null

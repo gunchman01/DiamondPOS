@@ -94,7 +94,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] "Products" renamed to "Items" in the UI
 - Verified: TypeScript checks pass; visual preview at 1280×800 with mock data
 
-### 5 Nov 2026: Quick Picks (uncommitted → release as v0.2.2)
+### 5 Nov 2026: Quick Picks (released as **v0.2.2**)
 - [x] **DB migration 3**: `products.quick_pick` (0/1, default 0). Additive, so rollback is safe.
   - `PUT /api/products/:id` uses `COALESCE`, so an older till that doesn't send `quickPick` won't clear it
   - `GET /api/products?quickPick=1` returns only Quick Pick items
@@ -105,7 +105,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Verified: TypeScript checks pass; server test of migration v2→v3 (with automatic backup), quick pick filter and old-till compatibility; previews of both layouts and the Find dialog
 - Release note: **update the Store Server PC first** (it runs migration 3), then the tills
 
-### 5 Nov 2026: Home / Navigator screen (uncommitted, same release v0.2.2)
+### 5 Nov 2026: Home / Navigator screen (released as **v0.2.3**)
 - [x] New **Home** tab (`screens/Home.tsx`), now the screen the app opens on. Our own design with the same structure as a desktop POS home screen:
   - **Left**: quick-launch buttons (Make a Sale, Item List, Customer List, Sales History, Reports, End of Day)
   - **Centre "Navigator"**: sections with vertical red labels and icon tiles joined by flow arrows
@@ -124,11 +124,26 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
   - Less empty space: the right-hand column is gone and Today's totals moved to the bottom of the left column; Inventory and Operations share one row; sections stretch to fill the height and tiles are centred; each section's grid is sized to its own tiles
   - Purchasing flow is now Vendor List → Purchase Orders → Receiving History, with PO List under Purchase Orders
 
+### 5 Nov 2026: Full Add / Edit Item window (to release as **v0.2.4**)
+- [x] **DB migration 4**: added the full set of item columns: type (inventory / non_inventory / service), department, description, size, attribute, cost_cents, on_hand, taxable, quick_pick_group, vendor, order_cost_cents, reorder_point, alu, unit_of_measure, manufacturer, print_tags, unorderable, use_serial, earn_commission, earn_rewards, ship_weight/height/length/width, comments. Additive only.
+- [x] New server module **`src/main/server/products.ts`**: one `FIELDS` list maps every item field to its column. It handles reading, validation, insert and update, so a new field = migration + one line in `FIELDS` (+ types + form).
+  - `PUT` merges the request onto the existing item, so **older tills can't wipe fields they don't know about**
+  - Lookup/scan also matches **ALU**; search also matches ALU and department
+- [x] **Sales**: GST is now calculated on **taxable items only**. **On-hand qty goes down** when an *inventory*-type item is sold (non-inventory and service items aren't tracked).
+- [x] **`screens/ItemEditor.tsx`**: an Add/Edit Item window with the same structure as a desktop POS item form, in our own styling:
+  - Big Item Name box; **Basic Info** + **Comments** on the left; **More Info** + **Misc & Shipping** on the right; **Save & New / Save / Cancel**
+  - Department / Vendor / Quick Pick Group suggest existing values; a margin % hint shows next to the price
+  - Save & New keeps Type, Department and Vendor to speed up entering similar items
+  - On-Hand and Reorder Point are disabled for non-inventory / service items
+- [x] **Item List** now shows Item No., Name, Department, Type, UPC, On Hand (red when at or below the reorder point), Price, Quick Pick and Status
+- Verified: TypeScript checks pass; server test (v3→v4 upgrade with backup, old-till merge, validation, taxable GST, on-hand, ALU lookup); preview of the edit window
+- Not yet: Style / Pricing / Available / Alt. Vendor buttons (QB-style extras), departments and vendors as their own managed lists (they're free text with suggestions for now)
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-0. Test Quick Picks and the Home screen with `npm run dev`, then release v0.2.2 and update from the Updates tab (also test Revert)
+0. Test the new item window with `npm run dev`, then release **v0.2.4** (DB migration 4: update the Store Server PC first)
    - Later, build out the "coming soon" tiles: Customers, Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)

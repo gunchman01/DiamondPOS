@@ -10,13 +10,21 @@
 import express, { NextFunction, Request, Response } from 'express'
 import type { Server } from 'http'
 import { openDatabase, getSchemaVersion, DB } from './db'
+import {
+  DEFAULTS,
+  ProductRow,
+  ValidationError,
+  getProduct,
+  insertProduct,
+  toProduct,
+  updateProduct,
+  validateProduct
+} from './products'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import type {
   DailyReport,
   Health,
   PaymentInput,
-  Product,
-  ProductInput,
   Sale,
   SaleRequest,
   SaleSummary,
@@ -113,7 +121,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     res.json(readSettings(db))
   })
 
-  // ----- Products ----------------------------------------------------------
+  // ----- Products (items) -------------------------------------------------
   app.get('/api/products', (req, res) => {
     const search = String(req.query.search ?? '').trim()
     const includeInactive = req.query.includeInactive === '1'
@@ -122,48 +130,33 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (!includeInactive) where.push('active = 1')
     if (req.query.quickPick === '1') where.push('quick_pick = 1')
     if (search) {
-      where.push('(name LIKE ? OR sku LIKE ? OR barcode = ?)')
-      params.push(`%${search}%`, `%${search}%`, search)
+      where.push('(name LIKE ? OR sku LIKE ? OR barcode = ? OR alu = ? OR department LIKE ?)')
+      params.push(`%${search}%`, `%${search}%`, search, search, `%${search}%`)
     }
     const sql = `SELECT * FROM products ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY name LIMIT 500`
     res.json((db.prepare(sql).all(...params) as ProductRow[]).map(toProduct))
   })
 
+  // Scanner / item # lookup: UPC (barcode), Item No. (sku) or ALU
   app.get('/api/products/lookup/:code', (req, res) => {
+    const c = req.params.code
     const row = db
-      .prepare('SELECT * FROM products WHERE active = 1 AND (barcode = ? OR sku = ?) LIMIT 1')
-      .get(req.params.code, req.params.code) as ProductRow | undefined
-    if (!row) throw new HttpError(404, 'Product not found')
+      .prepare('SELECT * FROM products WHERE active = 1 AND (barcode = ? OR sku = ? OR alu = ?) LIMIT 1')
+      .get(c, c, c) as ProductRow | undefined
+    if (!row) throw new HttpError(404, 'Item not found')
     res.json(toProduct(row))
   })
 
   app.post('/api/products', (req, res) => {
-    const p = validateProduct(req.body)
-    const info = db
-      .prepare('INSERT INTO products (sku, barcode, name, price_cents, active, quick_pick) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(p.sku, p.barcode, p.name, p.priceCents, p.active ? 1 : 0, p.quickPick ? 1 : 0)
-    res.status(201).json(getProduct(db, Number(info.lastInsertRowid)))
+    const id = insertProduct(db, validateProduct(req.body, DEFAULTS))
+    res.status(201).json(getProduct(db, id))
   })
 
   app.put('/api/products/:id', (req, res) => {
     const id = Number(req.params.id)
-    const p = validateProduct(req.body)
-    const info = db
-      .prepare(
-        // COALESCE keeps the existing quick_pick when an older till (which doesn't send it) saves an item
-        `UPDATE products SET sku = ?, barcode = ?, name = ?, price_cents = ?, active = ?,
-           quick_pick = COALESCE(?, quick_pick), updated_at = datetime('now') WHERE id = ?`
-      )
-      .run(
-        p.sku,
-        p.barcode,
-        p.name,
-        p.priceCents,
-        p.active ? 1 : 0,
-        p.quickPick === undefined ? null : p.quickPick ? 1 : 0,
-        id
-      )
-    if (info.changes === 0) throw new HttpError(404, 'Product not found')
+    const existing = getProduct(db, id)
+    if (!existing) throw new HttpError(404, 'Item not found')
+    updateProduct(db, id, validateProduct(req.body, existing))
     res.json(getProduct(db, id))
   })
 
@@ -232,8 +225,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message })
     const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('UNIQUE constraint failed')) return res.status(409).json({ error: 'SKU or barcode already used by another product' })
+    if (msg.includes('UNIQUE constraint failed')) return res.status(409).json({ error: 'Item No. or UPC already used by another item' })
     console.error('[server]', err)
     res.status(500).json({ error: msg })
   })
@@ -244,57 +238,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 // ---------------------------------------------------------------------------
 // Helpers
 
-interface ProductRow {
-  id: number
-  sku: string | null
-  barcode: string | null
-  name: string
-  price_cents: number
-  active: number
-  quick_pick: number
-}
-
 /** SQLite's datetime('now') gives "2026-11-04 23:17:49" in UTC -> "2026-11-04T23:17:49Z" */
 function sqliteToIso(s: string): string {
   return s.replace(' ', 'T') + 'Z'
-}
-
-function toProduct(r: ProductRow): Product {
-  return {
-    id: r.id,
-    sku: r.sku,
-    barcode: r.barcode,
-    name: r.name,
-    priceCents: r.price_cents,
-    active: r.active === 1,
-    quickPick: r.quick_pick === 1
-  }
-}
-
-function getProduct(db: DB, id: number): Product | null {
-  const row = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as ProductRow | undefined
-  return row ? toProduct(row) : null
-}
-
-/** quickPick is optional so older tills (which don't send it) can still save items */
-function validateProduct(body: unknown): Omit<ProductInput, 'quickPick'> & { quickPick?: boolean } {
-  const b = (body ?? {}) as Record<string, unknown>
-  const name = String(b.name ?? '').trim()
-  const priceCents = Number(b.priceCents)
-  if (!name) throw new HttpError(400, 'Product name is required')
-  if (!Number.isInteger(priceCents) || priceCents < 0) throw new HttpError(400, 'Price must be a positive amount')
-  const opt = (v: unknown) => {
-    const s = String(v ?? '').trim()
-    return s === '' ? null : s
-  }
-  return {
-    name,
-    priceCents,
-    sku: opt(b.sku),
-    barcode: opt(b.barcode),
-    active: b.active !== false,
-    quickPick: b.quickPick === undefined ? undefined : b.quickPick === true
-  }
 }
 
 function readSettings(db: DB): StoreSettings {
@@ -310,7 +256,7 @@ function readSettings(db: DB): StoreSettings {
 /**
  * Create a sale. Prices and totals are always worked out HERE on the server
  * (never trusted from the till) so every till charges the same price.
- * Prices are tax-inclusive (e.g. NZ GST); tax is the GST portion of the total.
+ * Prices are tax-inclusive (e.g. NZ GST); tax is the GST portion of the taxable items.
  */
 function createSale(db: DB, req: SaleRequest): Sale {
   if (!req || !Array.isArray(req.items) || req.items.length === 0) throw new HttpError(400, 'Sale has no items')
@@ -321,14 +267,25 @@ function createSale(db: DB, req: SaleRequest): Sale {
   const lines = req.items.map((it) => {
     const qty = Number(it.qty)
     if (!Number.isInteger(qty) || qty <= 0) throw new HttpError(400, 'Quantity must be a whole number above 0')
-    const p = getActive.get(it.productId) as ProductRow | undefined
-    if (!p) throw new HttpError(400, `Product ${it.productId} not found or inactive`)
-    return { productId: p.id, name: p.name, unitPriceCents: p.price_cents, qty, lineTotalCents: p.price_cents * qty }
+    const row = getActive.get(it.productId) as ProductRow | undefined
+    if (!row) throw new HttpError(400, `Item ${it.productId} not found or inactive`)
+    const p = toProduct(row)
+    return {
+      productId: p.id,
+      name: p.name,
+      unitPriceCents: p.priceCents,
+      qty,
+      lineTotalCents: p.priceCents * qty,
+      taxable: p.taxable,
+      tracksStock: p.type === 'inventory'
+    }
   })
 
   const totalCents = lines.reduce((s, l) => s + l.lineTotalCents, 0)
   const { taxRate } = readSettings(db)
-  const taxCents = Math.round((totalCents * taxRate) / (1 + taxRate))
+  // GST is only on taxable items (prices are GST inclusive)
+  const taxableCents = lines.filter((l) => l.taxable).reduce((s, l) => s + l.lineTotalCents, 0)
+  const taxCents = Math.round((taxableCents * taxRate) / (1 + taxRate))
 
   const payments: PaymentInput[] = req.payments.map((p) => {
     const amountCents = Number(p.amountCents)
@@ -350,7 +307,11 @@ function createSale(db: DB, req: SaleRequest): Sale {
     const addItem = db.prepare(
       'INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents) VALUES (?, ?, ?, ?, ?, ?)'
     )
-    for (const l of lines) addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents)
+    const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
+    for (const l of lines) {
+      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents)
+      if (l.tracksStock) takeStock.run(l.qty, l.productId) // on-hand quantity for inventory items
+    }
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
     return saleId
