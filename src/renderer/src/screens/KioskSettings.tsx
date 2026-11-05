@@ -3,25 +3,39 @@ import type { BootInfo, KioskInfo, StoreSettings } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
 import { api, serverBaseUrl } from '../api'
 
+/** Read a file as a data: URL (allowed by the app's security policy, unlike blob: URLs). */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(new Error(`Could not read "${file.name}"`))
+    r.readAsDataURL(file)
+  })
+}
+
 /** Shrink an uploaded logo so it loads instantly on the iPad (keeps PNG transparency). */
 async function resizeLogo(file: File): Promise<string> {
-  const url = URL.createObjectURL(file)
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image()
-      i.onload = () => resolve(i)
-      i.onerror = () => reject(new Error('That file is not an image Windows can read'))
-      i.src = url
-    })
-    const scale = Math.min(1, 1000 / img.width, 600 / img.height)
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(img.width * scale)
-    canvas.height = Math.round(img.height * scale)
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-    return file.type === 'image/jpeg' ? canvas.toDataURL('image/jpeg', 0.9) : canvas.toDataURL('image/png')
-  } finally {
-    URL.revokeObjectURL(url)
+  if (file.size > 20 * 1024 * 1024) throw new Error('That image is over 20 MB. Please use a smaller file.')
+  const source = await readAsDataUrl(file)
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve(i)
+    i.onerror = () =>
+      reject(new Error(`"${file.name}" couldn't be opened as an image. Try saving it again as a PNG or JPG.`))
+    i.src = source
+  })
+  const scale = Math.min(1, 1000 / img.naturalWidth, 600 / img.naturalHeight)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
+  const ctx = canvas.getContext('2d')!
+  const jpeg = file.type === 'image/jpeg' || /\.jpe?g$/i.test(file.name)
+  if (jpeg) {
+    ctx.fillStyle = '#ffffff' // JPEGs have no transparency; avoid a black background
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return jpeg ? canvas.toDataURL('image/jpeg', 0.9) : canvas.toDataURL('image/png')
 }
 
 /** Settings → Customer Kiosk: logo, welcome message, pairing and linked tills. */

@@ -187,6 +187,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
   - **Sale screen**: **F9 Kiosk** (function bar + "Kiosk sign-up" in the customer box) and **Send to kiosk** in the F5 customer search → `screens/KioskSignup.tsx` waits (spinner, Cancel, Send again); on submit the customer is attached to the sale ("New customer from kiosk" / "Found existing customer")
   - Renderer CSP now allows `img-src http:` so the logo preview loads from the store server
 - Verified: TypeScript checks pass; end-to-end server test of the whole flow (pairing, single-use codes, bad tokens, offline kiosk, SSE events, validation, submit, existing-customer match, customer cancel, cashier cancel, replacing a request, logo, rename, unpair); previews of the iPad form, idle screen and the Settings card
+- **Fix (logo upload):** "That file is not an image Windows can read" on every upload. The resize step loaded the image from a `blob:` URL, which the renderer CSP (`img-src 'self' data: http:`) blocks. It now reads the file with FileReader as a `data:` URL. JPEGs get a white background and the error messages are clearer. ⚠️ Don't use `URL.createObjectURL` for images in the renderer unless `blob:` is added to the CSP.
 - Ideas next: the iPad as a **customer-facing display** (items + total while scanning, "Thank you" + change after payment), using the same event stream
 
 ---
