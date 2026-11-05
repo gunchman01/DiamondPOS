@@ -16,6 +16,7 @@ import type {
   KioskSession
 } from '../../shared/types'
 import type { ImportItem } from '../../shared/itemImport'
+import type { QbConfig, QbDailySummary, QbExport, QbLogEntry, QbStatus } from '../../shared/quickbooks'
 
 let baseUrl = ''
 let apiKey = ''
@@ -90,6 +91,19 @@ export const api = {
   startKioskSession: (tillName: string) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName }),
   getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
+
+  // QuickBooks Desktop sync
+  qbStatus: () => request<QbStatus>('GET', '/api/qb/status'),
+  qbSaveConfig: (c: Partial<QbConfig>) => request<QbStatus>('PUT', '/api/qb/config', c),
+  qbRefreshLists: () => request<QbStatus>('POST', '/api/qb/refresh-lists'),
+  qbNewPassword: () => request<QbStatus>('POST', '/api/qb/new-password'),
+  qbConnectorFile: (via: 'direct' | 'bridge') =>
+    request<{ fileName: string; xml: string }>('GET', `/api/qb/qwc?via=${via}`),
+  qbPreview: (date: string) =>
+    request<{ summaries: QbDailySummary[]; qbTaxRate: number | null }>('GET', `/api/qb/preview?date=${date}`),
+  qbExports: () => request<QbExport[]>('GET', '/api/qb/exports'),
+  qbRetry: (id: number) => request<QbExport[]>('POST', `/api/qb/exports/${id}/retry`),
+  qbLog: () => request<QbLogEntry[]>('GET', '/api/qb/log'),
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),

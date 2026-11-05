@@ -56,6 +56,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 | `src/main/server/index.ts` | API routes: products, sales, reports, settings |
 | `src/main/server/migrations.ts` | DB schema changes. **Add only**; never edit released migrations. |
 | `src/renderer/src/screens/*` | UI: Setup, Home (Navigator), Sell, Products (Item List), Reports, Settings, Updates |
+| `src/main/server/quickbooks/*`, `src/main/qbBridge.ts` | QuickBooks Desktop Web Connector service, daily summary, qbXML, localhost bridge |
 | `src/main/server/kiosk.ts`, `kioskPage.ts` | iPad customer kiosk: pairing, live events, sign-up; the kiosk web page |
 | `src/main/server/products.ts`, `customers.ts` | Item / customer fields, validation, import, search, stats |
 | `src/renderer/src/icons.tsx` | Our own SVG icon set used by the Home screen |
@@ -206,7 +207,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Note: the kiosk form uses US wording (State, ZIP) as requested; the till's customer window still says Region / Postcode
 - Verified: TypeScript checks pass; kiosk server test (required fields, phone/email/ZIP checks, tax ID + expiry required, invalid / past dates, renewal on a return visit, existing details kept, card-copied update, `taxExemptState`); kiosk page script syntax check; iPad preview with tax exempt ticked
 
-### 5 Nov 2026: Tax-exempt sales (next release, **v0.3.0** suggested)
+### 5 Nov 2026: Tax-exempt sales (released as **v0.3.0**)
 - [x] **DB migration 8**: `sales.tax_exempt`, `sales.tax_exempt_id` (the Farm Tax ID used, kept for audits), `sales.tax_exempt_cents` (tax removed)
 - [x] **`src/shared/pricing.ts` → `priceSale(items, taxRate, exempt)`**, used by **both** the till (display) and the server (charging), so the totals always match. Shelf prices are tax-inclusive; for an exempt sale each taxable item's unit price becomes `round(price / (1 + rate))`; non-taxable items are unchanged; `taxCents = 0`; `taxExemptCents` = the tax removed.
 - [x] **Server `createSale`**: `SaleRequest.taxExempt: true` is only accepted when the customer is tax exempt, **has a Farm Tax ID** and the ID is **not expired** (no expiry date on file = allowed). Otherwise 400 with a clear message. Saved lines store the ex-tax unit price.
@@ -218,11 +219,25 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Verified: TypeScript checks pass; `priceSale` unit tests; server tests (exempt sale totals/lines, overpayment refused, exemption not requested = taxed, blocked for expired / no ID / not-exempt / no customer, no-expiry allowed, stock still taken, report totals); all earlier suites still pass; previews of current and expired customers
 - ⚠️ Pricing model is still **tax-inclusive (NZ GST style)**. If the store prices **before** tax (US sales tax added at checkout), we need a "prices include tax" store setting. `priceSale` is the single place to change.
 
+### 5 Nov 2026: QuickBooks Desktop daily summary (next release, **v0.3.1**)
+Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickBooks does **not** track inventory; items and prices live only in DiamondPOS; **daily summary**. Staff guide: **`docs/QUICKBOOKS_SETUP.md`**.
+- [x] **Intuit QuickBooks Web Connector** (SOAP) served by the store server at **`POST /qbwc`** (`src/main/server/quickbooks/qbwc.ts`); the support page is `/qbwc/support`. Login = user `diamondpos` + generated password (QuickBooks screen). The `.qwc` file comes from `GET /api/qb/qwc?via=direct|bridge`.
+  - ⚠️ The Web Connector only allows **http to localhost**. QuickBooks on the server PC → `http://localhost:4580/qbwc`. QuickBooks on another PC → DiamondPOS on that PC (till mode) with **`qbBridge`** on relays `http://127.0.0.1:4581/qbwc` → store server (`src/main/qbBridge.ts`, `QB_BRIDGE_PORT`; only `/qbwc` is relayed)
+- [x] **DB migration 9**: `sale_items.department` + `sale_items.taxable` **snapshot** (backfilled from products) so past summaries never change; `qb_exports` (one row per day + method: ref number, total, status pending/sent/error, TxnID, error, attempts); `qb_log`
+- [x] Settings live in the `settings` table: `qb_config` (JSON), `qb_lists` (lists read from QuickBooks), `qb_ids` (OwnerID/FileID)
+- [x] **Each sync session** (job queue with "plan" steps): CompanyQuery → (daily or on request) Account / ItemSalesTax / SalesTaxCode / PaymentMethod / ItemOtherCharge queries → CustomerQuery → plan: if the mapping is complete, CustomerAdd if missing, ItemOtherChargeAdd for missing `POS <Department>` items, then per closed day + method (**SalesReceiptQuery by RefNumber** to avoid duplicates → **SalesReceiptAdd**). At most 40 receipts per session. Errors wait for **Retry**.
+- [x] **Daily summary** (`quickbooks/summary.ts`): per day + method (the sale's largest payment); per department a taxable line (gross − allocated tax, largest-remainder) and a non-taxable line (non-taxable items + everything on tax-exempt sales); QuickBooks adds tax = tax item rate × taxable lines; **`POS Tax Rounding`** line = our tax − QuickBooks' tax, so the **receipt total = money taken**. RefNumber `POS{YYMMDD}{C|D}` (≤ 11 chars).
+- [x] qbXML **13.0** builders in exact SDK element order (`quickbooks/qbxml.ts`); small XML parser (`quickbooks/xml.ts`, no dependency)
+- [x] **QuickBooks screen** (`screens/QuickBooks.tsx`, Home → Sync w/ QuickBooks): status + what's missing, enable switch, connector files, password (show/copy/change), bridge tick box (till mode), mapping (start date, customer, tax item with the QuickBooks rate, tax codes, default + per-department income accounts, deposit account + payment method for cash/card), **Preview a day**, sent history with **Retry**, sync log
+- Verified: TypeScript checks pass; **simulated Web Connector + simulated QuickBooks company** end-to-end (`server-test/qb.ts`: wrong password / disabled, lists, mapping, customer + item creation, element order, references, totals = money taken, tax + rounding = tax collected, tax-exempt and gift card on Non lines, today not sent, no duplicates incl. a lost reply, error + Retry, start date); bridge relay test; all earlier suites pass
+- ⚠️ Not yet tested against a **real** QuickBooks file. First live run: use **Preview**, set the start date to today, watch the log. Likely tweaks: account/type filters in drop-downs, QuickBooks' own validation messages.
+- Later: refunds/voids (negative lines) once refunds exist; a "Send now" button would need the Web Connector to be triggered manually (Update Selected)
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.2.9** (kiosk tax-exempt fields). Next release: **v0.3.0** (tax-exempt sales, DB migration 8: update the Store Server PC first).
+**Latest release: v0.3.0** (tax-exempt sales). Next release: **v0.3.1** (QuickBooks Desktop sync, DB migration 9: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %

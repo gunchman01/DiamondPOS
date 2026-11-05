@@ -14,7 +14,8 @@ const defaults = (): AppConfig => ({
   serverUrl: '',
   apiKey: '',
   tillName: os.hostname(),
-  updateChannel: 'stable'
+  updateChannel: 'stable',
+  qbBridge: false
 })
 
 export function loadConfig(): AppConfig {

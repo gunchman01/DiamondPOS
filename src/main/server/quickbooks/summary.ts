@@ -1,0 +1,165 @@
+/**
+ * Daily summary for QuickBooks: one Sales Receipt per day per payment method.
+ *
+ * Each receipt has, per department, a TAXABLE line (net of tax) and a
+ * NON-TAXABLE line (non-taxable items + all items on tax-exempt sales).
+ * QuickBooks then adds sales tax = its tax item rate × taxable lines. Because
+ * our tax was worked out per sale, it can differ by a few cents; that
+ * difference goes on a "POS Tax Rounding" line so the receipt total in
+ * QuickBooks always equals the money actually taken.
+ */
+import type { DB } from '../db'
+import {
+  QB_ROUNDING_ITEM,
+  qbItemName,
+  qbRefNumber,
+  type QbConfig,
+  type QbDailySummary,
+  type QbMethod,
+  type QbSummaryLine
+} from '../../../shared/quickbooks'
+
+interface SaleRow {
+  id: number
+  total_cents: number
+  tax_cents: number
+  tax_exempt: number
+}
+
+/** Dates (YYYY-MM-DD, store local time) that have completed sales, from `from` up to but not including `before` */
+export function salesDates(db: DB, from: string, before: string): string[] {
+  return (
+    db
+      .prepare(
+        `SELECT DISTINCT date(created_at, 'localtime') AS d FROM sales
+         WHERE status = 'completed' AND date(created_at, 'localtime') >= ? AND date(created_at, 'localtime') < ?
+         ORDER BY d`
+      )
+      .all(from, before) as { d: string }[]
+  ).map((r) => r.d)
+}
+
+/** Split `total` across weights so the parts add up exactly (largest remainder) */
+function allocate(total: number, weights: number[]): number[] {
+  const sum = weights.reduce((s, w) => s + w, 0)
+  if (sum <= 0 || total === 0) return weights.map(() => 0)
+  const raw = weights.map((w) => (total * w) / sum)
+  const parts = raw.map((r) => Math.floor(r))
+  let left = total - parts.reduce((s, p) => s + p, 0)
+  const order = raw.map((r, i) => ({ i, frac: r - Math.floor(r) })).sort((a, b) => b.frac - a.frac)
+  for (let k = 0; left > 0; k = (k + 1) % order.length, left--) parts[order[k].i]++
+  return parts
+}
+
+/**
+ * Build the Sales Receipts for one day.
+ * @param qbTaxRate  rate of the QuickBooks sales tax item as a fraction (e.g. 0.0725); null = use the store rate
+ */
+export function dailySummaries(
+  db: DB,
+  saleDate: string,
+  cfg: QbConfig,
+  storeTaxRate: number,
+  qbTaxRate: number | null
+): QbDailySummary[] {
+  const sales = db
+    .prepare(
+      `SELECT id, total_cents, tax_cents, tax_exempt FROM sales
+       WHERE status = 'completed' AND date(created_at, 'localtime') = ? ORDER BY id`
+    )
+    .all(saleDate) as SaleRow[]
+  if (sales.length === 0) return []
+  const ids = sales.map((s) => s.id)
+  const marks = ids.map(() => '?').join(',')
+
+  // The payment type of a sale = its largest payment (the till takes one payment per sale)
+  const pays = db
+    .prepare(`SELECT sale_id, method, amount_cents FROM payments WHERE sale_id IN (${marks})`)
+    .all(...ids) as { sale_id: number; method: QbMethod; amount_cents: number }[]
+  const methodOf = new Map<number, QbMethod>()
+  const biggest = new Map<number, number>()
+  for (const p of pays) {
+    if ((biggest.get(p.sale_id) ?? -1) < p.amount_cents) {
+      biggest.set(p.sale_id, p.amount_cents)
+      methodOf.set(p.sale_id, p.method)
+    }
+  }
+
+  const items = db
+    .prepare(
+      `SELECT si.sale_id, si.line_total_cents AS amount,
+              COALESCE(si.department, p.department, '') AS dept,
+              COALESCE(si.taxable, p.taxable, 1) AS taxable
+       FROM sale_items si LEFT JOIN products p ON p.id = si.product_id
+       WHERE si.sale_id IN (${marks})`
+    )
+    .all(...ids) as { sale_id: number; amount: number; dept: string; taxable: number }[]
+  const itemsBySale = new Map<number, typeof items>()
+  for (const it of items) {
+    if (!itemsBySale.has(it.sale_id)) itemsBySale.set(it.sale_id, [])
+    itemsBySale.get(it.sale_id)!.push(it)
+  }
+
+  const result: QbDailySummary[] = []
+  for (const method of ['cash', 'card'] as QbMethod[]) {
+    const group = sales.filter((s) => (methodOf.get(s.id) ?? 'cash') === method)
+    if (group.length === 0) continue
+
+    const taxableGross = new Map<string, number>()
+    const nonTaxable = new Map<string, number>()
+    let tax = 0
+    let total = 0
+    let exemptCount = 0
+    for (const s of group) {
+      total += s.total_cents
+      tax += s.tax_cents
+      if (s.tax_exempt) exemptCount++
+      for (const it of itemsBySale.get(s.id) ?? []) {
+        const dept = it.dept ?? ''
+        if (it.taxable && !s.tax_exempt) taxableGross.set(dept, (taxableGross.get(dept) ?? 0) + it.amount)
+        else nonTaxable.set(dept, (nonTaxable.get(dept) ?? 0) + it.amount)
+      }
+    }
+
+    // Take the tax out of the taxable gross, department by department
+    const depts = [...taxableGross.keys()]
+    const taxShare = allocate(tax, depts.map((d) => taxableGross.get(d)!))
+    const taxableNet = new Map(depts.map((d, i) => [d, taxableGross.get(d)! - taxShare[i]]))
+    const taxableNetTotal = [...taxableNet.values()].reduce((a, b) => a + b, 0)
+    const qbTax = Math.round(taxableNetTotal * (qbTaxRate ?? storeTaxRate))
+
+    const account = (d: string) => cfg.departmentAccounts[d] || cfg.defaultIncomeAccount
+    const lines: QbSummaryLine[] = []
+    const allDepts = [...new Set([...taxableNet.keys(), ...nonTaxable.keys()])].sort((a, b) => a.localeCompare(b))
+    for (const d of allDepts) {
+      const t = taxableNet.get(d) ?? 0
+      const n = nonTaxable.get(d) ?? 0
+      if (t) lines.push({ department: d, itemName: qbItemName(d), account: account(d), taxable: true, amountCents: t })
+      if (n) lines.push({ department: d, itemName: qbItemName(d), account: account(d), taxable: false, amountCents: n })
+    }
+    const rounding = tax - qbTax
+    if (rounding !== 0)
+      lines.push({
+        department: '',
+        itemName: QB_ROUNDING_ITEM,
+        account: cfg.defaultIncomeAccount,
+        taxable: false,
+        amountCents: rounding
+      })
+
+    result.push({
+      saleDate,
+      method,
+      refNumber: qbRefNumber(saleDate, method),
+      saleCount: group.length,
+      firstSaleId: group[0].id,
+      lastSaleId: group[group.length - 1].id,
+      taxExemptCount: exemptCount,
+      totalCents: total,
+      taxCents: tax,
+      roundingCents: rounding,
+      lines
+    })
+  }
+  return result
+}

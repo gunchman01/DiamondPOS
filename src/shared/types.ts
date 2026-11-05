@@ -11,6 +11,8 @@ export interface AppConfig {
   apiKey: string
   tillName: string
   updateChannel: UpdateChannel
+  /** QuickBooks is on this PC: relay the Web Connector from localhost to the store server */
+  qbBridge: boolean
 }
 
 export interface BootInfo {

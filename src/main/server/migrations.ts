@@ -204,6 +204,43 @@ export const migrations: Migration[] = [
       ALTER TABLE sales ADD COLUMN tax_exempt_id TEXT;              -- Farm Tax ID used (kept for audits)
       ALTER TABLE sales ADD COLUMN tax_exempt_cents INTEGER NOT NULL DEFAULT 0; -- tax removed
     `
+  },
+  {
+    version: 9,
+    name: 'QuickBooks daily summary export',
+    up: `
+      -- Snapshot of each sold item's department and taxability, so past daily
+      -- summaries don't change if an item is edited later
+      ALTER TABLE sale_items ADD COLUMN department TEXT;
+      ALTER TABLE sale_items ADD COLUMN taxable INTEGER;
+      UPDATE sale_items SET
+        department = (SELECT department FROM products p WHERE p.id = sale_items.product_id),
+        taxable    = COALESCE((SELECT taxable FROM products p WHERE p.id = sale_items.product_id), 1);
+
+      -- One row per day + payment method sent (or to be sent) to QuickBooks
+      CREATE TABLE qb_exports (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        sale_date   TEXT NOT NULL,             -- YYYY-MM-DD (store local time)
+        method      TEXT NOT NULL,             -- cash | card
+        ref_number  TEXT NOT NULL UNIQUE,      -- e.g. POS261105C (Sales Receipt No. in QuickBooks)
+        total_cents INTEGER NOT NULL,
+        sale_count  INTEGER NOT NULL,
+        status      TEXT NOT NULL DEFAULT 'pending', -- pending | sent | error
+        txn_id      TEXT,
+        error       TEXT,
+        attempts    INTEGER NOT NULL DEFAULT 0,
+        sent_at     TEXT,
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (sale_date, method)
+      );
+
+      CREATE TABLE qb_log (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        at      TEXT NOT NULL DEFAULT (datetime('now')),
+        level   TEXT NOT NULL,                 -- info | warn | error
+        message TEXT NOT NULL
+      );
+    `
   }
 ]
 

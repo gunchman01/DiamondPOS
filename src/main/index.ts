@@ -11,6 +11,7 @@ import path from 'path'
 import { lanAddresses, loadConfig, newPairingCode, saveConfig } from './config'
 import { isServerRunning, startServer, stopServer } from './server'
 import { registerUpdater } from './updater'
+import { startQbBridge, stopQbBridge } from './qbBridge'
 import { SERVER_PORT } from '../shared/constants'
 import type { AppConfig, BootInfo } from '../shared/types'
 
@@ -33,6 +34,7 @@ if (!app.requestSingleInstanceLock()) {
 async function boot(): Promise<void> {
   config = loadConfig()
   if (config.mode === 'server') await startStoreServer()
+  await applyQbBridge()
 
   registerIpc()
   registerUpdater(() => mainWindow)
@@ -86,6 +88,21 @@ async function startStoreServer(): Promise<void> {
   }
 }
 
+/** Start or stop the QuickBooks bridge (tills on the QuickBooks PC only) */
+async function applyQbBridge(): Promise<void> {
+  if (config.mode === 'till' && config.qbBridge && config.serverUrl) {
+    try {
+      await stopQbBridge() // restart so a changed server address is picked up
+      await startQbBridge(config.serverUrl)
+    } catch (err) {
+      dialog.showErrorBox(
+        'QuickBooks bridge could not start',
+        `${(err as Error).message}\n\nIs another program using port 4581 on this computer?`
+      )
+    }
+  } else await stopQbBridge()
+}
+
 function bootInfo(): BootInfo {
   return { config, appVersion: app.getVersion(), isPackaged: app.isPackaged, lanAddresses: lanAddresses() }
 }
@@ -106,6 +123,7 @@ function registerIpc(): void {
 
     if (config.mode === 'server' && !isServerRunning()) await startStoreServer()
     if (wasServer && config.mode !== 'server') await stopServer()
+    await applyQbBridge()
     return bootInfo()
   })
 
@@ -127,6 +145,7 @@ function registerIpc(): void {
 }
 
 app.on('window-all-closed', async () => {
+  await stopQbBridge()
   await stopServer()
   app.quit()
 })

@@ -31,6 +31,7 @@ import {
   validateCustomer
 } from './customers'
 import { registerKioskRoutes } from './kiosk'
+import { registerQuickBooksRoutes } from './quickbooks/qbwc'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
@@ -88,6 +89,8 @@ export async function stopServer(): Promise<void> {
 
 export function createApp(db: DB, opts: ServerOptions): express.Express {
   const app = express()
+  // The QuickBooks Web Connector sends SOAP (XML), not JSON
+  app.use('/qbwc', express.text({ type: () => true, limit: '20mb' }))
   app.use(express.json({ limit: '20mb' })) // large enough for bulk item imports
 
   // Allow the UI (loaded from a local file) to call this server
@@ -213,6 +216,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Customer kiosk (iPad): /kiosk page + /api/kiosks… --------------------
   registerKioskRoutes(app, db, readSettings)
+
+  // ----- QuickBooks Desktop (Web Connector) --------------------------------
+  registerQuickBooksRoutes(app, db, readSettings)
 
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
@@ -386,6 +392,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
       qty,
       lineTotalCents: p.priceCents * qty,
       taxable: p.taxable,
+      department: p.department,
       tracksStock: p.type === 'inventory'
     }
   })
@@ -429,11 +436,12 @@ function createSale(db: DB, req: SaleRequest): Sale {
       )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
-      'INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents) VALUES (?, ?, ?, ?, ?, ?)'
+      `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
     for (const l of lines) {
-      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents)
+      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0)
       if (l.tracksStock) takeStock.run(l.qty, l.productId) // on-hand quantity for inventory items
     }
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')

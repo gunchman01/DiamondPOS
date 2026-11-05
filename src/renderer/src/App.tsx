@@ -7,18 +7,20 @@ import Home from './screens/Home'
 import Sell from './screens/Sell'
 import Products from './screens/Products'
 import Customers from './screens/Customers'
+import QuickBooks from './screens/QuickBooks'
 import Reports from './screens/Reports'
 import Settings from './screens/Settings'
 import Updates from './screens/Updates'
 import { Icons } from './icons'
 
-type Tab = 'home' | 'sell' | 'products' | 'customers' | 'reports' | 'settings' | 'updates'
+type Tab = 'home' | 'sell' | 'products' | 'customers' | 'reports' | 'settings' | 'updates' | 'quickbooks'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
   sell: 'Make a Sale',
   products: 'Item List',
   customers: 'Customer List',
+  quickbooks: 'QuickBooks',
   reports: 'Reports',
   settings: 'Settings',
   updates: 'Updates'
@@ -103,6 +105,7 @@ export default function App() {
         {tab === 'sell' && <Sell boot={boot} />}
         {tab === 'products' && <Products />}
         {tab === 'customers' && <Customers />}
+        {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
