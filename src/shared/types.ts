@@ -27,6 +27,8 @@ export interface Product {
   name: string
   priceCents: number
   active: boolean
+  /** Shown as a button in the Quick Picks panel on the Sale screen */
+  quickPick: boolean
 }
 
 export type ProductInput = Omit<Product, 'id'>

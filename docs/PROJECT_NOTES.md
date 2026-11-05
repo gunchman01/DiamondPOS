@@ -81,7 +81,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] Release **v0.2.0** as the first DiamondPOS version. Installed and working.
 - [ ] Test update and rollback: release v0.2.1, update to it, then revert to v0.2.0
 
-### 5 Nov 2026: register-style main screen (uncommitted → release as v0.2.1)
+### 5 Nov 2026: register-style main screen (released as **v0.2.1**)
 - [x] **Red theme** across the app (tokens in `styles.css`: `--red`, `--red-dark`, `--red-darker`, `--red-tint`)
 - [x] Red header bar with tabs (Sale, Items, Reports, Settings, Updates), connection status, till name and clock
 - [x] **Sale screen rebuilt** as a classic register layout (`screens/Sell.tsx`), inspired by desktop POS register screens (our own design, no third-party branding):
@@ -93,12 +93,23 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] "Products" renamed to "Items" in the UI
 - Verified: TypeScript checks pass; visual preview at 1280×800 with mock data
 
+### 5 Nov 2026: Quick Picks (uncommitted → release as v0.2.2)
+- [x] **DB migration 3**: `products.quick_pick` (0/1, default 0). Additive, so rollback is safe.
+  - `PUT /api/products/:id` uses `COALESCE`, so an older till that doesn't send `quickPick` won't clear it
+  - `GET /api/products?quickPick=1` returns only Quick Pick items
+- [x] **Items page**: "Quick Pick" checkbox in the edit dialog, a ✓ column, and a "Quick Picks only" filter
+- [x] **Sale screen**: the All Items list was removed (the full list lives on the Items page) and replaced by a **Quick Picks** panel of big buttons
+  - **No Quick Picks set** → the Quick Picks panel is hidden, the receipt goes **full width**, and the **totals move to the bottom right** (with Cash/Card side by side). A tip explains how to add Quick Picks.
+- [x] **F2 Find Item dialog**: searches ALL items (↑/↓ to choose, Enter or click to add). Typing a partial name in the scan box opens it pre-filled.
+- Verified: TypeScript checks pass; server test of migration v2→v3 (with automatic backup), quick pick filter and old-till compatibility; previews of both layouts and the Find dialog
+- Release note: **update the Store Server PC first** (it runs migration 3), then the tills
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-0. Try the new Sale screen with `npm run dev`, adjust layout to taste, then release v0.2.1 (this also tests update/rollback)
-   - Ideas: item categories with category filter buttons, customer field on the sale, discounts, hold/recall sale
+0. Test Quick Picks with `npm run dev`, then release v0.2.2 and update from the Updates tab (also test Revert)
+   - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)
 3. Receipt printer (ESC/POS) and cash drawer kick

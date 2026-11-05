@@ -84,6 +84,13 @@ export const migrations: Migration[] = [
         ('DRK-001', '9400000000059', 'Bottled Water 600ml', 300),
         ('DRK-002', '9400000000066', 'Orange Juice 350ml', 420);
     `
+  },
+  {
+    version: 3,
+    name: 'quick pick flag on products',
+    up: `
+      ALTER TABLE products ADD COLUMN quick_pick INTEGER NOT NULL DEFAULT 0;
+    `
   }
 ]
 

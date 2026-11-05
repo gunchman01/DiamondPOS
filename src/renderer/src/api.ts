@@ -49,6 +49,7 @@ export const api = {
       'GET',
       `/api/products?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
     ),
+  listQuickPicks: () => request<Product[]>('GET', '/api/products?quickPick=1'),
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
   createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),

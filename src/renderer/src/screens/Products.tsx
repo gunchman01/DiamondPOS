@@ -3,12 +3,13 @@ import type { Product, ProductInput } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney } from '../format'
 
-const empty = { name: '', sku: '', barcode: '', price: '', active: true }
+const empty = { name: '', sku: '', barcode: '', price: '', active: true, quickPick: false }
 
 /** Add and edit products. Changes are visible on every till immediately. */
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
+  const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   const [form, setForm] = useState(empty)
   const [error, setError] = useState('')
@@ -29,7 +30,14 @@ export default function Products() {
     setForm(
       p === 'new'
         ? empty
-        : { name: p.name, sku: p.sku ?? '', barcode: p.barcode ?? '', price: (p.priceCents / 100).toFixed(2), active: p.active }
+        : {
+            name: p.name,
+            sku: p.sku ?? '',
+            barcode: p.barcode ?? '',
+            price: (p.priceCents / 100).toFixed(2),
+            active: p.active,
+            quickPick: p.quickPick
+          }
     )
   }
 
@@ -41,7 +49,8 @@ export default function Products() {
       sku: form.sku || null,
       barcode: form.barcode || null,
       priceCents,
-      active: form.active
+      active: form.active,
+      quickPick: form.quickPick
     }
     try {
       if (editing === 'new') await api.createProduct(input)
@@ -61,7 +70,18 @@ export default function Products() {
           + Add item
         </button>
       </div>
-      <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="row gap">
+        <input
+          placeholder="Search name, item # or barcode…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, width: 'auto' }}
+        />
+        <label className="check">
+          <input type="checkbox" checked={quickOnly} onChange={(e) => setQuickOnly(e.target.checked)} />
+          Quick Picks only
+        </label>
+      </div>
       {error && !editing && <div className="error-text">{error}</div>}
 
       <table className="table">
@@ -71,16 +91,20 @@ export default function Products() {
             <th>SKU</th>
             <th>Barcode</th>
             <th className="r">Price</th>
+            <th>Quick Pick</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {products.map((p) => (
+          {products
+            .filter((p) => !quickOnly || p.quickPick)
+            .map((p) => (
             <tr key={p.id} onClick={() => open(p)} className={p.active ? 'clickable' : 'clickable muted'}>
               <td>{p.name}</td>
               <td>{p.sku}</td>
               <td>{p.barcode}</td>
               <td className="r">{money(p.priceCents)}</td>
+              <td className="qp-cell">{p.quickPick ? '✓' : ''}</td>
               <td>{p.active ? 'Active' : 'Inactive'}</td>
             </tr>
           ))}
@@ -110,6 +134,14 @@ export default function Products() {
             <label className="check">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               Active (available for sale)
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.quickPick}
+                onChange={(e) => setForm({ ...form, quickPick: e.target.checked })}
+              />
+              Quick Pick (show as a button on the Sale screen)
             </label>
             {error && <div className="error-text">{error}</div>}
             <div className="row gap end">

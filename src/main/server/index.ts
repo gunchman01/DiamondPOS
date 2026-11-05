@@ -120,6 +120,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const where: string[] = []
     const params: string[] = []
     if (!includeInactive) where.push('active = 1')
+    if (req.query.quickPick === '1') where.push('quick_pick = 1')
     if (search) {
       where.push('(name LIKE ? OR sku LIKE ? OR barcode = ?)')
       params.push(`%${search}%`, `%${search}%`, search)
@@ -139,8 +140,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   app.post('/api/products', (req, res) => {
     const p = validateProduct(req.body)
     const info = db
-      .prepare('INSERT INTO products (sku, barcode, name, price_cents, active) VALUES (?, ?, ?, ?, ?)')
-      .run(p.sku, p.barcode, p.name, p.priceCents, p.active ? 1 : 0)
+      .prepare('INSERT INTO products (sku, barcode, name, price_cents, active, quick_pick) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(p.sku, p.barcode, p.name, p.priceCents, p.active ? 1 : 0, p.quickPick ? 1 : 0)
     res.status(201).json(getProduct(db, Number(info.lastInsertRowid)))
   })
 
@@ -149,9 +150,19 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const p = validateProduct(req.body)
     const info = db
       .prepare(
-        `UPDATE products SET sku = ?, barcode = ?, name = ?, price_cents = ?, active = ?, updated_at = datetime('now') WHERE id = ?`
+        // COALESCE keeps the existing quick_pick when an older till (which doesn't send it) saves an item
+        `UPDATE products SET sku = ?, barcode = ?, name = ?, price_cents = ?, active = ?,
+           quick_pick = COALESCE(?, quick_pick), updated_at = datetime('now') WHERE id = ?`
       )
-      .run(p.sku, p.barcode, p.name, p.priceCents, p.active ? 1 : 0, id)
+      .run(
+        p.sku,
+        p.barcode,
+        p.name,
+        p.priceCents,
+        p.active ? 1 : 0,
+        p.quickPick === undefined ? null : p.quickPick ? 1 : 0,
+        id
+      )
     if (info.changes === 0) throw new HttpError(404, 'Product not found')
     res.json(getProduct(db, id))
   })
@@ -240,6 +251,7 @@ interface ProductRow {
   name: string
   price_cents: number
   active: number
+  quick_pick: number
 }
 
 /** SQLite's datetime('now') gives "2026-11-04 23:17:49" in UTC -> "2026-11-04T23:17:49Z" */
@@ -248,7 +260,15 @@ function sqliteToIso(s: string): string {
 }
 
 function toProduct(r: ProductRow): Product {
-  return { id: r.id, sku: r.sku, barcode: r.barcode, name: r.name, priceCents: r.price_cents, active: r.active === 1 }
+  return {
+    id: r.id,
+    sku: r.sku,
+    barcode: r.barcode,
+    name: r.name,
+    priceCents: r.price_cents,
+    active: r.active === 1,
+    quickPick: r.quick_pick === 1
+  }
 }
 
 function getProduct(db: DB, id: number): Product | null {
@@ -256,7 +276,8 @@ function getProduct(db: DB, id: number): Product | null {
   return row ? toProduct(row) : null
 }
 
-function validateProduct(body: unknown): ProductInput {
+/** quickPick is optional so older tills (which don't send it) can still save items */
+function validateProduct(body: unknown): Omit<ProductInput, 'quickPick'> & { quickPick?: boolean } {
   const b = (body ?? {}) as Record<string, unknown>
   const name = String(b.name ?? '').trim()
   const priceCents = Number(b.priceCents)
@@ -266,7 +287,14 @@ function validateProduct(body: unknown): ProductInput {
     const s = String(v ?? '').trim()
     return s === '' ? null : s
   }
-  return { name, priceCents, sku: opt(b.sku), barcode: opt(b.barcode), active: b.active !== false }
+  return {
+    name,
+    priceCents,
+    sku: opt(b.sku),
+    barcode: opt(b.barcode),
+    active: b.active !== false,
+    quickPick: b.quickPick === undefined ? undefined : b.quickPick === true
+  }
 }
 
 function readSettings(db: DB): StoreSettings {

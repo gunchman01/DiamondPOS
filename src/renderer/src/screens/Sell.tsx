@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BootInfo, PaymentMethod, Product, Sale, StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney } from '../format'
@@ -12,35 +12,37 @@ interface CartLine {
 type Message = { kind: 'error' | 'info'; text: string } | null
 
 /**
- * Register-style sale screen:
- *   - Receipt grid (left): the items on the current sale
- *   - All Items (middle): every product, searchable; click to add
- *   - Totals + tender (right)
- *   - Function-key bar (bottom), also driven by the keyboard
+ * Register-style sale screen.
+ *   - Receipt grid: the items on the current sale
+ *   - Entry bar (under the receipt): line buttons + scan/item # box
+ *   - Quick Picks: buttons for items ticked as "Quick Pick" on the Items page.
+ *     If there are none, the panel is hidden, the receipt uses the full width
+ *     and the totals move to the bottom right.
+ *   - Totals + tender
+ *   - Function-key bar, also driven by the keyboard
  */
 export default function Sell({ boot }: { boot: BootInfo }) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
+  const [quickPicks, setQuickPicks] = useState<Product[]>([])
   const [settings, setSettings] = useState<StoreSettings | null>(null)
-  const [itemSearch, setItemSearch] = useState('')
   const [code, setCode] = useState('')
+  const [findQuery, setFindQuery] = useState<string | null>(null) // null = Find dialog closed
   const [paying, setPaying] = useState<PaymentMethod | null>(null)
   const [editingQty, setEditingQty] = useState(false)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const [message, setMessage] = useState<Message>(null)
   const scanRef = useRef<HTMLInputElement>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
 
-  const loadItems = () => {
-    Promise.all([api.listProducts(), api.getSettings()])
-      .then(([p, s]) => {
-        setProducts(p)
+  const load = () => {
+    Promise.all([api.listQuickPicks(), api.getSettings()])
+      .then(([q, s]) => {
+        setQuickPicks(q)
         setSettings(s)
       })
       .catch((e) => setMessage({ kind: 'error', text: e.message }))
   }
-  useEffect(loadItems, [])
+  useEffect(load, [])
 
   // ----- derived values -----
   const total = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
@@ -48,17 +50,8 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const rate = settings?.taxRate ?? 0.15
   const gst = Math.round((total * rate) / (1 + rate))
   const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
-
-  const filtered = useMemo(() => {
-    const q = itemSearch.trim().toLowerCase()
-    if (!q) return products
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.sku ?? '').toLowerCase().includes(q) ||
-        (p.barcode ?? '').includes(q)
-    )
-  }, [products, itemSearch])
+  const hasQuickPicks = quickPicks.length > 0
+  const dialogOpen = paying !== null || editingQty || findQuery !== null
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -95,11 +88,11 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }
 
   function startPayment(method: PaymentMethod) {
-    if (!cart.length) return
-    setPaying(method)
+    if (cart.length) setPaying(method)
   }
 
-  // Barcode scanners "type" the code and press Enter
+  // Barcode scanners "type" the code and press Enter.
+  // Exact barcode / item # adds straight away; anything else opens Find Item.
   async function onScan(e: React.FormEvent) {
     e.preventDefault()
     const value = code.trim()
@@ -107,17 +100,15 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     try {
       addToCart(await api.lookupProduct(value))
     } catch {
-      const q = value.toLowerCase()
-      const matches = products.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase() === q)
-      if (matches.length === 1) addToCart(matches[0])
-      else {
-        setItemSearch(value)
-        setCode('')
-        setMessage(
-          matches.length
-            ? { kind: 'info', text: `${matches.length} items match "${value}". Pick one from All Items.` }
-            : { kind: 'error', text: `No item matches "${value}"` }
-        )
+      try {
+        const matches = await api.listProducts(value)
+        if (matches.length === 1) addToCart(matches[0])
+        else {
+          setCode('')
+          setFindQuery(value)
+        }
+      } catch (err) {
+        setMessage({ kind: 'error', text: (err as Error).message })
       }
     }
   }
@@ -148,19 +139,15 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   // ----- keyboard shortcuts (F-keys) -----
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {})
   keyHandler.current = (e: KeyboardEvent) => {
-    if (paying || editingQty) return
+    if (dialogOpen) return
     const inInput = (e.target as HTMLElement)?.tagName === 'INPUT'
     const actions: Record<string, () => void> = {
-      F2: () => searchRef.current?.focus(),
+      F2: () => setFindQuery(''),
       F3: () => selectedLine && setEditingQty(true),
       F4: removeSelected,
       F6: clearSale,
       F7: () => startPayment('cash'),
-      F8: () => startPayment('card'),
-      Escape: () => {
-        setItemSearch('')
-        focusScan()
-      }
+      F8: () => startPayment('card')
     }
     if (e.key === 'Delete' && !inInput) actions.Delete = removeSelected
     const action = actions[e.key]
@@ -176,7 +163,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }, [])
 
   return (
-    <div className="register">
+    <div className={hasQuickPicks ? 'register' : 'register no-quick'}>
       {/* ---------- Header strip ---------- */}
       <div className="reg-head">
         <h2>{cart.length ? 'Sale in progress' : 'New Sale'}</h2>
@@ -205,7 +192,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             <thead>
               <tr>
                 <th style={{ width: 36 }}>#</th>
-                <th style={{ width: 110 }}>Item #</th>
+                <th style={{ width: 120 }}>Item #</th>
                 <th>Description</th>
                 <th className="num" style={{ width: 60 }}>
                   Qty
@@ -240,11 +227,21 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             </tbody>
           </table>
           {cart.length === 0 && (
-            <div className="grid-empty">Scan a barcode, type an item # below, or click an item in All Items.</div>
+            <div className="grid-empty">
+              Scan a barcode or type an item # below{hasQuickPicks ? ', or tap a Quick Pick' : ''}. Press F2 to search
+              for any item.
+            </div>
           )}
         </div>
+      </section>
+
+      {/* ---------- Entry bar: line buttons + scan box ---------- */}
+      <section className="panel entry">
         <div className="line-actions">
-          <button disabled={!selectedLine} onClick={() => selectedLine && setQty(selectedLine.product.id, selectedLine.qty - 1)}>
+          <button
+            disabled={!selectedLine}
+            onClick={() => selectedLine && setQty(selectedLine.product.id, selectedLine.qty - 1)}
+          >
             − 1
           </button>
           <button disabled={!selectedLine} onClick={() => selectedLine && addToCart(selectedLine.product)}>
@@ -257,6 +254,13 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             Remove line
           </button>
         </div>
+        {!hasQuickPicks && (
+          <div className="entry-hint">
+            <span>
+              Tip: tick <b>Quick Pick</b> on items in the <b>Items</b> tab to show them as buttons on this screen.
+            </span>
+          </div>
+        )}
         <form className="scanbar" onSubmit={onScan}>
           <label htmlFor="scan">Item # / Barcode</label>
           <input
@@ -274,52 +278,25 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         </form>
       </section>
 
-      {/* ---------- All items ---------- */}
-      <section className="panel items">
-        <div className="panel-title">
-          <span>All Items</span>
-          <span className="count">
-            {filtered.length} of {products.length}
-          </span>
-        </div>
-        <div className="search-row">
-          <input
-            ref={searchRef}
-            placeholder="Search name, item # or barcode  (F2)"
-            value={itemSearch}
-            onChange={(e) => setItemSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && filtered.length > 0) addToCart(filtered[0])
-            }}
-          />
-          <button onClick={loadItems} title="Reload items from the server">
-            ↻
-          </button>
-        </div>
-        <div className="grid-wrap">
-          <table className="grid">
-            <thead>
-              <tr>
-                <th style={{ width: 100 }}>Item #</th>
-                <th>Description</th>
-                <th className="num" style={{ width: 90 }}>
-                  Price
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} onClick={() => addToCart(p)} title="Click to add to sale">
-                  <td className="dim">{p.sku ?? ''}</td>
-                  <td>{p.name}</td>
-                  <td className="num">{money(p.priceCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && <div className="grid-empty">No items found</div>}
-        </div>
-      </section>
+      {/* ---------- Quick Picks (only when some items are ticked) ---------- */}
+      {hasQuickPicks && (
+        <section className="panel quick">
+          <div className="panel-title">
+            <span>Quick Picks</span>
+            <button className="title-btn" onClick={load} title="Reload Quick Picks">
+              ↻
+            </button>
+          </div>
+          <div className="quick-grid">
+            {quickPicks.map((p) => (
+              <button key={p.id} className="quick-tile" onClick={() => addToCart(p)}>
+                <span className="qt-name">{p.name}</span>
+                <span className="qt-price">{money(p.priceCents)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---------- Totals + tender ---------- */}
       <section className="panel totals">
@@ -360,7 +337,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               <kbd>F7</kbd>
             </button>
             <button className="primary" disabled={!cart.length} onClick={() => startPayment('card')}>
-              <span>Card (terminal)</span>
+              <span>Card</span>
               <kbd>F8</kbd>
             </button>
           </div>
@@ -369,7 +346,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
 
       {/* ---------- Function keys ---------- */}
       <div className="fkeys">
-        <button className="fkey" onClick={() => searchRef.current?.focus()}>
+        <button className="fkey" onClick={() => setFindQuery('')}>
           <kbd>F2</kbd> Find item
         </button>
         <button className="fkey" disabled={!selectedLine} onClick={() => setEditingQty(true)}>
@@ -385,6 +362,20 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           Reprint last receipt
         </button>
       </div>
+
+      {findQuery !== null && (
+        <FindItemDialog
+          initialQuery={findQuery}
+          onCancel={() => {
+            setFindQuery(null)
+            focusScan()
+          }}
+          onPick={(p) => {
+            setFindQuery(null)
+            addToCart(p)
+          }}
+        />
+      )}
 
       {editingQty && selectedLine && (
         <QtyDialog
@@ -412,6 +403,89 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           onConfirm={completeSale}
         />
       )}
+    </div>
+  )
+}
+
+/** F2: search every active item (not just Quick Picks) and add one to the sale. */
+function FindItemDialog(props: { initialQuery: string; onCancel: () => void; onPick: (p: Product) => void }) {
+  const [query, setQuery] = useState(props.initialQuery)
+  const [results, setResults] = useState<Product[]>([])
+  const [active, setActive] = useState(0)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      api
+        .listProducts(query.trim())
+        .then((r) => {
+          setResults(r)
+          setActive(0)
+          setError('')
+        })
+        .catch((e) => setError(e.message))
+    }, 150)
+    return () => clearTimeout(t)
+  }, [query])
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') props.onCancel()
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActive((a) => Math.min(a + 1, results.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive((a) => Math.max(a - 1, 0))
+    } else if (e.key === 'Enter' && results[active]) {
+      e.preventDefault()
+      props.onPick(results[active])
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal find" onKeyDown={onKeyDown}>
+        <h2>Find item</h2>
+        <input
+          autoFocus
+          placeholder="Type name, item # or barcode…  (↑ ↓ to choose, Enter to add)"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {error && <div className="error-text">{error}</div>}
+        <div className="grid-wrap find-results">
+          <table className="grid">
+            <thead>
+              <tr>
+                <th style={{ width: 120 }}>Item #</th>
+                <th>Description</th>
+                <th className="num" style={{ width: 90 }}>
+                  Price
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((p, i) => (
+                <tr
+                  key={p.id}
+                  className={i === active ? 'selected' : ''}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => props.onPick(p)}
+                >
+                  <td className="dim">{p.sku ?? ''}</td>
+                  <td>{p.name}</td>
+                  <td className="num">{money(p.priceCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {results.length === 0 && <div className="grid-empty">No items found</div>}
+        </div>
+        <div className="row between">
+          <span className="muted small">{results.length} item(s)</span>
+          <button onClick={props.onCancel}>Close</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -494,7 +568,12 @@ function PaymentDialog(props: {
           <>
             <label>
               Amount received
-              <input autoFocus value={tendered} onChange={(e) => setTendered(e.target.value)} onFocus={(e) => e.target.select()} />
+              <input
+                autoFocus
+                value={tendered}
+                onChange={(e) => setTendered(e.target.value)}
+                onFocus={(e) => e.target.select()}
+              />
             </label>
             <div className="row gap">
               {[totalCents, 1000, 2000, 5000, 10000]

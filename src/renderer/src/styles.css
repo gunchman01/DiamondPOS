@@ -102,13 +102,58 @@ kbd {
 .choice.selected { border: 2px solid var(--red); background: var(--red-tint); }
 
 /* ---------- Register (Sale screen) ---------- */
+/* With Quick Picks: receipt | quick picks | totals */
 .register {
   display: grid; height: 100%;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) 300px;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas: 'head head head' 'receipt items totals' 'fkeys fkeys fkeys';
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'head    head  head'
+    'receipt quick totals'
+    'entry   quick totals'
+    'fkeys   fkeys fkeys';
   gap: 8px; padding: 8px;
 }
+/* No Quick Picks: receipt full width, totals bottom-right */
+.register.no-quick {
+  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-areas:
+    'head    head'
+    'receipt receipt'
+    'entry   totals'
+    'fkeys   fkeys';
+}
+.register.no-quick .entry { justify-content: space-between; }
+.register.no-quick .totals-body { gap: 4px; padding: 10px 14px; }
+.register.no-quick .tbox { flex-direction: row; justify-content: space-between; align-items: center; margin-top: 4px; }
+.register.no-quick .tbox span { align-self: center; }
+.register.no-quick .tbox strong { font-size: 32px; }
+.register.no-quick .tender { grid-template-columns: 1fr 1fr; margin-top: 6px; }
+.register.no-quick .tender button { padding: 12px 14px; }
+.entry { grid-area: entry; }
+.entry-hint {
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 8px 16px; color: var(--muted); font-size: 13px;
+}
+.quick { grid-area: quick; }
+.title-btn {
+  padding: 0 8px; line-height: 20px; background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / 0.4);
+}
+.title-btn:hover:not(:disabled) { background: rgb(255 255 255 / 0.15); border-color: #fff; }
+.quick-grid {
+  flex: 1; overflow: auto; padding: 8px; display: grid; gap: 8px; align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+.quick-tile {
+  height: 78px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
+  text-align: left; padding: 8px 10px; border-left: 4px solid var(--red); background: linear-gradient(#fff, #f1f2f4);
+}
+.quick-tile:active:not(:disabled) { background: var(--red-tint-strong); }
+.qt-name { font-weight: 600; font-size: 13px; line-height: 1.25; overflow: hidden; }
+.qt-price { color: var(--red-dark); font-weight: 700; }
+.modal.find { width: 640px; max-height: 80vh; }
+.find-results { border: 1px solid var(--border); border-radius: 4px; max-height: 50vh; }
+.qp-cell { color: var(--red); font-weight: 700; text-align: center; }
 .reg-head {
   grid-area: head; display: flex; align-items: center; gap: 24px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px;
@@ -130,7 +175,6 @@ kbd {
 }
 .panel-title .count { font-weight: 400; color: #fde4e8; }
 .receipt { grid-area: receipt; }
-.items { grid-area: items; }
 .totals { grid-area: totals; }
 
 .grid-wrap { flex: 1; overflow: auto; min-height: 0; }
@@ -151,7 +195,7 @@ kbd {
 
 .scanbar {
   display: flex; gap: 8px; align-items: center; padding: 8px 10px;
-  border-top: 1px solid var(--border); background: var(--panel-alt);
+  border-top: 1px solid var(--border-soft); background: var(--panel-alt);
 }
 .scanbar label { flex-direction: row; align-items: center; white-space: nowrap; font-weight: 600; color: var(--text); }
 .scanbar input { font-size: 16px; }
