@@ -30,7 +30,12 @@ export function receiptHtml(sale: Sale, settings: StoreSettings): string {
     <hr><table>${rows}</table><hr>
     <table>
       <tr class="big"><td>TOTAL</td><td class="r">${money(sale.totalCents)}</td></tr>
-      <tr><td>Includes GST</td><td class="r">${money(sale.taxCents)}</td></tr>
+      ${
+        sale.taxExempt
+          ? `<tr><td>TAX EXEMPT</td><td class="r">-${money(sale.taxExemptCents)}</td></tr>
+             <tr><td colspan="2">Farm Tax ID: ${escapeHtml(sale.taxExemptId ?? '')}</td></tr>`
+          : `<tr><td>Includes GST</td><td class="r">${money(sale.taxCents)}</td></tr>`
+      }
       ${pays}
       ${sale.changeCents ? `<tr><td>Change</td><td class="r">${money(sale.changeCents)}</td></tr>` : ''}
     </table>

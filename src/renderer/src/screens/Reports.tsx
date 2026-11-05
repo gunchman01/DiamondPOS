@@ -45,6 +45,7 @@ export default function Reports() {
           <Stat label="GST included" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />
+          <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
         </div>
       )}
       <p className="muted small">

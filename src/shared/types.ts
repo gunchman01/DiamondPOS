@@ -97,6 +97,8 @@ export interface SaleRequest {
   tillName: string
   /** Optional customer / business the sale is for */
   customerId?: number | null
+  /** Apply the customer's tax exemption (their Farm Tax ID must be on file and not expired) */
+  taxExempt?: boolean
   items: { productId: number; qty: number }[]
   payments: PaymentInput[]
 }
@@ -118,6 +120,10 @@ export interface Sale {
   changeCents: number
   customerId: number | null
   customerName: string | null
+  taxExempt: boolean
+  taxExemptId: string | null
+  /** Tax removed because the sale was tax exempt */
+  taxExemptCents: number
   items: SaleItem[]
   payments: PaymentInput[]
 }
@@ -227,6 +233,9 @@ export interface DailyReport {
   taxCents: number
   cashCents: number
   cardCents: number
+  /** Tax-exempt sales today and the tax removed on them */
+  taxExemptCount: number
+  taxExemptCents: number
 }
 
 export interface StoreSettings {

@@ -6,6 +6,8 @@ import { receiptHtml } from '../receipt'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
 import TaxExemptBadge from '../TaxExemptBadge'
+import CustomerEditor from './CustomerEditor'
+import { priceSale } from '../../../shared/pricing'
 
 interface CartLine {
   product: Product
@@ -38,6 +40,9 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickingCustomer, setPickingCustomer] = useState(false)
   const [kioskOpen, setKioskOpen] = useState(false)
+  /** Apply the customer's tax exemption to this sale */
+  const [exempt, setExempt] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -51,14 +56,24 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   useEffect(load, [])
 
   // ----- derived values -----
-  const total = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
   const rate = settings?.taxRate ?? 0.15
-  const taxableTotal = cart.filter((l) => l.product.taxable !== false).reduce((s, l) => s + l.product.priceCents * l.qty, 0)
-  const gst = Math.round((taxableTotal * rate) / (1 + rate))
+  // Tax-exempt status of the attached customer
+  const exemptState = customer ? taxExemptState(customer, today()) : ({ kind: 'none' } as const)
+  const canExempt = !!customer?.taxExempt && !!customer.taxExemptId && exemptState.kind !== 'expired'
+  const applyExempt = exempt && canExempt
+  // Same pricing function the server uses, so the total shown is exactly what's charged
+  const priced = priceSale(
+    cart.map((l) => ({ unitPriceCents: l.product.priceCents, qty: l.qty, taxable: l.product.taxable !== false })),
+    rate,
+    applyExempt
+  )
+  const total = priced.totalCents
+  const shelfTotal = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
+  const gst = priced.taxCents
   const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
-  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen
+  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen || editingCustomer
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -92,6 +107,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     setCart([])
     setSelectedId(null)
     setCustomer(null)
+    setExempt(false)
     focusScan()
   }
 
@@ -100,8 +116,15 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     setCustomer(c)
     setLastSale(null)
     const st = taxExemptState(c, today())
+    // Tax exemption is switched on automatically when the customer's Farm Tax ID is on file and current
+    setExempt(c.taxExempt && !!c.taxExemptId && st.kind !== 'expired')
     if (st.kind === 'expired')
-      setMessage({ kind: 'error', text: `${customerDisplayName(c)}: Farm Tax ID has EXPIRED. Ask for their new card.` })
+      setMessage({
+        kind: 'error',
+        text: `${customerDisplayName(c)}: Farm Tax ID has EXPIRED, so tax will be charged. Ask for their new card.`
+      })
+    else if (c.taxExempt && !c.taxExemptId)
+      setMessage({ kind: 'error', text: `${customerDisplayName(c)} is tax exempt but has no Farm Tax ID on file. Tax will be charged.` })
     else if (st.kind === 'expiring')
       setMessage({ kind: 'error', text: `${customerDisplayName(c)}: Farm Tax ID expires in ${st.daysLeft} day(s).` })
     else setMessage({ kind: 'info', text: `${how}: ${customerDisplayName(c)}` })
@@ -137,6 +160,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     const sale = await api.createSale({
       tillName: boot.config.tillName,
       customerId: customer?.id ?? null,
+      taxExempt: applyExempt,
       items: cart.map((l) => ({ productId: l.product.id, qty: l.qty })),
       payments: [{ method, amountCents, reference: reference || undefined }]
     })
@@ -144,6 +168,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
     setCart([])
     setSelectedId(null)
     setCustomer(null)
+    setExempt(false)
     setLastSale(sale)
     setMessage({ kind: 'info', text: `Sale #${sale.id} saved` })
     focusScan()
@@ -214,7 +239,19 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               <button onClick={() => setPickingCustomer(true)} title="Change customer (F5)">
                 Change
               </button>
-              <button className="danger" onClick={() => setCustomer(null)} title="Remove customer from this sale">
+              {customer.taxExempt && !canExempt && (
+                <button className="primary" onClick={() => setEditingCustomer(true)} title="Enter the details from their new card">
+                  Update Tax ID
+                </button>
+              )}
+              <button
+                className="danger"
+                onClick={() => {
+                  setCustomer(null)
+                  setExempt(false)
+                }}
+                title="Remove customer from this sale"
+              >
                 ✕
               </button>
             </>
@@ -273,8 +310,11 @@ export default function Sell({ boot }: { boot: BootInfo }) {
                   <td className="dim">{l.product.sku ?? ''}</td>
                   <td>{l.product.name}</td>
                   <td className="num">{l.qty}</td>
-                  <td className="num">{money(l.product.priceCents)}</td>
-                  <td className="num">{money(l.product.priceCents * l.qty)}</td>
+                  <td className="num">
+                    {money(priced.lines[i].unitPriceCents)}
+                    {priced.lines[i].unitPriceCents !== l.product.priceCents && <span className="ex-tag">ex tax</span>}
+                  </td>
+                  <td className="num">{money(priced.lines[i].lineTotalCents)}</td>
                 </tr>
               ))}
             </tbody>
@@ -363,12 +403,36 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           </div>
           <div className="tline">
             <span>Subtotal</span>
-            <span>{money(total)}</span>
+            <span>{money(shelfTotal)}</span>
           </div>
-          <div className="tline muted">
-            <span>GST included ({Math.round(rate * 1000) / 10}%)</span>
-            <span>{money(gst)}</span>
-          </div>
+          {applyExempt ? (
+            <div className="tline exempt-line">
+              <span>Tax exempt ({customer?.taxExemptId})</span>
+              <span>−{money(priced.taxExemptCents)}</span>
+            </div>
+          ) : (
+            <div className="tline muted">
+              <span>GST included ({Math.round(rate * 1000) / 10}%)</span>
+              <span>{money(gst)}</span>
+            </div>
+          )}
+          {customer?.taxExempt && (
+            <label className={canExempt ? 'exempt-toggle' : 'exempt-toggle blocked'}>
+              <input
+                type="checkbox"
+                checked={applyExempt}
+                disabled={!canExempt}
+                onChange={(e) => setExempt(e.target.checked)}
+              />
+              <span>
+                {canExempt
+                  ? 'Tax exempt sale'
+                  : exemptState.kind === 'expired'
+                    ? 'Tax exempt: Farm Tax ID EXPIRED, charging tax'
+                    : 'Tax exempt: no Farm Tax ID on file, charging tax'}
+              </span>
+            </label>
+          )}
           <div className="tbox">
             <span>Total</span>
             <strong>{money(total)}</strong>
@@ -380,6 +444,11 @@ export default function Sell({ boot }: { boot: BootInfo }) {
                 <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
               </div>
               {lastSale.customerName && <div className="small">Customer: {lastSale.customerName}</div>}
+              {lastSale.taxExempt && (
+                <div className="small">
+                  Tax exempt ({lastSale.taxExemptId}): saved {money(lastSale.taxExemptCents)}
+                </div>
+              )}
               {lastSale.changeCents > 0 && <div className="change">Change due: {money(lastSale.changeCents)}</div>}
               <button onClick={() => printReceipt(lastSale)}>Print receipt</button>
             </div>
@@ -422,6 +491,18 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           Reprint last receipt
         </button>
       </div>
+
+      {editingCustomer && customer && (
+        <CustomerEditor
+          customerId={customer.id}
+          single
+          onSaved={(c) => attachCustomer(c, 'Customer updated')}
+          onClose={() => {
+            setEditingCustomer(false)
+            focusScan()
+          }}
+        />
+      )}
 
       {kioskOpen && (
         <KioskSignup

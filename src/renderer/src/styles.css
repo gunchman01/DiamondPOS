@@ -443,6 +443,16 @@ textarea.comments { flex: 1; min-height: 70px; background: #fffdf4; }
 .card-step-grid { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 15px; }
 .card-step p { margin: 8px 0 0; color: #5c4600; }
 
+/* ---------- Tax-exempt sale ---------- */
+.exempt-line { color: var(--ok); font-weight: 700; }
+.exempt-toggle {
+  flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 13px; font-weight: 600;
+  background: #e7f6ec; border: 1px solid #b6e3c4; border-radius: 6px; padding: 6px 8px;
+}
+.exempt-toggle input { width: auto; }
+.exempt-toggle.blocked { background: var(--red-tint); border-color: var(--red-tint-strong); color: var(--red-darker); }
+.ex-tag { display: block; font-size: 9px; color: var(--ok); font-weight: 700; text-transform: uppercase; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

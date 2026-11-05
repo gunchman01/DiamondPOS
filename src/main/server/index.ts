@@ -32,7 +32,8 @@ import {
 } from './customers'
 import { registerKioskRoutes } from './kiosk'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
-import { customerDisplayName } from '../../shared/types'
+import { customerDisplayName, taxExemptState } from '../../shared/types'
+import { priceSale } from '../../shared/pricing'
 import type {
   DailyReport,
   Health,
@@ -253,10 +254,11 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const totals = db
       .prepare(
         `SELECT COUNT(*) AS n, COALESCE(SUM(total_cents),0) AS total, COALESCE(SUM(tax_cents),0) AS tax,
-                COALESCE(SUM(change_cents),0) AS change
+                COALESCE(SUM(change_cents),0) AS change,
+                COALESCE(SUM(tax_exempt),0) AS exemptN, COALESCE(SUM(tax_exempt_cents),0) AS exemptCents
          FROM sales WHERE status = 'completed' AND date(created_at, 'localtime') = ?`
       )
-      .get(date) as { n: number; total: number; tax: number; change: number }
+      .get(date) as { n: number; total: number; tax: number; change: number; exemptN: number; exemptCents: number }
     const byMethod = db
       .prepare(
         `SELECT p.method, COALESCE(SUM(p.amount_cents),0) AS amount
@@ -272,7 +274,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       totalCents: totals.total,
       taxCents: totals.tax,
       cashCents: amt('cash') - totals.change, // net cash kept in the drawer
-      cardCents: amt('card')
+      cardCents: amt('card'),
+      taxExemptCount: totals.exemptN,
+      taxExemptCents: totals.exemptCents
     }
     res.json(report)
   })
@@ -295,6 +299,12 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
 // ---------------------------------------------------------------------------
 // Helpers
+
+/** Today's date (YYYY-MM-DD) in the store's local time */
+function localDate(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 interface SaleListRow {
   id: number
@@ -346,9 +356,20 @@ function createSale(db: DB, req: SaleRequest): Sale {
   if (!Array.isArray(req.payments) || req.payments.length === 0) throw new HttpError(400, 'Sale has no payment')
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)
   let customerId: number | null = null
+  let customer: ReturnType<typeof getCustomer> = null
   if (req.customerId !== undefined && req.customerId !== null) {
     customerId = Number(req.customerId)
-    if (!getCustomer(db, customerId)) throw new HttpError(400, 'The selected customer no longer exists')
+    customer = getCustomer(db, customerId)
+    if (!customer) throw new HttpError(400, 'The selected customer no longer exists')
+  }
+
+  // Tax exemption: only for a tax-exempt customer whose Farm Tax ID is on file and current
+  const taxExempt = req.taxExempt === true
+  if (taxExempt) {
+    if (!customer || !customer.taxExempt) throw new HttpError(400, 'Only a tax-exempt customer can have a tax-exempt sale')
+    if (!customer.taxExemptId) throw new HttpError(400, "The customer's Farm Tax ID is missing. Add it to the customer first.")
+    if (taxExemptState(customer, localDate()).kind === 'expired')
+      throw new HttpError(400, "The customer's Farm Tax ID has expired. Update it with their new card, or charge tax.")
   }
 
   const getActive = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1')
@@ -369,11 +390,14 @@ function createSale(db: DB, req: SaleRequest): Sale {
     }
   })
 
-  const totalCents = lines.reduce((s, l) => s + l.lineTotalCents, 0)
+  // Prices are tax inclusive; tax applies to taxable items only, and is removed for exempt sales
   const { taxRate } = readSettings(db)
-  // GST is only on taxable items (prices are GST inclusive)
-  const taxableCents = lines.filter((l) => l.taxable).reduce((s, l) => s + l.lineTotalCents, 0)
-  const taxCents = Math.round((taxableCents * taxRate) / (1 + taxRate))
+  const priced = priceSale(lines, taxRate, taxExempt)
+  lines.forEach((l, i) => {
+    l.unitPriceCents = priced.lines[i].unitPriceCents
+    l.lineTotalCents = priced.lines[i].lineTotalCents
+  })
+  const { totalCents, taxCents, taxExemptCents } = priced
 
   const payments: PaymentInput[] = req.payments.map((p) => {
     const amountCents = Number(p.amountCents)
@@ -389,8 +413,20 @@ function createSale(db: DB, req: SaleRequest): Sale {
 
   const id = db.transaction(() => {
     const info = db
-      .prepare('INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id) VALUES (?, ?, ?, ?, ?)')
-      .run(tillName, totalCents, taxCents, changeCents, customerId)
+      .prepare(
+        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        tillName,
+        totalCents,
+        taxCents,
+        changeCents,
+        customerId,
+        taxExempt ? 1 : 0,
+        taxExempt ? customer!.taxExemptId : null,
+        taxExemptCents
+      )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
       'INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents) VALUES (?, ?, ?, ?, ?, ?)'
@@ -415,7 +451,17 @@ function getSale(db: DB, id: number): Sale | null {
        FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ?`
     )
     .get(id) as
-    | ({ id: number; created_at: string; till_name: string; total_cents: number; tax_cents: number; change_cents: number } & Pick<
+    | ({
+        id: number
+        created_at: string
+        till_name: string
+        total_cents: number
+        tax_cents: number
+        change_cents: number
+        tax_exempt: number
+        tax_exempt_id: string | null
+        tax_exempt_cents: number
+      } & Pick<
         SaleListRow,
         'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
       >)
@@ -442,6 +488,9 @@ function getSale(db: DB, id: number): Sale | null {
     changeCents: s.change_cents,
     customerId: s.cid ?? null,
     customerName: rowCustomerName(s),
+    taxExempt: s.tax_exempt === 1,
+    taxExemptId: s.tax_exempt_id,
+    taxExemptCents: s.tax_exempt_cents,
     items: items.map((i) => ({
       productId: i.product_id,
       name: i.name,

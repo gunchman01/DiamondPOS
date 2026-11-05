@@ -190,7 +190,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - **Fix (logo upload):** "That file is not an image Windows can read" on every upload. The resize step loaded the image from a `blob:` URL, which the renderer CSP (`img-src 'self' data: http:`) blocks. It now reads the file with FileReader as a `data:` URL. JPEGs get a white background and the error messages are clearer. ⚠️ Don't use `URL.createObjectURL` for images in the renderer unless `blob:` is added to the CSP.
 - Ideas next: the iPad as a **customer-facing display** (items + total while scanning, "Thank you" + change after payment), using the same event stream
 
-### 5 Nov 2026: Kiosk sign-up fields + tax exempt with expiry (next release)
+### 5 Nov 2026: Kiosk sign-up fields + tax exempt with expiry (released as **v0.2.9**)
 - [x] **DB migration 7**: `customers.tax_exempt_id`, `tax_exempt_card_copied`, `tax_exempt_expires` (YYYY-MM-DD). Additive. (Columns were added to migration 7 before it was released.)
 - [x] **Kiosk form** (`kioskPage.ts`), **required**: first & last name, street address, city, state, ZIP, phone, email. **Optional**: business name (saved as Company, not "track as company"). "Yes, email me" opt-in.
   - **"I'm tax exempt"** reveals the required **Farm Tax ID** + **Expiration date** (iPad date picker) and a yellow note: *hand your tax-exempt card to the cashier so they can make a copy*. The thank-you screen repeats the reminder (shown for 9 s).
@@ -206,14 +206,26 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Note: the kiosk form uses US wording (State, ZIP) as requested; the till's customer window still says Region / Postcode
 - Verified: TypeScript checks pass; kiosk server test (required fields, phone/email/ZIP checks, tax ID + expiry required, invalid / past dates, renewal on a return visit, existing details kept, card-copied update, `taxExemptState`); kiosk page script syntax check; iPad preview with tax exempt ticked
 
+### 5 Nov 2026: Tax-exempt sales (next release, **v0.3.0** suggested)
+- [x] **DB migration 8**: `sales.tax_exempt`, `sales.tax_exempt_id` (the Farm Tax ID used, kept for audits), `sales.tax_exempt_cents` (tax removed)
+- [x] **`src/shared/pricing.ts` → `priceSale(items, taxRate, exempt)`**, used by **both** the till (display) and the server (charging), so the totals always match. Shelf prices are tax-inclusive; for an exempt sale each taxable item's unit price becomes `round(price / (1 + rate))`; non-taxable items are unchanged; `taxCents = 0`; `taxExemptCents` = the tax removed.
+- [x] **Server `createSale`**: `SaleRequest.taxExempt: true` is only accepted when the customer is tax exempt, **has a Farm Tax ID** and the ID is **not expired** (no expiry date on file = allowed). Otherwise 400 with a clear message. Saved lines store the ex-tax unit price.
+- [x] **Sale screen**:
+  - Attaching a tax-exempt customer with a current ID **switches the exemption on automatically**: a "Tax exempt (FT-…) −$x" line, a "Tax exempt sale" tick box (the cashier can untick it to charge tax), and "EX TAX" prices in the receipt grid
+  - **Expired** (or no ID on file): tax is charged, the tick box is locked with the reason, a red header message shows, and an **Update Tax ID** button opens the customer window; saving re-checks and turns the exemption on
+- [x] **Receipt** prints "TAX EXEMPT −$x" and the Farm Tax ID instead of the GST line; the "Sale complete" box shows the saving
+- [x] **Reports**: daily "Tax exempt sales (count)" with the total tax removed
+- Verified: TypeScript checks pass; `priceSale` unit tests; server tests (exempt sale totals/lines, overpayment refused, exemption not requested = taxed, blocked for expired / no ID / not-exempt / no customer, no-expiry allowed, stock still taken, report totals); all earlier suites still pass; previews of current and expired customers
+- ⚠️ Pricing model is still **tax-inclusive (NZ GST style)**. If the store prices **before** tax (US sales tax added at checkout), we need a "prices include tax" store setting. `priceSale` is the single place to change.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.2.6** (Customers). Next release will be **v0.2.7** (customer kiosk, DB migration 6: update the Store Server PC first).
+**Latest release: v0.2.9** (kiosk tax-exempt fields). Next release: **v0.3.0** (tax-exempt sales, DB migration 8: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
-   - **Apply tax-exempt to sales** (no GST/sales tax when the customer's ID is current; warn or block if expired) and customer Discount %;
+   - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)

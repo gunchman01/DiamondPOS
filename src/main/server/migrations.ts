@@ -195,6 +195,15 @@ export const migrations: Migration[] = [
       ALTER TABLE customers ADD COLUMN tax_exempt_card_copied INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE customers ADD COLUMN tax_exempt_expires TEXT; -- YYYY-MM-DD
     `
+  },
+  {
+    version: 8,
+    name: 'tax-exempt sales',
+    up: `
+      ALTER TABLE sales ADD COLUMN tax_exempt INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE sales ADD COLUMN tax_exempt_id TEXT;              -- Farm Tax ID used (kept for audits)
+      ALTER TABLE sales ADD COLUMN tax_exempt_cents INTEGER NOT NULL DEFAULT 0; -- tax removed
+    `
   }
 ]
 
