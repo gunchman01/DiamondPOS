@@ -17,6 +17,16 @@ import type {
 } from '../../shared/types'
 import type { ImportItem } from '../../shared/itemImport'
 import type { QbConfig, QbDailySummary, QbExport, QbLogEntry, QbStatus } from '../../shared/quickbooks'
+import type {
+  Audience,
+  AudienceOptions,
+  AudienceResult,
+  Campaign,
+  CampaignInput,
+  CampaignSend,
+  SmtpSettings,
+  SmtpSettingsView
+} from '../../shared/marketing'
 
 let baseUrl = ''
 let apiKey = ''
@@ -91,6 +101,23 @@ export const api = {
   startKioskSession: (tillName: string) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName }),
   getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
+
+  // Marketing mailers
+  mkOptions: () => request<AudienceOptions>('GET', '/api/marketing/options'),
+  mkAudience: (audience: Audience) => request<AudienceResult>('POST', '/api/marketing/audience', { audience }),
+  mkCampaigns: () => request<Campaign[]>('GET', '/api/marketing/campaigns'),
+  mkCampaign: (id: number) => request<Campaign>('GET', `/api/marketing/campaigns/${id}`),
+  mkCreate: (c: CampaignInput) => request<Campaign>('POST', '/api/marketing/campaigns', c),
+  mkUpdate: (id: number, c: CampaignInput) => request<Campaign>('PUT', `/api/marketing/campaigns/${id}`, c),
+  mkCopy: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/copy`),
+  mkRemove: (id: number) => request<{ ok: boolean }>('POST', `/api/marketing/campaigns/${id}/remove`),
+  mkTest: (id: number, email: string) => request<{ ok: boolean }>('POST', `/api/marketing/campaigns/${id}/test`, { email }),
+  mkSend: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/send`),
+  mkCancel: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/cancel`),
+  mkSends: (id: number) => request<CampaignSend[]>('GET', `/api/marketing/campaigns/${id}/sends`),
+  mkSmtp: () => request<SmtpSettingsView>('GET', '/api/marketing/smtp'),
+  mkSaveSmtp: (s: Partial<SmtpSettings>) => request<SmtpSettingsView>('PUT', '/api/marketing/smtp', s),
+  mkSmtpTest: (email: string) => request<{ ok: boolean }>('POST', '/api/marketing/smtp/test', { email }),
 
   // QuickBooks Desktop sync
   qbStatus: () => request<QbStatus>('GET', '/api/qb/status'),

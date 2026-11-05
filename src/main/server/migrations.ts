@@ -241,6 +241,37 @@ export const migrations: Migration[] = [
         message TEXT NOT NULL
       );
     `
+  },
+  {
+    version: 10,
+    name: 'marketing mailers',
+    up: `
+      CREATE TABLE marketing_campaigns (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        subject    TEXT NOT NULL DEFAULT '',
+        message    TEXT NOT NULL DEFAULT '',
+        flyer      TEXT,                          -- data: URL of the flyer image
+        audience   TEXT NOT NULL DEFAULT '{}',    -- JSON (rules, time window, customer types)
+        status     TEXT NOT NULL DEFAULT 'draft', -- draft | sending | sent | cancelled
+        last_error TEXT,                          -- e.g. mail server login failed (sending pauses)
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        sent_at    TEXT
+      );
+      -- One row per recipient once a mailer is sent (the email address is kept as it was)
+      CREATE TABLE marketing_sends (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        campaign_id INTEGER NOT NULL REFERENCES marketing_campaigns(id),
+        customer_id INTEGER NOT NULL REFERENCES customers(id),
+        email       TEXT NOT NULL,
+        status      TEXT NOT NULL DEFAULT 'pending', -- pending | sent | failed
+        error       TEXT,
+        sent_at     TEXT,
+        UNIQUE (campaign_id, customer_id)
+      );
+      CREATE INDEX idx_marketing_sends_status ON marketing_sends(campaign_id, status);
+      INSERT INTO settings (key, value) VALUES ('store_address', '') ON CONFLICT(key) DO NOTHING;
+    `
   }
 ]
 

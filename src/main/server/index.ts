@@ -32,6 +32,8 @@ import {
 } from './customers'
 import { registerKioskRoutes } from './kiosk'
 import { registerQuickBooksRoutes } from './quickbooks/qbwc'
+import { registerMarketingRoutes } from './marketing/routes'
+import { startMarketingSender, stopMarketingSender } from './marketing/mailer'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
@@ -76,9 +78,11 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     httpServer = s
   })
   console.log(`[server] Listening on port ${opts.port}`)
+  startMarketingSender(db, readSettings) // sends mailers in the background (and resumes after a restart)
 }
 
 export async function stopServer(): Promise<void> {
+  stopMarketingSender()
   if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
   httpServer = null
   db?.close()
@@ -134,6 +138,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       }
       if (s.receiptFooter !== undefined) put.run('receipt_footer', String(s.receiptFooter))
       if (s.kioskWelcome !== undefined) put.run('kiosk_welcome', String(s.kioskWelcome).slice(0, 200))
+      if (s.storeAddress !== undefined) put.run('store_address', String(s.storeAddress).trim().slice(0, 300))
     })()
     res.json(readSettings(db))
   })
@@ -219,6 +224,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- QuickBooks Desktop (Web Connector) --------------------------------
   registerQuickBooksRoutes(app, db, readSettings)
+
+  // ----- Marketing mailers (email) -----------------------------------------
+  registerMarketingRoutes(app, db, readSettings)
 
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
@@ -347,6 +355,7 @@ export function readSettings(db: DB): StoreSettings {
     storeName: map.store_name ?? 'My Store',
     taxRate: Number(map.tax_rate ?? 0.15),
     receiptFooter: map.receipt_footer ?? '',
+    storeAddress: map.store_address ?? '',
     kioskWelcome: map.kiosk_welcome ?? '',
     hasLogo: !!map.store_logo
   }

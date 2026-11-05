@@ -98,6 +98,16 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
             <input value={taxText} onChange={(e) => setTaxText(e.target.value)} />
           </label>
           <label>
+            Store postal address (printed at the bottom of marketing emails)
+            <textarea
+              className="comments"
+              rows={2}
+              value={store.storeAddress}
+              placeholder="123 Main St, Fresno, CA 93650"
+              onChange={(e) => setStore({ ...store, storeAddress: e.target.value })}
+            />
+          </label>
+          <label>
             Receipt footer
             <input value={store.receiptFooter} onChange={(e) => setStore({ ...store, receiptFooter: e.target.value })} />
           </label>

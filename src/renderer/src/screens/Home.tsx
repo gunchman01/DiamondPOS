@@ -5,7 +5,7 @@ import { money, today } from '../format'
 import { IconName, Icons } from '../icons'
 
 /** Tabs that already exist; tiles for these open the real page. */
-export type NavTarget = 'sell' | 'products' | 'customers' | 'reports' | 'settings' | 'updates' | 'quickbooks'
+export type NavTarget = 'sell' | 'products' | 'customers' | 'reports' | 'settings' | 'updates' | 'quickbooks' | 'marketing'
 
 interface Tile {
   icon: IconName
@@ -65,9 +65,10 @@ const OPERATIONS: Section = {
   title: 'Operations',
   cells: [
     { kind: 'tile', col: 1, row: 1, icon: 'sync', label: 'Sync w/ QuickBooks', go: 'quickbooks' },
-    { kind: 'tile', col: 3, row: 1, icon: 'reports', label: 'Reports', go: 'reports' },
-    { kind: 'tile', col: 5, row: 1, icon: 'settings', label: 'Settings', go: 'settings' },
-    { kind: 'tile', col: 7, row: 1, icon: 'updates', label: 'Updates', go: 'updates' }
+    { kind: 'tile', col: 3, row: 1, icon: 'marketing', label: 'Marketing', go: 'marketing' },
+    { kind: 'tile', col: 5, row: 1, icon: 'reports', label: 'Reports', go: 'reports' },
+    { kind: 'tile', col: 7, row: 1, icon: 'settings', label: 'Settings', go: 'settings' },
+    { kind: 'tile', col: 9, row: 1, icon: 'updates', label: 'Updates', go: 'updates' }
   ]
 }
 

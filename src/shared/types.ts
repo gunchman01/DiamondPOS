@@ -244,6 +244,8 @@ export interface StoreSettings {
   storeName: string
   taxRate: number
   receiptFooter: string
+  /** Postal address (required in marketing emails) */
+  storeAddress: string
   /** Message under the logo on the customer kiosk (iPad) */
   kioskWelcome: string
   /** True when a store logo has been uploaded (served at /kiosk/logo) */

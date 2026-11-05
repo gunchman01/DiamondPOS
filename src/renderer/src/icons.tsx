@@ -130,6 +130,13 @@ export const Icons = {
       <rect x="31" y="20" width="7" height="17" rx="1" />
     </Svg>
   ),
+  marketing: (
+    <Svg>
+      <path d="M8 19h6l16-8v26l-16-8H8z" />
+      <path d="M12 29l3 10h5l-2-10" />
+      <path d="M36 18c2 1.5 3 3.6 3 6s-1 4.5-3 6" />
+    </Svg>
+  ),
   updates: (
     <Svg>
       <circle cx="24" cy="24" r="17" />

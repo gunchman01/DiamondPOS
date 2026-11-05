@@ -478,6 +478,33 @@ textarea.comments { flex: 1; min-height: 70px; background: #fffdf4; }
 .qb-log-warn { color: #7a5300; }
 details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 
+/* ---------- Marketing ---------- */
+.mailer-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.mailer label { color: var(--text); font-weight: 600; font-size: 12px; }
+.flyer-box {
+  border: 1px dashed var(--border); border-radius: 8px; background: #fff; min-height: 120px; max-height: 340px; overflow: auto;
+  display: grid; place-items: center; padding: 8px; text-align: center; font-size: 13px;
+}
+.flyer-box img { max-width: 100%; display: block; }
+.rule-row { display: grid; grid-template-columns: 74px repeat(3, minmax(0, 1fr)) minmax(0, 1.1fr) 22px; gap: 6px; align-items: center; }
+.rule-row select, .rule-row input { padding: 5px 6px; font-size: 13px; }
+.rule-or { font-size: 11px; font-weight: 700; color: var(--red-dark); text-transform: uppercase; }
+.add-rule { align-self: flex-start; color: var(--red-dark); font-weight: 600; text-decoration: none; padding-left: 0; }
+.audience-result { background: #e7f6ec; border: 1px solid #b6e3c4; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.big-count { font-size: 16px; }
+.big-count b { font-size: 26px; color: var(--ok); }
+.audience-result .link { align-self: flex-start; padding-left: 0; }
+.who-list { max-height: 220px; overflow: auto; font-size: 13px; background: #fff; border: 1px solid var(--border-soft); border-radius: 6px; padding: 6px 8px; }
+.who-list > div { padding: 2px 0; }
+.email-preview { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #f4f4f5; }
+.email-subject { background: #fff; padding: 8px 12px; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+.email-body { max-height: 560px; overflow: auto; }
+.progress-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.progress-row progress { flex: 1; height: 14px; }
+.smtp-grid { display: grid; grid-template-columns: 1.4fr 0.6fr 1fr; gap: 10px 14px; }
+.email-settings label { color: var(--text); font-weight: 600; font-size: 12px; }
+.email-settings { max-width: 980px; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

@@ -56,6 +56,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 | `src/main/server/index.ts` | API routes: products, sales, reports, settings |
 | `src/main/server/migrations.ts` | DB schema changes. **Add only**; never edit released migrations. |
 | `src/renderer/src/screens/*` | UI: Setup, Home (Navigator), Sell, Products (Item List), Reports, Settings, Updates |
+| `src/main/server/marketing/*`, `src/shared/mailerTemplate.ts` | Marketing: audiences, email mailers, background sender |
 | `src/main/server/quickbooks/*`, `src/main/qbBridge.ts` | QuickBooks Desktop Web Connector service, daily summary, qbXML, localhost bridge |
 | `src/main/server/kiosk.ts`, `kioskPage.ts` | iPad customer kiosk: pairing, live events, sign-up; the kiosk web page |
 | `src/main/server/products.ts`, `customers.ts` | Item / customer fields, validation, import, search, stats |
@@ -232,6 +233,19 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - Verified: TypeScript checks pass; **simulated Web Connector + simulated QuickBooks company** end-to-end (`server-test/qb.ts`: wrong password / disabled, lists, mapping, customer + item creation, element order, references, totals = money taken, tax + rounding = tax collected, tax-exempt and gift card on Non lines, today not sent, no duplicates incl. a lost reply, error + Retry, start date); bridge relay test; all earlier suites pass
 - ⚠️ Not yet tested against a **real** QuickBooks file. First live run: use **Preview**, set the start date to today, watch the log. Likely tweaks: account/type filters in drop-downs, QuickBooks' own validation messages.
 - Later: refunds/voids (negative lines) once refunds exist; a "Send now" button would need the Web Connector to be triggered manually (Update Selected)
+
+### 5 Nov 2026: Marketing mailers (email) (next release after the QuickBooks one)
+- [x] **New dependency `nodemailer` ^6.9 (+ `@types/nodemailer`)** for SMTP. **Run `npm install` and commit `package-lock.json`.** (In Claude's sandbox it's replaced by a fake for tests.)
+- [x] **DB migration 10**: `marketing_campaigns` (name, subject, message, flyer as data: URL, audience JSON, status draft/sending/sent/cancelled, last_error) + `marketing_sends` (one row per recipient: email, status pending/sent/failed, error) + `store_address` setting. SMTP settings live in `settings.smtp_config` (JSON, password stored locally and never sent to the screen).
+- [x] **Audience engine** (`server/marketing/audience.ts`): rows of {department, brand/manufacturer, vendor, name contains}. Every filled part must match the **same item**; rows are **OR**. Optional time window (months) and customer types, or "everyone on the email list". Matching is case-insensitive; LIKE wildcards are escaped. Uses the `sale_items.department` snapshot (falls back to the product) plus the product's manufacturer/vendor. **Only `ok_to_email` customers with a valid email**; the rest are counted as excluded; duplicate emails are de-duplicated.
+- [x] **Email** (`server/marketing/mailer.ts`, template `shared/mailerTemplate.ts` shared with the screen preview): table-based HTML + plain text; the **flyer embedded inline (CID)**; `{name}` personalisation; footer with **store postal address + "reply UNSUBSCRIBE"** and a **`List-Unsubscribe: <mailto:…>` header** (CAN-SPAM; the server isn't on the internet, so there's no web unsubscribe link)
+  - **Background sender** started with the store server: one email every `60/perMinute` s, resumes after a restart; a recipient error (e.g. 550 bad mailbox) → that recipient failed; a **server/login error** (EAUTH, ECONNECTION, 535…) → **pause** with `last_error`, retry in 5 min, nobody marked failed
+  - Presets: Gmail/Workspace (app password), Microsoft 365 (SMTP AUTH must be enabled), Outlook.com, Yahoo, custom
+- [x] **API** `/api/marketing/*`: options, audience preview, campaigns CRUD (edit/delete drafts only), copy, test send, send (recipients fixed at that moment), cancel, sends list, SMTP get/save/test
+- [x] **Marketing screen** (Home → Marketing tile in Operations): mailer list; editor with **1. mailer** (name, subject, message, **flyer upload** resized to 1200 px JPEG), **2. who gets it** (rule rows with drop-downs from your data, "+ OR", time window, customer types, **live count** + excluded counts + who list), **3. preview** (exact email), **4. send** (save draft, send test, send to N with confirm, progress, stop, make a copy); **Email settings** tab
+- [x] **Settings**: Store postal address (required before sending)
+- Verified: TypeScript checks pass; server test with a fake mail server (options, the chainsaw / blower / Exmark-mower audience, 12-month window, customer types, name contains, literal %, opt-in / no-email exclusions, duplicate email, SMTP validation + password never returned, blocked without SMTP / address, test email contents: CID flyer, address, unsubscribe header, {name}, then real send with one bounce, pause on login failure, cancel, copy, delete drafts only); previews of the editor and audience builder; all earlier suites pass
+- Later ideas: "Unsubscribe" button on a customer, open/click tracking (needs an internet-reachable link), saved audiences, printed postcard mailers (export the list to Excel)
 
 ---
 
