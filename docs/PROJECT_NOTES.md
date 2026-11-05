@@ -297,6 +297,12 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] **Updates screen**: a **"What's new in vA – vB"** box listing every version newer than the one installed, a yellow warning when any of them changes the database (worded for the Store Server or a till), formatted notes on each release card, and the confirm box now says what's included / what a revert removes.
 - Verified: changelog parser + release-notes script (code-fence examples ignored, missing version), TypeScript checks, preview of the Updates screen
 
+### 5 Nov 2026: Help / user manual in the app (ships with **v0.3.6**)
+- [x] Manual: **`src/renderer/src/help/USER_MANUAL.md`** (plain Markdown, written for store staff; each `## ` heading is a section). Bundled into the app with Vite's `?raw` import (`raw.d.ts` declares it).
+- [x] **Help screen** (`screens/Help.tsx`): contents list on the left (highlights the section you're reading), search box that filters sections and highlights matches. Opened from **? Help** in the top bar, **F1** anywhere, or **Help / Manual** on Home. F1 / ? Help open the section for the current screen (`HELP_TOPIC` in `App.tsx`, ids = slugified headings).
+- [x] Shared `Markdown.tsx` renderer (headings, paragraphs, nested bullet + numbered lists, tables, > notes, **bold**, `code`, search highlight); release notes use it too
+- Verified: TypeScript checks; preview (F1 from the Sale screen opens "Making a sale")
+
 ---
 
 ## Next up (backlog, in rough priority order)
@@ -323,4 +329,5 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - Prices and totals are always calculated **on the server**, never trusted from the till.
 - Keep `package-lock.json` committed (CI uses `npm ci`).
 - Version comes from the **git tag** (the workflow sets it). No need to edit `package.json` by hand.
+- **Keep the user manual current**: when a feature is added or changed, update `src/renderer/src/help/USER_MANUAL.md` (and `HELP_TOPIC` in `App.tsx` for a new screen).
 - **Every release gets a `CHANGELOG.md` section** (plain words for staff, plus the "Update the Store Server PC first" line if it has a migration). It's what people read on the Updates screen before installing.

@@ -15,6 +15,7 @@ export type NavTarget =
   | 'quickbooks'
   | 'marketing'
   | 'workorders'
+  | 'help'
 
 interface Tile {
   icon: IconName
@@ -87,7 +88,8 @@ const QUICK_BUTTONS: Tile[] = [
   { icon: 'itemList', label: 'Item List', go: 'products' },
   { icon: 'customers', label: 'Customer List', go: 'customers' },
   { icon: 'salesHistory', label: 'Sales History', go: 'reports' },
-  { icon: 'endOfDay', label: 'End of Day' }
+  { icon: 'endOfDay', label: 'End of Day' },
+  { icon: 'help', label: 'Help / Manual', go: 'help' }
 ]
 
 /** Home screen: quick-launch buttons + today's totals on the left, the Navigator filling the rest. */

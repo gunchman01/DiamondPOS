@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BootInfo, Health } from '../../shared/types'
 import type { WoSaleMode } from '../../shared/workorders'
 import { compareVersions } from '../../shared/version'
@@ -14,6 +14,7 @@ import WorkOrders from './screens/WorkOrders'
 import Reports from './screens/Reports'
 import Settings from './screens/Settings'
 import Updates from './screens/Updates'
+import Help from './screens/Help'
 import { Icons } from './icons'
 
 type Tab =
@@ -27,6 +28,7 @@ type Tab =
   | 'quickbooks'
   | 'marketing'
   | 'workorders'
+  | 'help'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
@@ -38,7 +40,23 @@ const TITLES: Record<Tab, string> = {
   workorders: 'Work Orders',
   reports: 'Reports',
   settings: 'Settings',
-  updates: 'Updates'
+  updates: 'Updates',
+  help: 'Help'
+}
+
+/** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
+const HELP_TOPIC: Record<Tab, string> = {
+  home: 'the-home-screen',
+  sell: 'making-a-sale',
+  products: 'items',
+  customers: 'customer-list',
+  quickbooks: 'quickbooks',
+  marketing: 'marketing-mailers',
+  workorders: 'work-orders-repairs',
+  reports: 'sales-history-and-reports',
+  settings: 'settings',
+  updates: 'updates',
+  help: 'getting-started'
 }
 
 export default function App() {
@@ -48,6 +66,26 @@ export default function App() {
   const [saleWo, setSaleWo] = useState<{ id: number; mode: WoSaleMode } | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [online, setOnline] = useState(true)
+  const [helpTopic, setHelpTopic] = useState<string | null>(null)
+  const openHelp = () => {
+    if (tab === 'help') return
+    setHelpTopic(HELP_TOPIC[tab])
+    setTab('help')
+  }
+
+  // F1 opens Help on the section for the current screen
+  const f1 = useRef(openHelp)
+  f1.current = openHelp
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F1') {
+        e.preventDefault()
+        f1.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     window.pos.getBootInfo().then(setBoot)
@@ -102,6 +140,9 @@ export default function App() {
           </span>
           <Clock />
           <span>v{boot.appVersion}</span>
+          <button className="help-btn" onClick={openHelp} title="Help (F1)">
+            ? Help
+          </button>
         </div>
       </header>
 
@@ -117,7 +158,7 @@ export default function App() {
         </div>
       )}
 
-      <main className={tab === 'sell' || tab === 'home' ? 'content flush' : 'content'}>
+      <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
         {tab === 'home' && <Home onNavigate={setTab} />}
         {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} />}
         {tab === 'products' && <Products />}
@@ -136,6 +177,7 @@ export default function App() {
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
+        {tab === 'help' && <Help topic={helpTopic} />}
       </main>
     </div>
   )

@@ -143,6 +143,13 @@ export const Icons = {
       <path d="M24 14v17M16.5 23.5L24 31l7.5-7.5" />
     </Svg>
   ),
+  help: (
+    <Svg>
+      <circle cx="24" cy="24" r="17" />
+      <path d="M18.5 19a5.5 5.5 0 1 1 7.6 5.1c-1.3.6-2.1 1.8-2.1 3.2V29" />
+      <circle cx="24" cy="35" r="0.6" fill="currentColor" />
+    </Svg>
+  ),
   home: (
     <Svg>
       <path d="M6 22L24 7l18 15" />

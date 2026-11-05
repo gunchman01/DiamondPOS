@@ -5,3 +5,5 @@ Before doing anything, read `docs/PROJECT_NOTES.md`. It covers the project setup
 At the end of a work session, update the "Progress log" and "Next up" sections in that file.
 
 When something is ready to release, add a section for the new version at the top of `CHANGELOG.md` (plain words for store staff; include `> Update the Store Server PC first.` if there's a DB migration). The Updates screen shows it.
+
+When a feature is added or changed, update the in-app user manual `src/renderer/src/help/USER_MANUAL.md` (shown on the Help screen).
