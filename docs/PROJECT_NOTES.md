@@ -55,7 +55,8 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 | `src/main/updater.ts` | List releases and install any version (update/rollback) |
 | `src/main/server/index.ts` | API routes: products, sales, reports, settings |
 | `src/main/server/migrations.ts` | DB schema changes. **Add only**; never edit released migrations. |
-| `src/renderer/src/screens/*` | UI: Setup, Sell, Products, Reports, Settings, Updates |
+| `src/renderer/src/screens/*` | UI: Setup, Home (Navigator), Sell, Products (Item List), Reports, Settings, Updates |
+| `src/renderer/src/icons.tsx` | Our own SVG icon set used by the Home screen |
 | `electron-builder.yml` | Installer settings and GitHub publish target |
 | `.github/workflows/release.yml` | Builds and publishes on a `v*` tag |
 | `docs/GETTING_STARTED.md` | Beginner guide to the whole stack |
@@ -104,11 +105,31 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Verified: TypeScript checks pass; server test of migration v2→v3 (with automatic backup), quick pick filter and old-till compatibility; previews of both layouts and the Find dialog
 - Release note: **update the Store Server PC first** (it runs migration 3), then the tills
 
+### 5 Nov 2026: Home / Navigator screen (uncommitted, same release v0.2.2)
+- [x] New **Home** tab (`screens/Home.tsx`), now the screen the app opens on. Our own design with the same structure as a desktop POS home screen:
+  - **Left**: quick-launch buttons (Make a Sale, Item List, Customer List, Sales History, Reports, End of Day)
+  - **Centre "Navigator"**: sections with vertical red labels and icon tiles joined by flow arrows
+    - Point of Sale: Customer List → Make a Sale → Sales History → End of Day; Held Receipts under Make a Sale
+    - Purchasing: Purchase Orders → Receiving History; PO List; Vendor List
+    - Inventory: Item List, Department List
+    - Operations column: Sync w/ QuickBooks, Reports, Settings
+  - **Right**: "Today" totals (sales, takings, cash, card) and a tip
+- [x] Original SVG icon set in `src/renderer/src/icons.tsx`
+- Tiles that already have a page open it: Make a Sale → Sale, Item List → Items, Sales History / Reports → Reports, Settings. All the others show "coming soon" (cosmetic for now).
+- Preview tooling (mock-data screenshots) lives outside the repo in Claude's working folder (`preview-tools/build.sh`)
+- **Follow-up tidy-up (same day):**
+  - Added a **Work Orders** tile (Customer List → Work Orders → Make a Sale) and a quick button (coming soon)
+  - **Top tabs removed.** The header now shows a **◆ Home** button (on every screen except Home) and the current screen name. Every screen is opened from Home.
+  - Added an **Updates** tile in Operations (it was only reachable from the old tabs)
+  - Less empty space: the right-hand column is gone and Today's totals moved to the bottom of the left column; Inventory and Operations share one row; sections stretch to fill the height and tiles are centred; each section's grid is sized to its own tiles
+  - Purchasing flow is now Vendor List → Purchase Orders → Receiving History, with PO List under Purchase Orders
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-0. Test Quick Picks with `npm run dev`, then release v0.2.2 and update from the Updates tab (also test Revert)
+0. Test Quick Picks and the Home screen with `npm run dev`, then release v0.2.2 and update from the Updates tab (also test Revert)
+   - Later, build out the "coming soon" tiles: Customers, Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)

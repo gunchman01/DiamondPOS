@@ -3,24 +3,28 @@ import type { BootInfo, Health } from '../../shared/types'
 import { compareVersions } from '../../shared/version'
 import { api, configureApi } from './api'
 import Setup from './screens/Setup'
+import Home from './screens/Home'
 import Sell from './screens/Sell'
 import Products from './screens/Products'
 import Reports from './screens/Reports'
 import Settings from './screens/Settings'
 import Updates from './screens/Updates'
+import { Icons } from './icons'
 
-type Tab = 'sell' | 'products' | 'reports' | 'settings' | 'updates'
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'sell', label: 'Sale' },
-  { id: 'products', label: 'Items' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'updates', label: 'Updates' }
-]
+type Tab = 'home' | 'sell' | 'products' | 'reports' | 'settings' | 'updates'
+/** Screen names shown in the header (navigation is done from the Home screen) */
+const TITLES: Record<Tab, string> = {
+  home: 'Home',
+  sell: 'Make a Sale',
+  products: 'Item List',
+  reports: 'Reports',
+  settings: 'Settings',
+  updates: 'Updates'
+}
 
 export default function App() {
   const [boot, setBoot] = useState<BootInfo | null>(null)
-  const [tab, setTab] = useState<Tab>('sell')
+  const [tab, setTab] = useState<Tab>('home')
   const [health, setHealth] = useState<Health | null>(null)
   const [online, setOnline] = useState(true)
 
@@ -60,13 +64,14 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark">◆</span> DiamondPOS
         </div>
-        <nav>
-          {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'tab active' : 'tab'} onClick={() => setTab(t.id)}>
-              {t.label}
+        <div className="header-nav">
+          {tab !== 'home' && (
+            <button className="home-btn" onClick={() => setTab('home')} title="Back to Home">
+              <span className="hb-icon">{Icons.home}</span> Home
             </button>
-          ))}
-        </nav>
+          )}
+          <span className="screen-title">{TITLES[tab]}</span>
+        </div>
         <div className="status">
           <span>
             <span className={online ? 'dot ok' : 'dot bad'} /> {online ? 'Connected' : 'Server offline'}
@@ -91,7 +96,8 @@ export default function App() {
         </div>
       )}
 
-      <main className={tab === 'sell' ? 'content flush' : 'content'}>
+      <main className={tab === 'sell' || tab === 'home' ? 'content flush' : 'content'}>
+        {tab === 'home' && <Home onNavigate={setTab} />}
         {tab === 'sell' && <Sell boot={boot} />}
         {tab === 'products' && <Products />}
         {tab === 'reports' && <Reports />}
