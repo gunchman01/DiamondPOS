@@ -1,4 +1,4 @@
-# Store POS
+# DiamondPOS
 
 A Windows point of sale app for one store with several tills.
 
@@ -8,6 +8,7 @@ A Windows point of sale app for one store with several tills.
 - **Update and rollback** come from GitHub Releases, using buttons on the Updates screen.
 
 New to Electron, React or TypeScript? Start with **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)**.
+Project status, setup and backlog: **[docs/PROJECT_NOTES.md](docs/PROJECT_NOTES.md)**.
 
 ## Quick start (developers)
 

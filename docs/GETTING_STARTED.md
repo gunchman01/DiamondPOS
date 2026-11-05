@@ -1,4 +1,4 @@
-# Getting Started with Store POS
+# Getting Started with DiamondPOS
 
 This guide assumes you have never used Electron, React or TypeScript. It explains how the pieces fit together, how to run the app, how to make changes, and how releases and rollbacks work.
 
@@ -68,7 +68,7 @@ npm run dev     # opens the app with live reload
 
 Choose **"This is the Store Server"** on first launch. Six sample products are pre-loaded, so you can try a sale straight away.
 
-> Your dev config and database are saved in `%APPDATA%\Store POS\`. Delete that folder to start fresh.
+> Your dev config and database are saved in `%APPDATA%\DiamondPOS\`. Delete that folder to start fresh.
 
 ### Testing several tills on one network
 
@@ -132,7 +132,7 @@ When you install an older version, the **app** goes back but the **database** ke
 - ✅ Add tables, columns (nullable or with a default) and indexes.
 - ❌ Don't rename or drop columns or tables in the same release that stops using them.
 - Remove old columns only **several releases later**. When you do, raise `MIN_CLIENT_VERSION` in `constants.ts` so old tills are told to update.
-- Before running migrations, the server automatically saves a copy of the database to `%APPDATA%\Store POS\data\backups\`.
+- Before running migrations, the server automatically saves a copy of the database to `%APPDATA%\DiamondPOS\data\backups\`.
 
 ---
 
@@ -140,7 +140,7 @@ When you install an older version, the **app** goes back but the **database** ke
 
 **First time:**
 
-1. Create a repository on GitHub (e.g. `store-pos`).
+1. Create a repository on GitHub (e.g. `DiamondPOS`).
 2. Set the owner and repo name in **both** `electron-builder.yml` (the `publish:` section) and `src/shared/constants.ts`.
 3. Run `npm install` once and commit the `package-lock.json` it creates. The GitHub workflows need it, because it pins exact library versions so every build is identical.
    ```bash
@@ -148,7 +148,7 @@ When you install an older version, the **app** goes back but the **database** ke
    ```
 4. Push the code:
    ```bash
-   git remote add origin https://github.com/YOUR_ORG/store-pos.git
+   git remote add origin git@github.com:gunchman01/DiamondPOS.git
    git push -u origin main
    ```
 
@@ -177,7 +177,7 @@ Use [semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`. Bump PATCH f
 
 The in-app updater downloads releases without logging in, so the **release files must be public**. Two common options:
 
-- **Keep the code private, publish releases to a separate public repo** (e.g. `store-pos-releases`). Point `publish.repo` and `GITHUB_REPO` at it, and give the workflow a Personal Access Token secret (`GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}`) with access to that repo.
+- **Keep the code private, publish releases to a separate public repo** (e.g. `DiamondPOS-releases`). Point `publish.repo` and `GITHUB_REPO` at it, and give the workflow a Personal Access Token secret (`GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}`) with access to that repo.
 - Or make the whole repo public, if that's acceptable.
 
 ---
@@ -196,7 +196,7 @@ On each PC, open the **Updates** tab:
 - Updating: **server PC first**, then the tills. The server applies any database changes, and old tills keep working meanwhile.
 - Reverting: tills first, then the server if needed.
 
-Settings and data live in `%APPDATA%\Store POS\` and are not touched by installs, updates or rollbacks.
+Settings and data live in `%APPDATA%\DiamondPOS\` and are not touched by installs, updates or rollbacks.
 
 ---
 
@@ -204,7 +204,7 @@ Settings and data live in `%APPDATA%\Store POS\` and are not touched by installs
 
 - [ ] **Code-signing certificate** (Windows). Without one, SmartScreen warns on install and update. Add `CSC_LINK` and `CSC_KEY_PASSWORD` secrets (see `release.yml`).
 - [ ] **Fixed IP for the server PC** (a DHCP reservation in the router).
-- [ ] **Nightly backups** of `%APPDATA%\Store POS\data\store.db` to another machine or the cloud.
+- [ ] **Nightly backups** of `%APPDATA%\DiamondPOS\data\store.db` to another machine or the cloud.
 - [ ] **Staff logins / PINs** and an audit log of who did what.
 - [ ] **Refunds and voids** (there's a `status` column on `sales` ready for this).
 - [ ] **Receipt printer:** set it as the Windows default printer on each till, or add ESC/POS support for faster printing and cash-drawer kick.

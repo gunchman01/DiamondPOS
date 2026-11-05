@@ -5,7 +5,7 @@ import os, { type NetworkInterfaceInfo } from 'os'
 import path from 'path'
 import type { AppConfig } from '../shared/types'
 
-// Per-computer settings, stored in %APPDATA%\Store POS\pos-config.json.
+// Per-computer settings, stored in %APPDATA%\DiamondPOS\pos-config.json.
 // These survive app updates and rollbacks.
 const configFile = () => path.join(app.getPath('userData'), 'pos-config.json')
 

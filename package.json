@@ -1,8 +1,8 @@
 {
-  "name": "store-pos",
-  "productName": "Store POS",
+  "name": "diamondpos",
+  "productName": "DiamondPOS",
   "version": "0.1.0",
-  "description": "Multi-till point of sale for a single location (Electron + React + TypeScript)",
+  "description": "DiamondPOS - multi-till point of sale for a single location (Electron + React + TypeScript)",
   "author": "Your Company",
   "private": true,
   "main": "./out/main/index.js",

@@ -44,7 +44,7 @@ export default function Setup({ boot, onDone }: { boot: BootInfo; onDone: (b: Bo
 
   return (
     <div className="setup">
-      <h1>Welcome to Store POS</h1>
+      <h1>Welcome to DiamondPOS</h1>
       <p className="muted">Set up this computer. You only need to do this once.</p>
 
       <div className="choice-row">

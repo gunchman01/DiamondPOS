@@ -4,7 +4,7 @@
 export type AppMode = 'server' | 'till'
 export type UpdateChannel = 'stable' | 'beta'
 
-/** Saved per-computer in %APPDATA%/Store POS/pos-config.json */
+/** Saved per-computer in %APPDATA%/DiamondPOS/pos-config.json */
 export interface AppConfig {
   mode: AppMode | null
   serverUrl: string

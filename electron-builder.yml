@@ -1,7 +1,7 @@
 # electron-builder turns the built app into a Windows installer (.exe)
 # and publishes it to GitHub Releases.
-appId: com.yourcompany.storepos
-productName: Store POS
+appId: com.diamondpos.app
+productName: DiamondPOS
 directories:
   buildResources: build
   output: dist
@@ -18,7 +18,7 @@ asarUnpack:
 win:
   target: nsis
   # No spaces in the file name: GitHub renames spaces, which breaks updates.
-  artifactName: store-pos-setup-${version}.${ext}
+  artifactName: diamondpos-setup-${version}.${ext}
 nsis:
   oneClick: false
   perMachine: false
@@ -29,6 +29,6 @@ publish:
   # >>> CHANGE THESE to your GitHub account/org and repository name <<<
   # They must match GITHUB_OWNER / GITHUB_REPO in src/shared/constants.ts
   # Test Update
-  owner: gunchman01 
-  repo: store-pos
+  owner: gunchman01
+  repo: DiamondPOS
   releaseType: release

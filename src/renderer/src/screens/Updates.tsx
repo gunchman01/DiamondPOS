@@ -41,7 +41,7 @@ export default function Updates(props: { boot: BootInfo; health: Health | null; 
   )
   const latest = visible[0]
   const previous = visible.find((r) => compareVersions(r.version, current) < 0)
-  const busy = status !== null && status.type !== 'error'
+  const busy = !boot.isPackaged || (status !== null && status.type !== 'error')
 
   async function install(r: ReleaseInfo) {
     const verb = compareVersions(r.version, current) > 0 ? 'Update' : 'Revert'

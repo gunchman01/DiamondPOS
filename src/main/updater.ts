@@ -50,7 +50,7 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
 
 async function listReleases(): Promise<ReleaseInfo[]> {
   const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=30`, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'store-pos-updater' }
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'diamondpos-updater' }
   })
   if (!res.ok) {
     throw new Error(
