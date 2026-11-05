@@ -52,7 +52,8 @@ export interface QbExport {
   refNumber: string
   totalCents: number
   saleCount: number
-  status: 'pending' | 'sent' | 'error'
+  /** manual = refunds were more than sales for this payment type that day: enter it in QuickBooks by hand */
+  status: 'pending' | 'sent' | 'error' | 'manual'
   txnId: string | null
   error: string | null
   attempts: number

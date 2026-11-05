@@ -352,6 +352,34 @@ export const migrations: Migration[] = [
       ALTER TABLE work_orders ADD COLUMN sale_id INTEGER REFERENCES sales(id);  -- pick-up receipt
       ALTER TABLE sales ADD COLUMN work_order_id INTEGER REFERENCES work_orders(id);
     `
+  },
+  {
+    version: 13,
+    name: 'returns and refunds',
+    up: `
+      -- What each receipt line is: item = normal sale, wo = work order line, credit = estimate fee credit,
+      -- return = an item coming back (negative qty, linked to the original receipt line when there was one),
+      -- feekept = part of a refund not given back because the receipt had an estimate fee credit
+      ALTER TABLE sale_items ADD COLUMN kind TEXT NOT NULL DEFAULT 'item';
+      ALTER TABLE sale_items ADD COLUMN return_of_item_id INTEGER REFERENCES sale_items(id);
+      ALTER TABLE sale_items ADD COLUMN return_of_sale_id INTEGER REFERENCES sales(id);
+      ALTER TABLE sale_items ADD COLUMN return_reason TEXT;
+      ALTER TABLE sale_items ADD COLUMN restocked INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE sale_items ADD COLUMN tax_cents INTEGER; -- tax included in a return line (negative)
+      CREATE INDEX idx_sale_items_return_of ON sale_items(return_of_item_id);
+
+      -- Older sales: mark work order / fee credit lines so they can't be returned at the till
+      UPDATE sale_items SET kind = 'credit' WHERE product_id IS NULL AND line_total_cents < 0;
+      UPDATE sale_items SET kind = 'wo'
+        WHERE kind = 'item' AND (
+          sale_id IN (SELECT sale_id FROM work_orders WHERE sale_id IS NOT NULL)
+          OR (department IN ('Service Labor', 'Shop Supplies', 'Service Other', 'Estimate Fees')
+              AND sale_id IN (SELECT id FROM sales WHERE work_order_id IS NOT NULL))
+        );
+
+      -- A return made without the original receipt (manager to check later)
+      ALTER TABLE sales ADD COLUMN no_receipt_return INTEGER NOT NULL DEFAULT 0;
+    `
   }
 ]
 

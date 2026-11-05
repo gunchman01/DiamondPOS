@@ -118,6 +118,14 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       )
       .run(msg.slice(0, 1000), id)
 
+  const markManual = (id: number, sm: QbDailySummary) => {
+    const msg =
+      `Refunds were more than sales (${sm.method}) on ${sm.saleDate}: net -$${(-sm.totalCents / 100).toFixed(2)}. ` +
+      `QuickBooks can't take a negative Sales Receipt, so enter it in QuickBooks as a Refund Receipt / Credit Memo, then click "Entered by hand".`
+    db.prepare("UPDATE qb_exports SET status = 'manual', error = ?, updated_at = datetime('now') WHERE id = ?").run(msg, id)
+    qbLog(db, 'warn', msg)
+  }
+
   // ---------- Building a session's work ----------
   function buildQueue(s: Session) {
     const cfg = getQbConfig(db)
@@ -183,6 +191,11 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     for (const date of salesDates(db, cfg.startDate, localToday())) {
       for (const summary of dailySummaries(db, date, cfg, rate, qbRate)) {
         const row = upsertExport(summary)
+        if (row.status === 'pending' && summary.totalCents < 0) {
+          // More refunded than sold for this payment type: QuickBooks can't take a negative Sales Receipt
+          markManual(row.id, summary)
+          continue
+        }
         if (row.status === 'pending') toSend.push({ summary, exportId: row.id })
       }
       if (toSend.length >= 40) break // keep each sync short; the rest go next time
@@ -487,6 +500,15 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     db.prepare("UPDATE qb_exports SET status = 'pending', error = NULL, updated_at = datetime('now') WHERE id = ? AND status = 'error'").run(
       Number(req.params.id)
     )
+    res.json(listExports(db))
+  })
+
+  // A day that had to be entered in QuickBooks by hand (refunds more than sales)
+  app.post('/api/qb/exports/:id/manual-done', (req, res) => {
+    db.prepare(
+      "UPDATE qb_exports SET status = 'sent', txn_id = 'MANUAL', error = NULL, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'manual'"
+    ).run(Number(req.params.id))
+    qbLog(db, 'info', `Export ${req.params.id} marked as entered in QuickBooks by hand`)
     res.json(listExports(db))
   })
 

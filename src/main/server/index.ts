@@ -43,6 +43,7 @@ import {
   type PreparedWoSale
 } from './workorders'
 import { priceWithFeeCredit } from '../../shared/workorders'
+import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
@@ -240,6 +241,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // ----- Work orders (repairs) + customer units -----------------------------
   registerWorkOrderRoutes(app, db, readSettings)
 
+  // ----- Returns / refunds (look up a receipt, a customer's receipts) -----------
+  registerReturnRoutes(app, db)
+
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
     const sale = createSale(db, req.body as SaleRequest)
@@ -252,7 +256,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const rows = db
       .prepare(
         `SELECT s.id, s.created_at, s.till_name, s.total_cents, c.id AS cid,
-                c.first_name, c.last_name, c.company, c.track_as_company
+                c.first_name, c.last_name, c.company, c.track_as_company,
+                EXISTS (SELECT 1 FROM sale_items r WHERE r.sale_id = s.id AND r.kind = 'return') AS has_return
          FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
          WHERE date(s.created_at, 'localtime') = ? ORDER BY s.id DESC`
       )
@@ -262,7 +267,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       createdAt: sqliteToIso(r.created_at),
       tillName: r.till_name,
       totalCents: r.total_cents,
-      customerName: rowCustomerName(r)
+      customerName: rowCustomerName(r),
+      hasReturn: r.has_return === 1
     }))
     res.json(list)
   })
@@ -294,6 +300,13 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       )
       .all(date) as { method: string; amount: number }[]
     const amt = (m: string) => byMethod.find((r) => r.method === m)?.amount ?? 0
+    const refunds = db
+      .prepare(
+        `SELECT COUNT(DISTINCT si.sale_id) AS n, COALESCE(SUM(-si.line_total_cents),0) AS cents
+         FROM sale_items si JOIN sales s ON s.id = si.sale_id
+         WHERE si.kind = 'return' AND s.status = 'completed' AND date(s.created_at, 'localtime') = ?`
+      )
+      .get(date) as { n: number; cents: number }
     const report: DailyReport = {
       date,
       saleCount: totals.n,
@@ -302,7 +315,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       cashCents: amt('cash') - totals.change, // net cash kept in the drawer
       cardCents: amt('card'),
       taxExemptCount: totals.exemptN,
-      taxExemptCents: totals.exemptCents
+      taxExemptCents: totals.exemptCents,
+      refundCount: refunds.n,
+      refundCents: refunds.cents
     }
     res.json(report)
   })
@@ -312,6 +327,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message })
+    if (err instanceof ReturnError) return res.status(err.status).json({ error: err.message })
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.includes('UNIQUE constraint failed: customers.customer_no'))
       return res.status(409).json({ error: 'That Customer ID is already used by another customer' })
@@ -342,6 +358,7 @@ interface SaleListRow {
   last_name: string | null
   company: string | null
   track_as_company: number | null
+  has_return?: number
 }
 
 /** Customer display name from a sales ⟕ customers join row (null = no customer) */
@@ -397,11 +414,21 @@ function createSale(db: DB, req: SaleRequest): Sale {
     if (woSale.mode === 'credit' && req.items.length === 0)
       throw new HttpError(400, 'Add the new item(s) the estimate fee is being credited toward')
   }
-  if (req.items.length === 0 && !woSale) throw new HttpError(400, 'Sale has no items')
+  // Items coming back (refund / exchange)
+  const returnReq = Array.isArray(req.returns) ? req.returns : []
+  if (returnReq.length && woSale) throw new HttpError(400, 'Do returns on their own sale, not on a work order payment')
+  if (req.items.length === 0 && !woSale && returnReq.length === 0) throw new HttpError(400, 'Sale has no items')
+  const returns: PreparedReturns | null = returnReq.length ? prepareReturns(db, returnReq, taxRate) : null
 
   let customerId: number | null = woSale ? woSale.wo.customerId : null
   let customer: ReturnType<typeof getCustomer> = null
   if (!woSale && req.customerId !== undefined && req.customerId !== null) customerId = Number(req.customerId)
+  if (returns?.customerId) {
+    // A return goes on the customer of the original receipt
+    if (customerId !== null && customerId !== returns.customerId)
+      throw new HttpError(400, 'The receipt being returned is for a different customer than the one on this sale')
+    customerId = returns.customerId
+  }
   if (customerId !== null) {
     customer = getCustomer(db, customerId)
     if (!customer) throw new HttpError(400, 'The selected customer no longer exists')
@@ -435,7 +462,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
       lineTotalCents: p.priceCents * qty,
       taxable: p.taxable,
       department: p.department,
-      tracksStock: p.type === 'inventory'
+      tracksStock: p.type === 'inventory',
+      kind: 'item' as 'item' | 'wo' | 'credit'
     }
   })
 
@@ -452,7 +480,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
         lineTotalCents: l.unitPriceCents * l.qty,
         taxable: l.taxable,
         department: l.department,
-        tracksStock: false
+        tracksStock: false,
+        kind: 'wo'
       })
 
   // Prices are tax inclusive; tax applies to taxable items only, and is removed for exempt sales.
@@ -471,33 +500,45 @@ function createSale(db: DB, req: SaleRequest): Sale {
       lineTotalCents: c.unitPriceCents,
       taxable: false,
       department: c.department,
-      tracksStock: false
+      tracksStock: false,
+      kind: 'credit'
     })
   }
   lines.forEach((l, i) => {
     l.unitPriceCents = priced.lines[i].unitPriceCents
     l.lineTotalCents = priced.lines[i].lineTotalCents
   })
-  const { totalCents, taxCents, taxExemptCents } = priced
-  if (totalCents > 0 && req.payments.length === 0) throw new HttpError(400, 'Sale has no payment')
+  // Returned items (negative) are added on top of what's being bought
+  const retLines = returns?.lines ?? []
+  const totalCents = priced.totalCents + retLines.reduce((s, l) => s + l.lineTotalCents, 0)
+  const taxCents = priced.taxCents + retLines.reduce((s, l) => s + l.taxCents, 0)
+  const { taxExemptCents } = priced
+  if (totalCents !== 0 && req.payments.length === 0) throw new HttpError(400, totalCents < 0 ? 'Choose how the refund is given' : 'Sale has no payment')
 
+  const refund = totalCents < 0
   const payments: PaymentInput[] = req.payments.map((p) => {
     const amountCents = Number(p.amountCents)
     if (p.method !== 'cash' && p.method !== 'card') throw new HttpError(400, 'Unknown payment method')
-    if (!Number.isInteger(amountCents) || amountCents <= 0) throw new HttpError(400, 'Payment amount must be above 0')
+    if (!Number.isInteger(amountCents) || amountCents === 0 || (refund ? amountCents > 0 : amountCents < 0))
+      throw new HttpError(400, refund ? 'A refund is entered as money given back (a negative amount)' : 'Payment amount must be above 0')
     return { method: p.method, amountCents, reference: p.reference ? String(p.reference).slice(0, 60) : undefined }
   })
   const paid = payments.reduce((s, p) => s + p.amountCents, 0)
-  if (paid < totalCents) throw new HttpError(400, 'Payment is less than the sale total')
-  const changeCents = paid - totalCents
-  const cashPaid = payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amountCents, 0)
-  if (changeCents > cashPaid) throw new HttpError(400, 'Card payments cannot be more than the amount owed')
+  let changeCents = 0
+  if (refund) {
+    if (paid !== totalCents) throw new HttpError(400, `The refund must be exactly $${(-totalCents / 100).toFixed(2)}`)
+  } else {
+    if (paid < totalCents) throw new HttpError(400, 'Payment is less than the sale total')
+    changeCents = paid - totalCents
+    const cashPaid = payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amountCents, 0)
+    if (changeCents > cashPaid) throw new HttpError(400, 'Card payments cannot be more than the amount owed')
+  }
 
   const id = db.transaction(() => {
     const info = db
       .prepare(
-        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id, no_receipt_return)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         tillName,
@@ -508,21 +549,28 @@ function createSale(db: DB, req: SaleRequest): Sale {
         taxExempt ? 1 : 0,
         taxExempt ? customer!.taxExemptId : null,
         taxExemptCents,
-        woSale ? woSale.wo.id : null
+        woSale ? woSale.wo.id : null,
+        returns?.noReceipt ? 1 : 0
       )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
-      `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial,
+                               kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
     for (const l of lines) {
-      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0, l.serial || null)
+      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0, l.serial || null,
+        l.kind, null, null, null, 0, null)
       // A serial-numbered item sold to a customer is saved as one of their units (for repairs later)
-      if (l.serial && customerId)
+      if (l.serial && customerId && l.kind === 'item')
         addUnitFromSale(db, { customerId, saleId, serial: l.serial, name: l.name, department: l.department, manufacturer: l.manufacturer })
       if (l.tracksStock) takeStock.run(l.qty, l.productId) // on-hand quantity for inventory items
     }
+    for (const r of retLines)
+      addItem.run(saleId, r.productId, r.name, r.unitPriceCents, r.qty, r.lineTotalCents, r.department, r.taxable ? 1 : 0, r.serial || null,
+        r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents)
+    finishReturns(db, retLines)
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
     if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
@@ -550,6 +598,7 @@ function getSale(db: DB, id: number): Sale | null {
         tax_exempt_id: string | null
         tax_exempt_cents: number
         work_order_id: number | null
+        no_receipt_return: number
       } & Pick<
         SaleListRow,
         'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
@@ -557,6 +606,11 @@ function getSale(db: DB, id: number): Sale | null {
     | undefined
   if (!s) return null
   const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id').all(id) as {
+    id: number
+    kind: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
+    return_of_sale_id: number | null
+    return_reason: string | null
+    restocked: number
     product_id: number | null
     name: string
     unit_price_cents: number
@@ -582,7 +636,14 @@ function getSale(db: DB, id: number): Sale | null {
     taxExemptId: s.tax_exempt_id,
     taxExemptCents: s.tax_exempt_cents,
     workOrderId: s.work_order_id ?? null,
+    refundCents: -items.filter((i) => i.kind === 'return').reduce((n, i) => n + i.line_total_cents, 0),
+    noReceiptReturn: s.no_receipt_return === 1,
     items: items.map((i) => ({
+      id: i.id,
+      kind: i.kind,
+      returnOfSaleId: i.return_of_sale_id,
+      returnReason: i.return_reason,
+      restocked: i.restocked === 1,
       productId: i.product_id,
       name: i.name,
       unitPriceCents: i.unit_price_cents,

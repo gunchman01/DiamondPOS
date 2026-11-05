@@ -276,17 +276,30 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - Reports / QuickBooks: Estimate Fees, Service Labor, Shop Supplies, Service Other are departments, so **map them on the QuickBooks screen** (e.g. Estimate Fees → a service income account)
 - Verified: server test of all flows (fees by category, fee paid once, wrong customer, repair not ready, pick-up with an extra item, totals = ticket balance, no double stock, credit to a new blower with tax on the full price, declined + kept, credit bigger than the purchase, zero-total pick-up, tax-exempt ticket = till, QuickBooks departments + totals) + the closing-stock regression; previews of the pick-up ticket and the till; all earlier suites pass
 
+### 5 Nov 2026: Returns / refunds / exchanges (next release, **v0.3.6**, DB migration 13: update the Store Server PC first)
+- [x] **DB migration 13**: `sale_items.kind` (item / wo / credit / return / feekept), `return_of_item_id`, `return_of_sale_id`, `return_reason`, `restocked`, `tax_cents`; `sales.no_receipt_return`. Older sales are back-filled so work order and fee-credit lines can't be returned.
+- [x] **↩ Return** button on the Sale screen → find the receipt by **receipt #** (type or scan), **by customer** (their recent receipts), or **No receipt**. Tick items, qty, **reason**, and **Back to stock / Damaged – don't restock** per line. Shows bought / already returned; work order charges, fee credits and already-returned lines are greyed out.
+- [x] Returned lines go on the sale as **negative lines at the price actually paid** (incl. tax-exempt price, tax worked out the same way: shared `src/shared/returns.ts`). The customer of the receipt is put on the sale.
+- [x] **Exchanges**: scan new items on the same sale; the total is the difference. If the customer owes, normal Cash/Card; if negative → **Refund due** (dark box) with **Refund cash** ("give back $X") / **Refund card** (refund on the terminal, enter its reference). The original payment type is suggested.
+- [x] Server rules (`src/main/server/returns.ts`): can't return more than bought on that receipt (across all returns), a reason is required, refund payments must be negative and exactly the refund, returns can't go on a work order payment, receipt customer must match. **Stock goes back up** only for "back to stock"; a returned **serial unit is removed from the customer's units**.
+- [x] Receipt with an **estimate fee credit**: refunds can't add up to more than was paid; the rest is a **"Not refunded: estimate fee credit is kept"** line (Estimate Fees).
+- [x] **No-receipt returns**: today's price, sale flagged `no_receipt_return` (manager approval once PINs exist).
+- [x] Receipt prints **\*\*\* REFUND \*\*\*** / **EXCHANGE**, RETURN lines with "From receipt #N – reason", "Card refund"/"Cash refund", original receipt # and a signature line.
+- [x] Reports: **Returns (n) −$X** stat, takings are after refunds, Refund / Exchange pill in the sales list. Marketing audiences ignore returned lines.
+- [x] **QuickBooks**: refunds net out in the day's Sales Receipt (negative lines per department; the tax split now handles negatives). If refunds are more than sales for a payment type on a day, that export shows **"Enter by hand"** with instructions (enter a Refund Receipt / Credit Memo in QuickBooks) and an **Entered by hand** button. Not sent automatically.
+- Verified: new server test `returns.ts` (limits, reasons, refund sign/amount, different customer, restock vs damaged, serial unit removed, exchanges both ways, no-receipt, tax-exempt receipt, fee credit kept, reports, QuickBooks preview) + QuickBooks Web Connector test for a net-positive refund day and a negative "manual" day; previews of the Return window and an exchange with card refund; TypeScript checks; all earlier suites pass
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.0** (tax-exempt sales). Next release: **v0.3.1** (QuickBooks Desktop sync, DB migration 9: update the Store Server PC first).
+**Latest release: v0.3.5** (estimate fees + paying for work orders). Next release: **v0.3.6** (returns / refunds, DB migration 13: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
-2. Refunds and voids (the `sales.status` column already exists)
+2. ~~Refunds~~ (done). Still to do: **void** a sale the same day (the `sales.status` column already exists); manager PIN to approve no-receipt returns; print a barcode on receipts so scanning finds them instantly; a "no-receipt returns" report
 3. Receipt printer (ESC/POS) and cash drawer kick
 4. Automatic daily database backups
 5. Windows code-signing certificate (removes the SmartScreen warning)

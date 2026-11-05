@@ -41,11 +41,12 @@ export default function Reports() {
       {report && (
         <div className="stats">
           <Stat label="Sales" value={String(report.saleCount)} />
-          <Stat label="Total takings" value={money(report.totalCents)} />
+          <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
           <Stat label="GST included" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />
           <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
+          <Stat label={`Returns (${report.refundCount ?? 0})`} value={`−${money(report.refundCents ?? 0)}`} />
         </div>
       )}
       <p className="muted small">
@@ -69,7 +70,10 @@ export default function Reports() {
               <td>{s.id}</td>
               <td>{dateTime(s.createdAt)}</td>
               <td>{s.tillName}</td>
-              <td>{s.customerName ?? ''}</td>
+              <td>
+                {s.customerName ?? ''}
+                {s.hasReturn && <span className={s.totalCents < 0 ? 'pill refund-pill' : 'pill'}>{s.totalCents < 0 ? 'Refund' : 'Exchange'}</span>}
+              </td>
               <td className="r">{money(s.totalCents)}</td>
               <td className="r">
                 <button onClick={() => reprint(s.id)}>Reprint</button>

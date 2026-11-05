@@ -111,7 +111,7 @@ export function runAudience(db: DB, input: unknown, limit = Infinity): AudienceR
                        FROM sales s
                        JOIN sale_items si ON si.sale_id = s.id
                        LEFT JOIN products p ON p.id = si.product_id
-                       WHERE s.status = 'completed' AND s.customer_id IS NOT NULL ${when}
+                       WHERE s.status = 'completed' AND s.customer_id IS NOT NULL AND si.qty > 0 ${when}
                          AND (${ruleSql.join(' OR ')})
                        GROUP BY s.customer_id`
     const sql = `SELECT c.id, c.first_name, c.last_name, c.company, c.track_as_company, c.email, c.ok_to_email, m.n, m.last

@@ -1,3 +1,4 @@
+import type { CustomerReceipt, ReturnableSale } from '../../shared/returns'
 // Small HTTP client the UI uses to talk to the store server.
 import type {
   DailyReport,
@@ -163,10 +164,13 @@ export const api = {
     request<{ summaries: QbDailySummary[]; qbTaxRate: number | null }>('GET', `/api/qb/preview?date=${date}`),
   qbExports: () => request<QbExport[]>('GET', '/api/qb/exports'),
   qbRetry: (id: number) => request<QbExport[]>('POST', `/api/qb/exports/${id}/retry`),
+  qbManualDone: (id: number) => request<QbExport[]>('POST', `/api/qb/exports/${id}/manual-done`),
   qbLog: () => request<QbLogEntry[]>('GET', '/api/qb/log'),
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
   listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
+  returnable: (saleId: number) => request<ReturnableSale>('GET', `/api/sales/${saleId}/returnable`),
+  customerReceipts: (customerId: number) => request<CustomerReceipt[]>('GET', `/api/customers/${customerId}/receipts`),
   dailyReport: (date: string) => request<DailyReport>('GET', `/api/reports/daily?date=${date}`)
 }

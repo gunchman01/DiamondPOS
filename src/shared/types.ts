@@ -1,3 +1,4 @@
+import type { ReturnRequestLine } from './returns'
 // Data shapes shared between the server, the Electron main process and the UI.
 // Money is always stored as whole cents (integers) to avoid rounding errors.
 
@@ -105,10 +106,20 @@ export interface SaleRequest {
   workOrder?: { id: number; mode: 'fee' | 'repair' | 'credit' }
   /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
   items: { productId: number; qty: number; serial?: string }[]
+  /** Items coming back (returns / exchanges). A negative total = refund; then payments are negative (money given back). */
+  returns?: ReturnRequestLine[]
   payments: PaymentInput[]
 }
 
 export interface SaleItem {
+  /** sale_items id (used to return it later) */
+  id?: number
+  /** item | wo (work order line) | credit (estimate fee credit) | return (item coming back, negative) | feekept (part of a refund kept) */
+  kind?: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
+  /** For a return line: the receipt it came from (null = no receipt), reason, and whether it went back to stock */
+  returnOfSaleId?: number | null
+  returnReason?: string | null
+  restocked?: boolean
   productId: number | null
   name: string
   serial?: string | null
@@ -131,6 +142,10 @@ export interface Sale {
   /** Tax removed because the sale was tax exempt */
   taxExemptCents: number
   workOrderId: number | null
+  /** Refunded on this sale (returned items, positive number) */
+  refundCents?: number
+  /** Return made without the original receipt */
+  noReceiptReturn?: boolean
   items: SaleItem[]
   payments: PaymentInput[]
 }
@@ -141,6 +156,8 @@ export interface SaleSummary {
   tillName: string
   totalCents: number
   customerName: string | null
+  /** Has returned items on it */
+  hasReturn?: boolean
 }
 
 // ----- Customers -------------------------------------------------------------
@@ -243,6 +260,9 @@ export interface DailyReport {
   /** Tax-exempt sales today and the tax removed on them */
   taxExemptCount: number
   taxExemptCents: number
+  /** Sales with returned items, and the total refunded for those items */
+  refundCount?: number
+  refundCents?: number
 }
 
 export interface StoreSettings {

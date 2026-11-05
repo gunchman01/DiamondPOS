@@ -39,15 +39,20 @@ export function salesDates(db: DB, from: string, before: string): string[] {
   ).map((r) => r.d)
 }
 
-/** Split `total` across weights so the parts add up exactly (largest remainder) */
+/**
+ * Split `total` across weights so the parts add up exactly.
+ * Works with refunds too (negative totals / weights): each part is rounded,
+ * and any cents left over go on the biggest weight.
+ */
 function allocate(total: number, weights: number[]): number[] {
+  if (weights.length === 0 || total === 0) return weights.map(() => 0)
   const sum = weights.reduce((s, w) => s + w, 0)
-  if (sum <= 0 || total === 0) return weights.map(() => 0)
-  const raw = weights.map((w) => (total * w) / sum)
-  const parts = raw.map((r) => Math.floor(r))
-  let left = total - parts.reduce((s, p) => s + p, 0)
-  const order = raw.map((r, i) => ({ i, frac: r - Math.floor(r) })).sort((a, b) => b.frac - a.frac)
-  for (let k = 0; left > 0; k = (k + 1) % order.length, left--) parts[order[k].i]++
+  const parts = sum === 0 ? weights.map(() => 0) : weights.map((w) => Math.round((total * w) / sum))
+  let biggest = 0
+  weights.forEach((w, i) => {
+    if (Math.abs(w) > Math.abs(weights[biggest])) biggest = i
+  })
+  parts[biggest] += total - parts.reduce((s, p) => s + p, 0)
   return parts
 }
 
@@ -72,15 +77,16 @@ export function dailySummaries(
   const ids = sales.map((s) => s.id)
   const marks = ids.map(() => '?').join(',')
 
-  // The payment type of a sale = its largest payment (the till takes one payment per sale)
+  // The payment type of a sale = its largest payment (the till takes one payment per sale).
+  // A refund's payment is negative (money given back), so compare sizes.
   const pays = db
     .prepare(`SELECT sale_id, method, amount_cents FROM payments WHERE sale_id IN (${marks})`)
     .all(...ids) as { sale_id: number; method: QbMethod; amount_cents: number }[]
   const methodOf = new Map<number, QbMethod>()
   const biggest = new Map<number, number>()
   for (const p of pays) {
-    if ((biggest.get(p.sale_id) ?? -1) < p.amount_cents) {
-      biggest.set(p.sale_id, p.amount_cents)
+    if ((biggest.get(p.sale_id) ?? -1) < Math.abs(p.amount_cents)) {
+      biggest.set(p.sale_id, Math.abs(p.amount_cents))
       methodOf.set(p.sale_id, p.method)
     }
   }

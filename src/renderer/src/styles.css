@@ -574,6 +574,25 @@ button.primary.pay-btn { background: linear-gradient(#1a7f37, #146c2e); border-c
 .pay-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .pay-actions button { font-size: 12px; padding: 4px 10px; white-space: nowrap; }
 
+/* ---------- Returns / refunds ---------- */
+.return-row td { background: #fff4f4; color: #9b1c1c; }
+.return-row.selected td { background: #fde0e0 !important; }
+.return-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #fff; background: #b91c1c; border-radius: 3px; padding: 0 5px; margin-right: 4px; }
+.tline.return-line { color: #b91c1c; font-weight: 600; }
+.tbox.refund { background: #1f2937; color: #fff; border: 2px dashed #f87171; }
+.tbox.refund span { color: #fca5a5; }
+.tbox.refund strong { color: #fff; }
+.fkey.return-key { font-weight: 700; color: #9b1c1c; }
+.modal.return-dlg { width: min(980px, 94vw); max-width: none; display: flex; flex-direction: column; gap: 10px; }
+.return-dlg .return-lines { max-height: 46vh; overflow: auto; }
+.return-dlg .qty-in { width: 56px; text-align: right; }
+.return-dlg select { width: 100%; }
+.return-dlg .grow { flex: 1; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.return-dlg .grow input { width: 100%; }
+.disabled-row td { color: #999; background: #fafafa; }
+.refund-big { color: #b91c1c; }
+.pill.refund-pill { background: #fde0e0; color: #9b1c1c; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

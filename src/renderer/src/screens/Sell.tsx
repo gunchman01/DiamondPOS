@@ -15,6 +15,8 @@ import {
   type WorkOrder
 } from '../../../shared/workorders'
 import WoPayPicker from './WoPayPicker'
+import ReturnDialog, { type ReturnLine } from './ReturnDialog'
+import { returnAmount } from '../../../shared/returns'
 
 interface CartLine {
   /** product id, plus the serial number for serial-numbered items (one per line) */
@@ -67,6 +69,11 @@ export default function Sell({
   /** Work order being paid on this sale (estimate fee, repair pick-up, or fee credit) */
   const [wo, setWo] = useState<{ order: WorkOrder; mode: WoSaleMode; fee: EstimateFeeSettings } | null>(null)
   const [pickingWo, setPickingWo] = useState(false)
+  /** Items coming back on this sale (returns / exchanges) */
+  const [returns, setReturns] = useState<ReturnLine[]>([])
+  /** Original receipts on this return: most that can still be refunded on each, and how it was paid */
+  const [receipts, setReceipts] = useState<Record<number, { refundableCents: number; method: PaymentMethod | null }>>({})
+  const [returning, setReturning] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -123,12 +130,26 @@ export default function Sell({
     applyExempt,
     creditAvailable
   )
-  const total = priced.totalCents
+  // Returned items: refunded at the price paid on the original receipt (same maths as the server)
+  const retPriced = returns.map((l) => returnAmount(l.unitCents, l.qty, l.taxable, l.origExempt, rate))
+  const refundItems = retPriced.reduce((s, r) => s + r.amountCents, 0)
+  const refundTax = retPriced.reduce((s, r) => s + r.taxCents, 0)
+  // A receipt that had an estimate fee credit can't refund more than was paid on it
+  const feeKept = Object.entries(receipts).reduce((s, [id, r]) => {
+    const amount = returns.reduce((n, l, i) => (l.saleId === Number(id) ? n + retPriced[i].amountCents : n), 0)
+    return s + Math.max(0, amount - r.refundableCents)
+  }, 0)
+  const total = priced.totalCents - refundItems + feeKept
+  const isRefund = total < 0
   const shelfTotal =
     cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
-  const hasLines = cart.length > 0 || woLines.length > 0
-  const gst = priced.taxCents
+  const hasLines = cart.length > 0 || woLines.length > 0 || returns.length > 0
+  const gst = priced.taxCents - refundTax
+  // How the original receipt(s) were paid: suggest refunding the same way
+  const origMethods = [...new Set(Object.values(receipts).map((r) => r.method).filter(Boolean))] as PaymentMethod[]
+  const suggestMethod = origMethods.length === 1 ? origMethods[0] : null
   const selectedLine = cart.find((l) => l.key === selectedId) ?? null
+  const selectedReturn = returns.find((l) => l.key === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
   const dialogOpen =
     paying !== null ||
@@ -138,7 +159,8 @@ export default function Sell({
     kioskOpen ||
     editingCustomer ||
     serialFor !== null ||
-    pickingWo
+    pickingWo ||
+    returning
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -178,13 +200,31 @@ export default function Sell({
 
   function removeSelected() {
     if (selectedId === null) return
-    setQty(selectedId, 0)
+    if (selectedReturn) removeReturn(selectedReturn.key)
+    else setQty(selectedId, 0)
     focusScan()
   }
 
+  function removeReturn(key: string) {
+    const left = returns.filter((l) => l.key !== key)
+    setReturns(left)
+    setReceipts((r) => Object.fromEntries(Object.entries(r).filter(([id]) => left.some((l) => l.saleId === Number(id)))))
+    setSelectedId(null)
+  }
+
+  function openReturn() {
+    if (wo) {
+      setMessage({ kind: 'error', text: 'Finish or clear the work order payment first. Returns go on their own sale.' })
+      return
+    }
+    setReturning(true)
+  }
+
   function clearSale() {
-    if ((cart.length || customer) && !confirm('Clear this sale (items and customer)?')) return
+    if ((cart.length || returns.length || customer) && !confirm('Clear this sale (items and customer)?')) return
     setCart([])
+    setReturns([])
+    setReceipts({})
     setSelectedId(null)
     setCustomer(null)
     setExempt(false)
@@ -216,6 +256,10 @@ export default function Sell({
 
   function startPayment(method: PaymentMethod) {
     if (!hasLines) return
+    if (wo && returns.length) {
+      setMessage({ kind: 'error', text: 'Returns go on their own sale, not on a work order payment' })
+      return
+    }
     if (wo?.mode === 'credit' && cart.length === 0) {
       setMessage({ kind: 'error', text: 'Scan the new item(s) the estimate fee is being credited toward' })
       return
@@ -228,7 +272,7 @@ export default function Sell({
     }
     // Nothing to pay (e.g. the estimate fee covers the whole repair): finish without a payment
     if (total === 0) {
-      if (confirm('Nothing to pay on this sale. Complete it?')) completeSale(null, 0, '').catch((e) => setMessage({ kind: 'error', text: e.message }))
+      if (confirm(returns.length ? 'Even exchange: nothing to pay or refund. Complete it?' : 'Nothing to pay on this sale. Complete it?')) completeSale(null, 0, '').catch((e) => setMessage({ kind: 'error', text: e.message }))
       return
     }
     setPaying(method)
@@ -262,6 +306,11 @@ export default function Sell({
       customerId: customer?.id ?? null,
       taxExempt: applyExempt,
       items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial })),
+      returns: returns.map((l) =>
+        l.saleItemId !== null
+          ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
+          : { productId: l.productId!, qty: l.qty, reason: l.reason, restock: l.restock }
+      ),
       payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
       workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined
     })
@@ -271,11 +320,13 @@ export default function Sell({
     }
     setPaying(null)
     setCart([])
+    setReturns([])
+    setReceipts({})
     setSelectedId(null)
     setCustomer(null)
     setExempt(false)
     setLastSale(sale)
-    setMessage({ kind: 'info', text: `Sale #${sale.id} saved` })
+    setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
     focusScan()
   }
 
@@ -320,7 +371,7 @@ export default function Sell({
     <div className={hasQuickPicks ? 'register' : 'register no-quick'}>
       {/* ---------- Header strip ---------- */}
       <div className="reg-head">
-        <h2>{cart.length ? 'Sale in progress' : 'New Sale'}</h2>
+        <h2>{returns.length ? (isRefund ? 'Return in progress' : 'Exchange in progress') : cart.length ? 'Sale in progress' : 'New Sale'}</h2>
         <div className="field">
           Store<b>{settings?.storeName ?? '—'}</b>
         </div>
@@ -391,6 +442,7 @@ export default function Sell({
           <span>Receipt</span>
           <span className="count">
             {cart.length} line{cart.length === 1 ? '' : 's'} · {itemCount} item{itemCount === 1 ? '' : 's'}
+            {returns.length > 0 && ` · ${returns.reduce((n, l) => n + l.qty, 0)} returned`}
           </span>
         </div>
         <div className="grid-wrap">
@@ -459,6 +511,38 @@ export default function Sell({
                   <td className="num">−{money(priced.creditCents)}</td>
                 </tr>
               )}
+              {returns.map((l, k) => (
+                <tr
+                  key={l.key}
+                  className={l.key === selectedId ? 'return-row selected' : 'return-row'}
+                  onClick={() => setSelectedId(l.key)}
+                  title="Item coming back"
+                >
+                  <td className="dim">↩</td>
+                  <td className="dim">{l.sku ?? ''}</td>
+                  <td>
+                    <span className="return-tag">RETURN</span> {l.name}
+                    {l.serial && <span className="serial-tag">S/N {l.serial}</span>}
+                    <span className="serial-tag">
+                      {l.saleId ? `Receipt #${l.saleId}` : 'NO RECEIPT (today\'s price)'} · {l.reason} ·{' '}
+                      {l.tracksStock ? (l.restock ? 'back to stock' : 'damaged, not restocked') : 'not a stock item'}
+                    </span>
+                  </td>
+                  <td className="num">−{l.qty}</td>
+                  <td className="num">{money(l.unitCents)}</td>
+                  <td className="num">−{money(retPriced[k].amountCents)}</td>
+                </tr>
+              ))}
+              {feeKept > 0 && (
+                <tr className="wo-row">
+                  <td className="dim">↩</td>
+                  <td />
+                  <td>Not refunded: estimate fee credit on the receipt is kept</td>
+                  <td className="num">1</td>
+                  <td className="num">{money(feeKept)}</td>
+                  <td className="num">{money(feeKept)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
           {!hasLines && (
@@ -485,7 +569,7 @@ export default function Sell({
           <button disabled={!selectedLine} onClick={() => setEditingQty(true)}>
             Change qty
           </button>
-          <button disabled={!selectedLine} className="danger" onClick={removeSelected}>
+          <button disabled={!selectedLine && !selectedReturn} className="danger" onClick={removeSelected}>
             Remove line
           </button>
         </div>
@@ -547,6 +631,12 @@ export default function Sell({
             <span>Subtotal</span>
             <span>{money(shelfTotal)}</span>
           </div>
+          {returns.length > 0 && (
+            <div className="tline return-line">
+              <span>Returned items</span>
+              <span>−{money(refundItems - feeKept)}</span>
+            </div>
+          )}
           {applyExempt ? (
             <div className="tline exempt-line">
               <span>Tax exempt ({customer?.taxExemptId})</span>
@@ -587,16 +677,28 @@ export default function Sell({
               <span>{money(priced.creditKeptCents)}</span>
             </div>
           )}
-          <div className="tbox">
-            <span>{wo?.mode === 'repair' ? 'Balance due' : 'Total'}</span>
-            <strong>{money(total)}</strong>
+          <div className={isRefund ? 'tbox refund' : 'tbox'}>
+            <span>{isRefund ? 'Refund due' : wo?.mode === 'repair' ? 'Balance due' : 'Total'}</span>
+            <strong>{money(Math.abs(total))}</strong>
           </div>
+          {isRefund && suggestMethod && (
+            <div className="muted small">Original receipt was paid by {suggestMethod}. Refund the same way.</div>
+          )}
 
           {lastSale && cart.length === 0 && (
             <div className="last-sale">
               <div>
-                <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
+                {lastSale.totalCents < 0 ? (
+                  <b>Refund #{lastSale.id} complete · {money(-lastSale.totalCents)} back</b>
+                ) : (
+                  <>
+                    <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
+                  </>
+                )}
               </div>
+              {lastSale.totalCents < 0 && lastSale.payments[0]?.method === 'cash' && (
+                <div className="change">Give back: {money(-lastSale.totalCents)}</div>
+              )}
               {lastSale.customerName && <div className="small">Customer: {lastSale.customerName}</div>}
               {lastSale.taxExempt && (
                 <div className="small">
@@ -609,12 +711,20 @@ export default function Sell({
           )}
 
           <div className="tender">
-            <button className="primary" disabled={!hasLines} onClick={() => startPayment('cash')}>
-              <span>Cash</span>
+            <button
+              className={isRefund && suggestMethod === 'card' ? '' : 'primary'}
+              disabled={!hasLines}
+              onClick={() => startPayment('cash')}
+            >
+              <span>{isRefund ? 'Refund cash' : 'Cash'}</span>
               <kbd>F7</kbd>
             </button>
-            <button className="primary" disabled={!hasLines} onClick={() => startPayment('card')}>
-              <span>Card</span>
+            <button
+              className={isRefund && suggestMethod === 'cash' ? '' : 'primary'}
+              disabled={!hasLines}
+              onClick={() => startPayment('card')}
+            >
+              <span>{isRefund ? 'Refund card' : 'Card'}</span>
               <kbd>F8</kbd>
             </button>
           </div>
@@ -629,7 +739,7 @@ export default function Sell({
         <button className="fkey" disabled={!selectedLine} onClick={() => setEditingQty(true)}>
           <kbd>F3</kbd> Quantity
         </button>
-        <button className="fkey" disabled={!selectedLine} onClick={removeSelected}>
+        <button className="fkey" disabled={!selectedLine && !selectedReturn} onClick={removeSelected}>
           <kbd>F4</kbd> Remove line
         </button>
         <button className="fkey" onClick={() => setPickingCustomer(true)}>
@@ -638,16 +748,52 @@ export default function Sell({
         <button className="fkey" onClick={() => setPickingWo(true)}>
           🔧 Work order
         </button>
+        <button className="fkey return-key" onClick={openReturn} title="Return items from a receipt (refund or exchange)">
+          ↩ Return
+        </button>
         <button className="fkey" onClick={() => setKioskOpen(true)}>
           <kbd>F9</kbd> Kiosk
         </button>
-        <button className="fkey" disabled={!cart.length && !customer && !wo} onClick={clearSale}>
+        <button className="fkey" disabled={!cart.length && !returns.length && !customer && !wo} onClick={clearSale}>
           <kbd>F6</kbd> Clear sale
         </button>
         <button className="fkey spacer" disabled={!lastSale} onClick={() => lastSale && printReceipt(lastSale)}>
           Reprint last receipt
         </button>
       </div>
+
+      {returning && (
+        <ReturnDialog
+          customer={customer}
+          existing={returns}
+          onCancel={() => {
+            setReturning(false)
+            focusScan()
+          }}
+          onAdd={(lines, receipt) => {
+            setReturning(false)
+            setReturns((r) => [...r, ...lines])
+            if (receipt) {
+              setReceipts((r) => ({
+                ...r,
+                [receipt.saleId]: {
+                  refundableCents: receipt.refundableCents,
+                  method: receipt.payments.length
+                    ? [...receipt.payments].sort((a, b) => Math.abs(b.amountCents) - Math.abs(a.amountCents))[0].method
+                    : null
+                }
+              }))
+              // The return goes on the original receipt's customer
+              if (!customer && receipt.customerId)
+                api.getCustomer(receipt.customerId).then((d) => attachCustomer(d.customer, `Return for receipt #${receipt.saleId}`)).catch(() => {})
+            }
+            setLastSale(null)
+            setSelectedId(lines[lines.length - 1]?.key ?? null)
+            setMessage({ kind: 'info', text: `${lines.length} item(s) added as a return. Scan new items for an exchange, or take the refund.` })
+            focusScan()
+          }}
+        />
+      )}
 
       {pickingWo && (
         <WoPayPicker
@@ -756,7 +902,19 @@ export default function Sell({
         />
       )}
 
-      {paying && (
+      {paying && isRefund && (
+        <RefundDialog
+          method={paying}
+          refundCents={-total}
+          onCancel={() => {
+            setPaying(null)
+            focusScan()
+          }}
+          onConfirm={(m, ref) => completeSale(m, total, ref)}
+        />
+      )}
+
+      {paying && !isRefund && (
         <PaymentDialog
           method={paying}
           totalCents={total}
@@ -1008,6 +1166,73 @@ function SerialDialog(props: { product: Product; onCancel: () => void; onSave: (
           </button>
           <button type="submit" className="primary" disabled={!serial.trim()}>
             Add to sale
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+/** Giving money back: cash from the drawer, or a refund on the card terminal */
+function RefundDialog(props: {
+  method: PaymentMethod
+  refundCents: number
+  onCancel: () => void
+  onConfirm: (method: PaymentMethod, reference: string) => Promise<void>
+}) {
+  const { method, refundCents } = props
+  const [reference, setReference] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function confirm() {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      await props.onConfirm(method, reference.trim())
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <form
+        className="modal"
+        onSubmit={(e) => {
+          e.preventDefault()
+          confirm()
+        }}
+        onKeyDown={(e) => e.key === 'Escape' && !busy && props.onCancel()}
+      >
+        <h2>{method === 'cash' ? 'Cash refund' : 'Card refund'}</h2>
+        <div className="total-big refund-big">Refund: {money(refundCents)}</div>
+        {method === 'cash' ? (
+          <p>
+            Give the customer <b>{money(refundCents)}</b> from the drawer.
+          </p>
+        ) : (
+          <>
+            <ol className="steps">
+              <li>
+                On the card terminal, choose <b>Refund</b> and enter <b>{money(refundCents)}</b>.
+              </li>
+              <li>Have the customer tap or insert the card they paid with.</li>
+              <li>When it shows APPROVED, enter the terminal's reference number.</li>
+            </ol>
+            <label>
+              Terminal reference
+              <input autoFocus value={reference} onChange={(e) => setReference(e.target.value)} />
+            </label>
+          </>
+        )}
+        {error && <div className="error-text">{error}</div>}
+        <div className="row gap end">
+          <button type="button" onClick={props.onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" autoFocus={method === 'cash'} disabled={busy}>
+            {busy ? 'Saving…' : method === 'cash' ? 'Cash given – complete refund' : 'Refund approved – complete'}
           </button>
         </div>
       </form>

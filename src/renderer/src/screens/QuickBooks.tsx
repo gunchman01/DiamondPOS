@@ -425,14 +425,24 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                   <td>{e.refNumber}</td>
                   <td className="r">{money(e.totalCents)}</td>
                   <td>
-                    <span className={`badge ${e.status === 'sent' ? 'new' : e.status === 'error' ? 'err' : 'upd'}`}>
-                      {e.status === 'sent' ? 'Sent' : e.status === 'error' ? 'Problem' : 'Waiting'}
+                    <span className={`badge ${e.status === 'sent' ? 'new' : e.status === 'error' || e.status === 'manual' ? 'err' : 'upd'}`}>
+                      {e.status === 'sent' ? 'Sent' : e.status === 'error' ? 'Problem' : e.status === 'manual' ? 'Enter by hand' : 'Waiting'}
                     </span>
                     {e.error && <div className="small err-text">{e.error}</div>}
                   </td>
                   <td className="r">
                     {e.status === 'error' && (
                       <button onClick={() => run(() => api.qbRetry(e.id), 'Will retry on the next sync')}>Retry</button>
+                    )}
+                    {e.status === 'manual' && (
+                      <button
+                        onClick={() =>
+                          confirm(`Have you entered this ${money(e.totalCents)} refund day in QuickBooks yourself?`) &&
+                          run(() => api.qbManualDone(e.id), 'Marked as entered by hand')
+                        }
+                      >
+                        Entered by hand
+                      </button>
                     )}
                   </td>
                 </tr>
