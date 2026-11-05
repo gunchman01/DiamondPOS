@@ -39,6 +39,7 @@ DiamondPOS is a Windows point of sale app for one store location with several ti
 npm run dev         # PowerShell: run with live reload
 npm run typecheck   # PowerShell: check types
 git add -A && git commit -m "..." && git push        # MobaXterm
+# Before tagging: add a "## vX.Y.Z - date" section at the top of CHANGELOG.md and commit it
 git tag vX.Y.Z && git push origin vX.Y.Z             # MobaXterm: publish a release
 git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ```
@@ -289,6 +290,13 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] **QuickBooks**: refunds net out in the day's Sales Receipt (negative lines per department; the tax split now handles negatives). If refunds are more than sales for a payment type on a day, that export shows **"Enter by hand"** with instructions (enter a Refund Receipt / Credit Memo in QuickBooks) and an **Entered by hand** button. Not sent automatically.
 - Verified: new server test `returns.ts` (limits, reasons, refund sign/amount, different customer, restock vs damaged, serial unit removed, exchanges both ways, no-receipt, tax-exempt receipt, fee credit kept, reports, QuickBooks preview) + QuickBooks Web Connector test for a net-positive refund day and a negative "manual" day; previews of the Return window and an exchange with card refund; TypeScript checks; all earlier suites pass
 
+### 5 Nov 2026: Release notes on the Updates screen (ships with **v0.3.6**)
+- [x] **`CHANGELOG.md`** at the repo root: one `## vX.Y.Z - date` section per release, newest first, written for staff. A line `> Update the Store Server PC first.` marks releases that change the database. Back-filled from v0.2.0 (no entries for v0.2.8 and v0.3.3: add them if you remember what they were).
+- [x] Release workflow: after publishing, `scripts/release-notes.mjs <tag>` takes that version's section and sets it as the **GitHub release notes** (`gh release edit --notes-file`). Missing section = warning in the Actions log and "No release notes were written" (the release still goes out).
+- [x] App: `listReleases` uses the GitHub release notes, or falls back to `CHANGELOG.md` on the `main` branch (so releases made before this get notes too). Parser: `src/shared/changelog.ts`.
+- [x] **Updates screen**: a **"What's new in vA – vB"** box listing every version newer than the one installed, a yellow warning when any of them changes the database (worded for the Store Server or a till), formatted notes on each release card, and the confirm box now says what's included / what a revert removes.
+- Verified: changelog parser + release-notes script (code-fence examples ignored, missing version), TypeScript checks, preview of the Updates screen
+
 ---
 
 ## Next up (backlog, in rough priority order)
@@ -315,3 +323,4 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - Prices and totals are always calculated **on the server**, never trusted from the till.
 - Keep `package-lock.json` committed (CI uses `npm ci`).
 - Version comes from the **git tag** (the workflow sets it). No need to edit `package.json` by hand.
+- **Every release gets a `CHANGELOG.md` section** (plain words for staff, plus the "Update the Store Server PC first" line if it has a migration). It's what people read on the Updates screen before installing.

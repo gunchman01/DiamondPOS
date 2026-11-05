@@ -9,6 +9,8 @@ files:
   - "!**/.vscode/*"
   - "!src/*"
   - "!docs/*"
+  - "!scripts/*"
+  - "!{CHANGELOG.md,CLAUDE.md}"
   - "!electron.vite.config.*"
   - "!{.gitignore,.gitattributes,README.md}"
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"

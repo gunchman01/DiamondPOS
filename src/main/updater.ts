@@ -11,6 +11,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { GITHUB_OWNER, GITHUB_REPO } from '../shared/constants'
 import type { ReleaseInfo, UpdateEvent } from '../shared/types'
+import { parseChangelog } from '../shared/changelog'
 
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
@@ -69,14 +70,29 @@ async function listReleases(): Promise<ReleaseInfo[]> {
     assets: { name: string }[]
   }
   const data = (await res.json()) as GhRelease[]
+  // Releases published before notes were added (or with empty notes) get theirs from CHANGELOG.md
+  const changelog = await fetchChangelog()
   return data
     .filter((r) => !r.draft && r.assets.some((a) => a.name === 'latest.yml'))
     .map((r) => ({
       tag: r.tag_name,
       version: r.tag_name.replace(/^v/, ''),
       name: r.name || r.tag_name,
-      notes: r.body ?? '',
+      notes: (r.body ?? '').trim() || changelog[r.tag_name.replace(/^v/, '')] || '',
       publishedAt: r.published_at,
       prerelease: r.prerelease
     }))
+}
+
+/** CHANGELOG.md from the repository (main branch). Missing / offline = no extra notes. */
+async function fetchChangelog(): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(`https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/CHANGELOG.md`, {
+      headers: { 'User-Agent': 'diamondpos-updater' },
+      signal: AbortSignal.timeout(8000)
+    })
+    return res.ok ? parseChangelog(await res.text()) : {}
+  } catch {
+    return {}
+  }
 }

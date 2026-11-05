@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BootInfo, Health, ReleaseInfo, UpdateEvent } from '../../../shared/types'
 import { compareVersions } from '../../../shared/version'
+import { needsServerFirst } from '../../../shared/changelog'
+import ReleaseNotes from '../ReleaseNotes'
 
 /**
  * Update / rollback screen.
@@ -41,11 +43,29 @@ export default function Updates(props: { boot: BootInfo; health: Health | null; 
   )
   const latest = visible[0]
   const previous = visible.find((r) => compareVersions(r.version, current) < 0)
+  // Everything you'd get by updating to the latest version (newest first)
+  const newer = visible.filter((r) => compareVersions(r.version, current) > 0)
+  const serverFirst = newer.some((r) => needsServerFirst(r.notes))
   const busy = !boot.isPackaged || (status !== null && status.type !== 'error')
 
   async function install(r: ReleaseInfo) {
-    const verb = compareVersions(r.version, current) > 0 ? 'Update' : 'Revert'
-    if (!confirm(`${verb} this computer to v${r.version}? The app will restart.`)) return
+    const up = compareVersions(r.version, current) > 0
+    const between = visible.filter((x) =>
+      up
+        ? compareVersions(x.version, current) > 0 && compareVersions(x.version, r.version) <= 0
+        : compareVersions(x.version, r.version) > 0 && compareVersions(x.version, current) <= 0
+    )
+    const dbChange = between.some((x) => needsServerFirst(x.notes))
+    const msg = up
+      ? `Update this computer to v${r.version}?` +
+        (dbChange
+          ? boot.config.mode === 'server'
+            ? '\n\nThis update changes the database. This is the Store Server, so update it BEFORE the tills.'
+            : '\n\nThis update changes the database. Make sure the Store Server PC has been updated first.'
+          : '')
+      : `Revert this computer to v${r.version}?\n\nThis removes: ${between.map((x) => 'v' + x.version).join(', ')}.` +
+        (boot.config.mode === 'server' ? '\nRevert the tills first, then this Store Server.' : '')
+    if (!confirm(msg + '\n\nThe app will restart.')) return
     setStatus({ type: 'checking' })
     try {
       await window.pos.installRelease(r.tag)
@@ -96,6 +116,27 @@ export default function Updates(props: { boot: BootInfo; health: Health | null; 
           </button>
         </div>
 
+        {newer.length > 0 && (
+          <div className="whats-new">
+            <h3>
+              What's new in {newer.length === 1 ? `v${newer[0].version}` : `v${newer[newer.length - 1].version} – v${newer[0].version}`}
+            </h3>
+            {serverFirst && (
+              <div className="callout warn">
+                {boot.config.mode === 'server'
+                  ? 'This update changes the database. This PC is the Store Server: update it first, then the tills.'
+                  : 'This update changes the database. Update the Store Server PC first, then this till.'}
+              </div>
+            )}
+            {newer.map((r) => (
+              <div key={r.tag} className="whats-new-version">
+                {newer.length > 1 && <b>v{r.version}</b>}
+                <ReleaseNotes text={r.notes} hideServerNote />
+              </div>
+            ))}
+          </div>
+        )}
+
         {status && <StatusLine e={status} />}
         {!boot.isPackaged && (
           <p className="muted small">Running in development mode — installing is disabled, but the list still loads.</p>
@@ -124,7 +165,7 @@ export default function Updates(props: { boot: BootInfo; health: Health | null; 
                 </button>
               )}
             </div>
-            {r.notes && <pre className="notes">{r.notes}</pre>}
+            <ReleaseNotes text={r.notes} />
           </div>
         )
       })}

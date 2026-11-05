@@ -40,6 +40,14 @@ jobs:
           # CSC_LINK: ${{ secrets.WINDOWS_CERT_BASE64 }}
           # CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
+      - name: Release notes from CHANGELOG.md (shown on the app's Updates screen)
+        shell: bash
+        run: |
+          node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Mark beta versions as pre-release
         if: contains(github.ref_name, '-')
         shell: bash
