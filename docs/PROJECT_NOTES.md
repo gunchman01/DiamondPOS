@@ -56,6 +56,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 | `src/main/server/index.ts` | API routes: products, sales, reports, settings |
 | `src/main/server/migrations.ts` | DB schema changes. **Add only**; never edit released migrations. |
 | `src/renderer/src/screens/*` | UI: Setup, Home (Navigator), Sell, Products (Item List), Reports, Settings, Updates |
+| `src/main/server/kiosk.ts`, `kioskPage.ts` | iPad customer kiosk: pairing, live events, sign-up; the kiosk web page |
 | `src/main/server/products.ts`, `customers.ts` | Item / customer fields, validation, import, search, stats |
 | `src/renderer/src/icons.tsx` | Our own SVG icon set used by the Home screen |
 | `electron-builder.yml` | Installer settings and GitHub publish target |
@@ -125,7 +126,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
   - Less empty space: the right-hand column is gone and Today's totals moved to the bottom of the left column; Inventory and Operations share one row; sections stretch to fill the height and tiles are centred; each section's grid is sized to its own tiles
   - Purchasing flow is now Vendor List → Purchase Orders → Receiving History, with PO List under Purchase Orders
 
-### 5 Nov 2026: Full Add / Edit Item window (to release as **v0.2.4**)
+### 5 Nov 2026: Full Add / Edit Item window (released as **v0.2.4**)
 - [x] **DB migration 4**: added the full set of item columns: type (inventory / non_inventory / service), department, description, size, attribute, cost_cents, on_hand, taxable, quick_pick_group, vendor, order_cost_cents, reorder_point, alu, unit_of_measure, manufacturer, print_tags, unorderable, use_serial, earn_commission, earn_rewards, ship_weight/height/length/width, comments. Additive only.
 - [x] New server module **`src/main/server/products.ts`**: one `FIELDS` list maps every item field to its column. It handles reading, validation, insert and update, so a new field = migration + one line in `FIELDS` (+ types + form).
   - `PUT` merges the request onto the existing item, so **older tills can't wipe fields they don't know about**
@@ -140,7 +141,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Verified: TypeScript checks pass; server test (v3→v4 upgrade with backup, old-till merge, validation, taxable GST, on-hand, ALU lookup); preview of the edit window
 - Not yet: Style / Pricing / Available / Alt. Vendor buttons (QB-style extras), departments and vendors as their own managed lists (they're free text with suggestions for now)
 
-### 5 Nov 2026: Bulk import / export items with Excel (same release v0.2.4)
+### 5 Nov 2026: Bulk import / export items with Excel (released as **v0.2.5**)
 - [x] **New dependency `xlsx` (SheetJS 0.20.3)**, installed from the SheetJS CDN tarball (the npm-registry `xlsx` package is outdated). It's in devDependencies because it's bundled into the UI. **Run `npm install` and commit `package-lock.json`**, or the GitHub build (`npm ci`) will fail.
 - [x] `src/shared/itemImport.ts`: the spreadsheet column definitions (template headers + accepted aliases such as SKU, Barcode, Dept, Price, Cost, Qty, GST, Supplier), cell conversion (money, Yes/No, Tax/Non-taxable, item types, barcodes stored as numbers) and item ↔ row conversion
 - [x] `src/renderer/src/spreadsheet.ts`: reads the first sheet of .xlsx/.xls/.csv and writes .xlsx (Electron shows a Save dialog)
@@ -153,7 +154,7 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] **Item List**: **Import from Excel** (template download → choose file → preview with New / Update / Problem per row and recognised + ignored columns → Import) and **Export to Excel** (all items in the same layout, so export → edit in Excel → import is a bulk-edit round trip)
 - Verified: TypeScript checks pass (with a stand-in for the xlsx types, since npm is blocked in Claude's sandbox); server tests for mapping, preview vs real import, blank-keeps-value, UPC matching, add-only mode, UPC conflicts and the export round trip; preview of the import window
 
-### 5 Nov 2026: Customers (to release as **v0.2.5**)
+### 5 Nov 2026: Customers (released as **v0.2.6**)
 - [x] **DB migration 5**: new `customers` table (name, title, company, track-as-company, phone/mobile/email, OK-to-email, address, Customer ID, alt phone/contact, type, tax-exempt, discount %, accept cheques, ship-to address, notes, active) + `sales.customer_id`. Additive only; existing sales simply have no customer.
 - [x] Server **`src/main/server/customers.ts`** (same field-list pattern as products):
   - `GET /api/customers?search=` matches name, "first last", company, email, Customer ID and phone numbers ignoring spaces / dashes
@@ -168,14 +169,34 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - Stored but **not applied to prices yet**: Tax-Exempt and Discount % (they need the discounts / tax-exempt pricing work), Accept Cheques (no cheque tender yet)
 - Verified: TypeScript checks pass; server test (v4→v5 upgrade with an existing sale, validation, Customer ID auto/unique, search incl. phone digits, partial update, sales linking, stats/history, sales list names); previews of the customer window and the Sale screen with a customer
 
+### 5 Nov 2026: Customer kiosk on an iPad (to release as **v0.2.7**)
+- [x] **Web kiosk, no installer.** The store server serves **`http://<server-ip>:4580/kiosk`** (`src/main/server/kioskPage.ts`, one self-contained HTML page with plain JS for iPad Safari). Screens: pairing code → store logo + welcome (idle) → sign-up form → thank you → logo.
+  - iPad setup: open the URL in Safari → Share → **Add to Home Screen** → open it → pair → lock with **Guided Access**
+  - The kiosk token is stored in the iPad's browser (localStorage). Clearing Safari data = pair again.
+- [x] **DB migration 6**: `kiosks` table (name, linked till name, secret token) + `kiosk_welcome` setting; the logo is stored as `store_logo` (data URL) in `settings`
+- [x] Server **`src/main/server/kiosk.ts`**:
+  - Pairing: kiosk `POST /kiosk/api/pair-request` → 6-digit code (10 min, single use); till `POST /api/kiosks/pair {code, name, tillName}`; kiosk polls `/kiosk/api/pair-status/:code` → token
+  - Live push to the iPad with **Server-Sent Events** `GET /kiosk/api/events?token=` (events: form / idle / thanks / branding / unpaired; 20 s keep-alive pings). ⚠️ Listen for disconnects on `res.on('close')`, not `req.on('close')`.
+  - Till: `POST /api/kiosk-sessions {tillName}` picks the kiosk linked to that till (or the only kiosk) → pushes the form. The till polls `GET /api/kiosk-sessions/:id` every second. Cancel: `/api/kiosk-sessions/:id/cancel`. Times out after 5 min. A newer request replaces an older one.
+  - Submit `POST /kiosk/api/submit`: needs first + last name and a mobile or email. **Matches an existing customer by email or mobile/phone digits** (fills blanks only, never overwrites); otherwise creates one with a "Signed up at kiosk" note.
+  - **Kiosk security**: `/kiosk/*` endpoints need the kiosk token, only work for an open session and **never return customer data**; `/api/*` still needs the store pairing code. Unpair revokes the token immediately.
+  - `PUT /api/settings/logo {dataUrl|null}` (PNG/JPEG/WebP/GIF, ≤ ~2 MB); `GET /kiosk/logo` serves it; kiosks refresh branding live
+  - Sessions and pair codes are kept in memory (lost on a server restart, which is fine; kiosks reconnect by themselves)
+- [x] Till UI:
+  - **Settings → Customer Kiosk (iPad)** (`screens/KioskSettings.tsx`): logo upload (resized to ≤1000×600) / remove, welcome message, kiosk URL + step-by-step setup, pair with code, paired kiosks with online status, change the linked till, unpair
+  - **Sale screen**: **F9 Kiosk** (function bar + "Kiosk sign-up" in the customer box) and **Send to kiosk** in the F5 customer search → `screens/KioskSignup.tsx` waits (spinner, Cancel, Send again); on submit the customer is attached to the sale ("New customer from kiosk" / "Found existing customer")
+  - Renderer CSP now allows `img-src http:` so the logo preview loads from the store server
+- Verified: TypeScript checks pass; end-to-end server test of the whole flow (pairing, single-use codes, bad tokens, offline kiosk, SSE events, validation, submit, existing-customer match, customer cancel, cashier cancel, replacing a request, logo, rename, unpair); previews of the iPad form, idle screen and the Settings card
+- Ideas next: the iPad as a **customer-facing display** (items + total while scanning, "Thank you" + change after payment), using the same event stream
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-0. `npm install` (new xlsx dependency), test the item window and Excel import/export with `npm run dev`, commit **including package-lock.json**, then release **v0.2.4** (DB migration 4: update the Store Server PC first). **Items section considered done.**
-   - Then release **v0.2.5** (Customers, DB migration 5): update the Store Server PC first
-   - Later, build out the "coming soon" tiles: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
-   - Ideas: Quick Pick order/colours, item categories with category tabs on the Quick Picks panel, customer field on the sale, discounts, hold/recall sale
+**Latest release: v0.2.6** (Customers). Next release will be **v0.2.7** (customer kiosk, DB migration 6: update the Store Server PC first).
+
+0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
+   - Ideas: apply customer Discount % / Tax-Exempt to sales, Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)
 3. Receipt printer (ESC/POS) and cash drawer kick

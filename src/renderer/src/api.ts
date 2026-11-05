@@ -11,12 +11,19 @@ import type {
   ImportSummary,
   Customer,
   CustomerDetail,
-  CustomerInput
+  CustomerInput,
+  KioskInfo,
+  KioskSession
 } from '../../shared/types'
 import type { ImportItem } from '../../shared/itemImport'
 
 let baseUrl = ''
 let apiKey = ''
+
+/** Base URL of the store server, e.g. http://192.168.1.20:4580 */
+export function serverBaseUrl(): string {
+  return baseUrl
+}
 
 export function configureApi(url: string, key: string): void {
   baseUrl = url.replace(/\/+$/, '')
@@ -71,6 +78,18 @@ export const api = {
   getCustomer: (id: number) => request<CustomerDetail>('GET', `/api/customers/${id}`),
   createCustomer: (c: CustomerInput) => request<Customer>('POST', '/api/customers', c),
   updateCustomer: (id: number, c: CustomerInput) => request<Customer>('PUT', `/api/customers/${id}`, c),
+
+  // Customer kiosk (iPad)
+  listKiosks: () => request<KioskInfo[]>('GET', '/api/kiosks'),
+  pairKiosk: (code: string, name: string, tillName: string) =>
+    request<KioskInfo>('POST', '/api/kiosks/pair', { code, name, tillName }),
+  updateKiosk: (id: number, changes: { name?: string; tillName?: string }) =>
+    request<KioskInfo>('PUT', `/api/kiosks/${id}`, changes),
+  removeKiosk: (id: number) => request<{ ok: boolean }>('POST', `/api/kiosks/${id}/remove`),
+  setLogo: (dataUrl: string | null) => request<StoreSettings>('PUT', '/api/settings/logo', { dataUrl }),
+  startKioskSession: (tillName: string) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName }),
+  getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
+  cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),

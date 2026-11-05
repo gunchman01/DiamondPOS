@@ -7,7 +7,12 @@ import CustomerEditor from './CustomerEditor'
  * Find a customer for the current sale (search by name, company, phone, email
  * or Customer ID), or add a new one on the spot.
  */
-export default function CustomerPicker(props: { onPick: (c: Customer) => void; onCancel: () => void }) {
+export default function CustomerPicker(props: {
+  onPick: (c: Customer) => void
+  onCancel: () => void
+  /** Push the sign-up form to the customer kiosk (iPad) instead */
+  onSendToKiosk?: () => void
+}) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Customer[]>([])
   const [active, setActive] = useState(0)
@@ -65,6 +70,11 @@ export default function CustomerPicker(props: { onPick: (c: Customer) => void; o
             onChange={(e) => setQuery(e.target.value)}
             style={{ flex: 1, width: 'auto' }}
           />
+          {props.onSendToKiosk && (
+            <button onClick={props.onSendToKiosk} title="Customer types their own details on the iPad">
+              Send to kiosk
+            </button>
+          )}
           <button className="primary" onClick={() => setAdding(true)}>
             + New customer
           </button>

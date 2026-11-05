@@ -4,6 +4,7 @@ import { api } from '../api'
 import { money, parseMoney } from '../format'
 import { receiptHtml } from '../receipt'
 import CustomerPicker from './CustomerPicker'
+import KioskSignup from './KioskSignup'
 
 interface CartLine {
   product: Product
@@ -35,6 +36,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const [message, setMessage] = useState<Message>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [pickingCustomer, setPickingCustomer] = useState(false)
+  const [kioskOpen, setKioskOpen] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -55,7 +57,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const gst = Math.round((taxableTotal * rate) / (1 + rate))
   const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
-  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer
+  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -153,6 +155,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
       F3: () => selectedLine && setEditingQty(true),
       F4: removeSelected,
       F5: () => setPickingCustomer(true),
+      F9: () => setKioskOpen(true),
       F6: clearSale,
       F7: () => startPayment('cash'),
       F8: () => startPayment('card')
@@ -202,9 +205,14 @@ export default function Sell({ boot }: { boot: BootInfo }) {
               </button>
             </>
           ) : (
-            <button onClick={() => setPickingCustomer(true)}>
-              <kbd>F5</kbd> Add customer
-            </button>
+            <>
+              <button onClick={() => setPickingCustomer(true)}>
+                <kbd>F5</kbd> Add customer
+              </button>
+              <button className="kiosk-btn" onClick={() => setKioskOpen(true)} title="Customer enters their details on the iPad">
+                <kbd>F9</kbd> Kiosk sign-up
+              </button>
+            </>
           )}
         </div>
         {message && <div className={`msg ${message.kind}`}>{message.text}</div>}
@@ -390,6 +398,9 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         <button className="fkey" onClick={() => setPickingCustomer(true)}>
           <kbd>F5</kbd> Customer
         </button>
+        <button className="fkey" onClick={() => setKioskOpen(true)}>
+          <kbd>F9</kbd> Kiosk
+        </button>
         <button className="fkey" disabled={!cart.length && !customer} onClick={clearSale}>
           <kbd>F6</kbd> Clear sale
         </button>
@@ -398,8 +409,34 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         </button>
       </div>
 
+      {kioskOpen && (
+        <KioskSignup
+          tillName={boot.config.tillName}
+          onDone={(c, matched) => {
+            setCustomer(c)
+            setLastSale(null)
+            setMessage({
+              kind: 'info',
+              text: `${matched ? 'Found existing customer' : 'New customer from kiosk'}: ${customerDisplayName(c)}`
+            })
+            setTimeout(() => {
+              setKioskOpen(false)
+              focusScan()
+            }, 900)
+          }}
+          onClose={() => {
+            setKioskOpen(false)
+            focusScan()
+          }}
+        />
+      )}
+
       {pickingCustomer && (
         <CustomerPicker
+          onSendToKiosk={() => {
+            setPickingCustomer(false)
+            setKioskOpen(true)
+          }}
           onCancel={() => {
             setPickingCustomer(false)
             focusScan()

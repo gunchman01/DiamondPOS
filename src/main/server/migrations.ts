@@ -169,6 +169,23 @@ export const migrations: Migration[] = [
       ALTER TABLE sales ADD COLUMN customer_id INTEGER REFERENCES customers(id);
       CREATE INDEX idx_sales_customer ON sales(customer_id);
     `
+  },
+  {
+    version: 6,
+    name: 'customer kiosks (iPad)',
+    up: `
+      CREATE TABLE kiosks (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        till_name  TEXT NOT NULL,
+        token      TEXT NOT NULL UNIQUE,
+        paired_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        active     INTEGER NOT NULL DEFAULT 1
+      );
+      INSERT INTO settings (key, value) VALUES
+        ('kiosk_welcome', 'Welcome! We''ll be with you in a moment.')
+        ON CONFLICT(key) DO NOTHING;
+    `
   }
 ]
 

@@ -30,6 +30,7 @@ import {
   updateCustomer,
   validateCustomer
 } from './customers'
+import { registerKioskRoutes } from './kiosk'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName } from '../../shared/types'
 import type {
@@ -128,6 +129,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
         put.run('tax_rate', String(rate))
       }
       if (s.receiptFooter !== undefined) put.run('receipt_footer', String(s.receiptFooter))
+      if (s.kioskWelcome !== undefined) put.run('kiosk_welcome', String(s.kioskWelcome).slice(0, 200))
     })()
     res.json(readSettings(db))
   })
@@ -207,6 +209,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     updateCustomer(db, id, validateCustomer(req.body, existing))
     res.json(getCustomer(db, id))
   })
+
+  // ----- Customer kiosk (iPad): /kiosk page + /api/kiosks… --------------------
+  registerKioskRoutes(app, db, readSettings)
 
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
@@ -319,13 +324,15 @@ function sqliteToIso(s: string): string {
   return s.replace(' ', 'T') + 'Z'
 }
 
-function readSettings(db: DB): StoreSettings {
+export function readSettings(db: DB): StoreSettings {
   const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   return {
     storeName: map.store_name ?? 'My Store',
     taxRate: Number(map.tax_rate ?? 0.15),
-    receiptFooter: map.receipt_footer ?? ''
+    receiptFooter: map.receipt_footer ?? '',
+    kioskWelcome: map.kiosk_welcome ?? '',
+    hasLogo: !!map.store_logo
   }
 }
 

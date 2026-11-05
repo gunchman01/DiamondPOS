@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { BootInfo, StoreSettings } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
 import { api } from '../api'
+import KioskSettings from './KioskSettings'
 
 export default function Settings({ boot, onChange }: { boot: BootInfo; onChange: (b: BootInfo) => void }) {
   const { config } = boot
@@ -105,6 +106,8 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
           </button>
         </div>
       )}
+
+      {store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
     </div>
   )
 }

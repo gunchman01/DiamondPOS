@@ -207,6 +207,36 @@ export interface StoreSettings {
   storeName: string
   taxRate: number
   receiptFooter: string
+  /** Message under the logo on the customer kiosk (iPad) */
+  kioskWelcome: string
+  /** True when a store logo has been uploaded (served at /kiosk/logo) */
+  hasLogo: boolean
+}
+
+// ----- Customer kiosk (iPad) -------------------------------------------------
+
+export interface KioskInfo {
+  id: number
+  name: string
+  /** Till this kiosk belongs to (matches the till's computer name) */
+  tillName: string
+  online: boolean
+  pairedAt: string
+}
+
+export type KioskSessionStatus = 'waiting' | 'submitted' | 'cancelled' | 'expired'
+
+/** A "please fill in your details" request sent from a till to a kiosk */
+export interface KioskSession {
+  id: string
+  kioskId: number
+  kioskName: string
+  tillName: string
+  status: KioskSessionStatus
+  /** Set once the customer has submitted */
+  customer: Customer | null
+  /** True when the details matched an existing customer instead of creating one */
+  matchedExisting: boolean
 }
 
 export interface Health {
