@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 5 November 2026_
+_Last updated: 5 November 2026 (register-style Sale screen)_
 
 ---
 
@@ -72,18 +72,33 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 - [x] Disabled the Update/Revert buttons in dev mode (they only work in the installed app)
 - [x] **Renamed project to DiamondPOS** (app name, installer name, app ID, repo, docs)
 
-### Rename follow-up (to do)
-- [ ] Rename the GitHub repo `store-pos` → `DiamondPOS` (GitHub → Settings → General → Repository name)
-- [ ] `git remote set-url origin git@github.com:gunchman01/DiamondPOS.git`
-- [ ] Rename the local folder `C:\dev\store-pos` → `C:\dev\DiamondPOS`
-- [ ] Uninstall the old "Store POS" app. The new app ID means DiamondPOS installs as a separate app and can't auto-update from Store POS.
-- [ ] Release **v0.2.0** as the first DiamondPOS version and install it
+### Rename follow-up
+- [x] Rename the GitHub repo `store-pos` → `DiamondPOS`
+- [x] `git remote set-url origin git@github.com:gunchman01/DiamondPOS.git`
+- [x] Rename the local folder `C:\dev\store-pos` → `C:\dev\DiamondPOS`
+- [x] Delete the old v0.1.x releases and tags (so "Revert" can't install the old Store POS app)
+- [x] Uninstall the old "Store POS" app
+- [x] Release **v0.2.0** as the first DiamondPOS version. Installed and working.
 - [ ] Test update and rollback: release v0.2.1, update to it, then revert to v0.2.0
+
+### 5 Nov 2026: register-style main screen (uncommitted → release as v0.2.1)
+- [x] **Red theme** across the app (tokens in `styles.css`: `--red`, `--red-dark`, `--red-darker`, `--red-tint`)
+- [x] Red header bar with tabs (Sale, Items, Reports, Settings, Updates), connection status, till name and clock
+- [x] **Sale screen rebuilt** as a classic register layout (`screens/Sell.tsx`), inspired by desktop POS register screens (our own design, no third-party branding):
+  - **Receipt grid**: # / Item # / Description / Qty / Price / Ext. Price, with selectable lines and −1, +1, Change qty, Remove
+  - **All Items panel**: every active item, searchable by name, item # or barcode; click to add, Enter adds the top match
+  - **Totals panel**: items, subtotal, GST included, big TOTAL, and Cash / Card buttons. After a sale it shows the change due and a Print receipt button.
+  - **Function keys**: F2 Find item, F3 Quantity, F4 Remove line (or Delete), F6 Clear sale, F7 Cash, F8 Card, Esc clears the search. F10/F11 are avoided because Windows and Electron use them.
+  - Scan bar: a barcode or exact item # adds directly; partial text filters All Items
+- [x] "Products" renamed to "Items" in the UI
+- Verified: TypeScript checks pass; visual preview at 1280×800 with mock data
 
 ---
 
 ## Next up (backlog, in rough priority order)
 
+0. Try the new Sale screen with `npm run dev`, adjust layout to taste, then release v0.2.1 (this also tests update/rollback)
+   - Ideas: item categories with category filter buttons, customer field on the sale, discounts, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. Refunds and voids (the `sales.status` column already exists)
 3. Receipt printer (ESC/POS) and cash drawer kick

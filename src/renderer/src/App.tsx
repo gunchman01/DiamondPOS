@@ -11,8 +11,8 @@ import Updates from './screens/Updates'
 
 type Tab = 'sell' | 'products' | 'reports' | 'settings' | 'updates'
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'sell', label: 'Sell' },
-  { id: 'products', label: 'Products' },
+  { id: 'sell', label: 'Sale' },
+  { id: 'products', label: 'Items' },
   { id: 'reports', label: 'Reports' },
   { id: 'settings', label: 'Settings' },
   { id: 'updates', label: 'Updates' }
@@ -57,7 +57,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">DiamondPOS</div>
+        <div className="brand">
+          <span className="brand-mark">◆</span> DiamondPOS
+        </div>
         <nav>
           {TABS.map((t) => (
             <button key={t.id} className={tab === t.id ? 'tab active' : 'tab'} onClick={() => setTab(t.id)}>
@@ -66,8 +68,14 @@ export default function App() {
           ))}
         </nav>
         <div className="status">
-          <span className={online ? 'dot ok' : 'dot bad'} />
-          {online ? 'Connected' : 'Server offline'} · {boot.config.tillName} · v{boot.appVersion}
+          <span>
+            <span className={online ? 'dot ok' : 'dot bad'} /> {online ? 'Connected' : 'Server offline'}
+          </span>
+          <span>
+            Till: <b>{boot.config.tillName}</b>
+          </span>
+          <Clock />
+          <span>v{boot.appVersion}</span>
         </div>
       </header>
 
@@ -83,7 +91,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="content">
+      <main className={tab === 'sell' ? 'content flush' : 'content'}>
         {tab === 'sell' && <Sell boot={boot} />}
         {tab === 'products' && <Products />}
         {tab === 'reports' && <Reports />}
@@ -91,5 +99,19 @@ export default function App() {
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
       </main>
     </div>
+  )
+}
+
+function Clock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15_000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <span>
+      <b>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</b>{' '}
+      {now.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}
+    </span>
   )
 }

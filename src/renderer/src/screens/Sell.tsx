@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import type { BootInfo, PaymentMethod, Product, Sale } from '../../../shared/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { BootInfo, PaymentMethod, Product, Sale, StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney } from '../format'
 import { receiptHtml } from '../receipt'
@@ -9,56 +9,115 @@ interface CartLine {
   qty: number
 }
 
-/** The main checkout screen. */
+type Message = { kind: 'error' | 'info'; text: string } | null
+
+/**
+ * Register-style sale screen:
+ *   - Receipt grid (left): the items on the current sale
+ *   - All Items (middle): every product, searchable; click to add
+ *   - Totals + tender (right)
+ *   - Function-key bar (bottom), also driven by the keyboard
+ */
 export default function Sell({ boot }: { boot: BootInfo }) {
   const [cart, setCart] = useState<CartLine[]>([])
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [settings, setSettings] = useState<StoreSettings | null>(null)
+  const [itemSearch, setItemSearch] = useState('')
   const [code, setCode] = useState('')
-  const [results, setResults] = useState<Product[] | null>(null)
-  const [quick, setQuick] = useState<Product[]>([])
   const [paying, setPaying] = useState<PaymentMethod | null>(null)
-  const [done, setDone] = useState<Sale | null>(null)
-  const [error, setError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [editingQty, setEditingQty] = useState(false)
+  const [lastSale, setLastSale] = useState<Sale | null>(null)
+  const [message, setMessage] = useState<Message>(null)
+  const scanRef = useRef<HTMLInputElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    api.listProducts().then((p) => setQuick(p.slice(0, 24))).catch(() => {})
-  }, [])
+  const loadItems = () => {
+    Promise.all([api.listProducts(), api.getSettings()])
+      .then(([p, s]) => {
+        setProducts(p)
+        setSettings(s)
+      })
+      .catch((e) => setMessage({ kind: 'error', text: e.message }))
+  }
+  useEffect(loadItems, [])
 
+  // ----- derived values -----
   const total = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
-  const focusInput = () => setTimeout(() => inputRef.current?.focus(), 0)
+  const itemCount = cart.reduce((s, l) => s + l.qty, 0)
+  const rate = settings?.taxRate ?? 0.15
+  const gst = Math.round((total * rate) / (1 + rate))
+  const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
 
-  function addToCart(p: Product) {
+  const filtered = useMemo(() => {
+    const q = itemSearch.trim().toLowerCase()
+    if (!q) return products
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.sku ?? '').toLowerCase().includes(q) ||
+        (p.barcode ?? '').includes(q)
+    )
+  }, [products, itemSearch])
+
+  const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
+
+  // ----- cart actions -----
+  function addToCart(p: Product, qty = 1) {
     setCart((c) => {
       const existing = c.find((l) => l.product.id === p.id)
-      if (existing) return c.map((l) => (l === existing ? { ...l, qty: l.qty + 1 } : l))
-      return [...c, { product: p, qty: 1 }]
+      if (existing) return c.map((l) => (l === existing ? { ...l, qty: l.qty + qty } : l))
+      return [...c, { product: p, qty }]
     })
-    setResults(null)
+    setSelectedId(p.id)
+    setLastSale(null)
+    setMessage(null)
     setCode('')
-    setError('')
-    focusInput()
+    focusScan()
   }
 
-  function changeQty(id: number, delta: number) {
-    setCart((c) => c.map((l) => (l.product.id === id ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0))
+  function setQty(id: number, qty: number) {
+    setCart((c) => c.map((l) => (l.product.id === id ? { ...l, qty } : l)).filter((l) => l.qty > 0))
+    if (qty <= 0) setSelectedId(null)
   }
 
-  // Barcode scanners "type" the code and press Enter, so this handles both scanning and typing
-  async function onSubmitCode(e: React.FormEvent) {
+  function removeSelected() {
+    if (selectedId === null) return
+    setQty(selectedId, 0)
+    focusScan()
+  }
+
+  function clearSale() {
+    if (cart.length && !confirm('Clear all items from this sale?')) return
+    setCart([])
+    setSelectedId(null)
+    focusScan()
+  }
+
+  function startPayment(method: PaymentMethod) {
+    if (!cart.length) return
+    setPaying(method)
+  }
+
+  // Barcode scanners "type" the code and press Enter
+  async function onScan(e: React.FormEvent) {
     e.preventDefault()
     const value = code.trim()
     if (!value) return
-    setError('')
     try {
       addToCart(await api.lookupProduct(value))
     } catch {
-      try {
-        const found = await api.listProducts(value)
-        if (found.length === 1) addToCart(found[0])
-        else if (found.length === 0) setError(`No product matches "${value}"`)
-        else setResults(found)
-      } catch (err) {
-        setError((err as Error).message)
+      const q = value.toLowerCase()
+      const matches = products.filter((p) => p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase() === q)
+      if (matches.length === 1) addToCart(matches[0])
+      else {
+        setItemSearch(value)
+        setCode('')
+        setMessage(
+          matches.length
+            ? { kind: 'info', text: `${matches.length} items match "${value}". Pick one from All Items.` }
+            : { kind: 'error', text: `No item matches "${value}"` }
+        )
       }
     }
   }
@@ -70,118 +129,277 @@ export default function Sell({ boot }: { boot: BootInfo }) {
       payments: [{ method, amountCents, reference: reference || undefined }]
     })
     setPaying(null)
-    setDone(sale)
     setCart([])
+    setSelectedId(null)
+    setLastSale(sale)
+    setMessage({ kind: 'info', text: `Sale #${sale.id} saved` })
+    focusScan()
   }
 
   async function printReceipt(sale: Sale) {
     try {
-      const settings = await api.getSettings()
-      await window.pos.printReceipt(receiptHtml(sale, settings))
+      const s = settings ?? (await api.getSettings())
+      await window.pos.printReceipt(receiptHtml(sale, s))
     } catch (e) {
-      setError((e as Error).message)
+      setMessage({ kind: 'error', text: (e as Error).message })
     }
   }
 
-  if (done) {
-    return (
-      <div className="card done">
-        <h2>Sale #{done.id} complete</h2>
-        <div className="total-big">{money(done.totalCents)}</div>
-        {done.changeCents > 0 && <div className="change">Change due: {money(done.changeCents)}</div>}
-        {error && <div className="error-text">{error}</div>}
-        <div className="row gap">
-          <button onClick={() => printReceipt(done)}>Print receipt</button>
-          <button
-            className="primary"
-            autoFocus
-            onClick={() => {
-              setDone(null)
-              setError('')
-              focusInput()
-            }}
-          >
-            New sale
-          </button>
-        </div>
-      </div>
-    )
+  // ----- keyboard shortcuts (F-keys) -----
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {})
+  keyHandler.current = (e: KeyboardEvent) => {
+    if (paying || editingQty) return
+    const inInput = (e.target as HTMLElement)?.tagName === 'INPUT'
+    const actions: Record<string, () => void> = {
+      F2: () => searchRef.current?.focus(),
+      F3: () => selectedLine && setEditingQty(true),
+      F4: removeSelected,
+      F6: clearSale,
+      F7: () => startPayment('cash'),
+      F8: () => startPayment('card'),
+      Escape: () => {
+        setItemSearch('')
+        focusScan()
+      }
+    }
+    if (e.key === 'Delete' && !inInput) actions.Delete = removeSelected
+    const action = actions[e.key]
+    if (action) {
+      e.preventDefault()
+      action()
+    }
   }
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => keyHandler.current?.(e)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
 
   return (
-    <div className="sell">
-      <section className="sell-left">
-        <form onSubmit={onSubmitCode}>
+    <div className="register">
+      {/* ---------- Header strip ---------- */}
+      <div className="reg-head">
+        <h2>{cart.length ? 'Sale in progress' : 'New Sale'}</h2>
+        <div className="field">
+          Store<b>{settings?.storeName ?? '—'}</b>
+        </div>
+        <div className="field">
+          Till<b>{boot.config.tillName}</b>
+        </div>
+        <div className="field">
+          Last receipt<b>{lastSale ? `#${lastSale.id}` : '—'}</b>
+        </div>
+        {message && <div className={`msg ${message.kind}`}>{message.text}</div>}
+      </div>
+
+      {/* ---------- Receipt (current sale) ---------- */}
+      <section className="panel receipt">
+        <div className="panel-title">
+          <span>Receipt</span>
+          <span className="count">
+            {cart.length} line{cart.length === 1 ? '' : 's'} · {itemCount} item{itemCount === 1 ? '' : 's'}
+          </span>
+        </div>
+        <div className="grid-wrap">
+          <table className="grid">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>#</th>
+                <th style={{ width: 110 }}>Item #</th>
+                <th>Description</th>
+                <th className="num" style={{ width: 60 }}>
+                  Qty
+                </th>
+                <th className="num" style={{ width: 90 }}>
+                  Price
+                </th>
+                <th className="num" style={{ width: 100 }}>
+                  Ext. Price
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {cart.map((l, i) => (
+                <tr
+                  key={l.product.id}
+                  className={l.product.id === selectedId ? 'selected' : ''}
+                  onClick={() => setSelectedId(l.product.id)}
+                  onDoubleClick={() => {
+                    setSelectedId(l.product.id)
+                    setEditingQty(true)
+                  }}
+                >
+                  <td className="dim">{i + 1}</td>
+                  <td className="dim">{l.product.sku ?? ''}</td>
+                  <td>{l.product.name}</td>
+                  <td className="num">{l.qty}</td>
+                  <td className="num">{money(l.product.priceCents)}</td>
+                  <td className="num">{money(l.product.priceCents * l.qty)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {cart.length === 0 && (
+            <div className="grid-empty">Scan a barcode, type an item # below, or click an item in All Items.</div>
+          )}
+        </div>
+        <div className="line-actions">
+          <button disabled={!selectedLine} onClick={() => selectedLine && setQty(selectedLine.product.id, selectedLine.qty - 1)}>
+            − 1
+          </button>
+          <button disabled={!selectedLine} onClick={() => selectedLine && addToCart(selectedLine.product)}>
+            + 1
+          </button>
+          <button disabled={!selectedLine} onClick={() => setEditingQty(true)}>
+            Change qty
+          </button>
+          <button disabled={!selectedLine} className="danger" onClick={removeSelected}>
+            Remove line
+          </button>
+        </div>
+        <form className="scanbar" onSubmit={onScan}>
+          <label htmlFor="scan">Item # / Barcode</label>
           <input
-            ref={inputRef}
+            id="scan"
+            ref={scanRef}
             autoFocus
-            className="scan"
-            placeholder="Scan barcode or type product name / SKU and press Enter"
+            autoComplete="off"
+            placeholder="Scan or type, then press Enter"
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
+          <button type="submit" className="primary">
+            Add
+          </button>
         </form>
-        {error && <div className="error-text">{error}</div>}
-
-        {results ? (
-          <div className="list">
-            <div className="row between">
-              <strong>Choose a product</strong>
-              <button onClick={() => setResults(null)}>Close</button>
-            </div>
-            {results.map((p) => (
-              <button key={p.id} className="list-item" onClick={() => addToCart(p)}>
-                <span>{p.name}</span>
-                <span>{money(p.priceCents)}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="grid">
-            {quick.map((p) => (
-              <button key={p.id} className="tile" onClick={() => addToCart(p)}>
-                <span>{p.name}</span>
-                <strong>{money(p.priceCents)}</strong>
-              </button>
-            ))}
-          </div>
-        )}
       </section>
 
-      <section className="sell-right card">
-        <h2>Current sale</h2>
-        <div className="cart">
-          {cart.length === 0 && <p className="muted">No items yet</p>}
-          {cart.map((l) => (
-            <div key={l.product.id} className="cart-line">
-              <div className="cart-name">{l.product.name}</div>
-              <div className="qty">
-                <button onClick={() => changeQty(l.product.id, -1)}>−</button>
-                <span>{l.qty}</span>
-                <button onClick={() => changeQty(l.product.id, 1)}>+</button>
-              </div>
-              <div className="r">{money(l.product.priceCents * l.qty)}</div>
-            </div>
-          ))}
+      {/* ---------- All items ---------- */}
+      <section className="panel items">
+        <div className="panel-title">
+          <span>All Items</span>
+          <span className="count">
+            {filtered.length} of {products.length}
+          </span>
         </div>
-        <div className="totals">
-          <div className="row between total-big">
-            <span>Total</span>
+        <div className="search-row">
+          <input
+            ref={searchRef}
+            placeholder="Search name, item # or barcode  (F2)"
+            value={itemSearch}
+            onChange={(e) => setItemSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && filtered.length > 0) addToCart(filtered[0])
+            }}
+          />
+          <button onClick={loadItems} title="Reload items from the server">
+            ↻
+          </button>
+        </div>
+        <div className="grid-wrap">
+          <table className="grid">
+            <thead>
+              <tr>
+                <th style={{ width: 100 }}>Item #</th>
+                <th>Description</th>
+                <th className="num" style={{ width: 90 }}>
+                  Price
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p.id} onClick={() => addToCart(p)} title="Click to add to sale">
+                  <td className="dim">{p.sku ?? ''}</td>
+                  <td>{p.name}</td>
+                  <td className="num">{money(p.priceCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <div className="grid-empty">No items found</div>}
+        </div>
+      </section>
+
+      {/* ---------- Totals + tender ---------- */}
+      <section className="panel totals">
+        <div className="panel-title">
+          <span>Totals</span>
+        </div>
+        <div className="totals-body">
+          <div className="tline">
+            <span>Items</span>
+            <span>{itemCount}</span>
+          </div>
+          <div className="tline">
+            <span>Subtotal</span>
             <span>{money(total)}</span>
           </div>
+          <div className="tline muted">
+            <span>GST included ({Math.round(rate * 1000) / 10}%)</span>
+            <span>{money(gst)}</span>
+          </div>
+          <div className="tbox">
+            <span>Total</span>
+            <strong>{money(total)}</strong>
+          </div>
+
+          {lastSale && cart.length === 0 && (
+            <div className="last-sale">
+              <div>
+                <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
+              </div>
+              {lastSale.changeCents > 0 && <div className="change">Change due: {money(lastSale.changeCents)}</div>}
+              <button onClick={() => printReceipt(lastSale)}>Print receipt</button>
+            </div>
+          )}
+
+          <div className="tender">
+            <button className="primary" disabled={!cart.length} onClick={() => startPayment('cash')}>
+              <span>Cash</span>
+              <kbd>F7</kbd>
+            </button>
+            <button className="primary" disabled={!cart.length} onClick={() => startPayment('card')}>
+              <span>Card (terminal)</span>
+              <kbd>F8</kbd>
+            </button>
+          </div>
         </div>
-        <div className="pay-buttons">
-          <button className="primary big" disabled={!cart.length} onClick={() => setPaying('cash')}>
-            Cash
-          </button>
-          <button className="primary big" disabled={!cart.length} onClick={() => setPaying('card')}>
-            Card (terminal)
-          </button>
-        </div>
-        <button className="link" disabled={!cart.length} onClick={() => setCart([])}>
-          Clear sale
-        </button>
       </section>
+
+      {/* ---------- Function keys ---------- */}
+      <div className="fkeys">
+        <button className="fkey" onClick={() => searchRef.current?.focus()}>
+          <kbd>F2</kbd> Find item
+        </button>
+        <button className="fkey" disabled={!selectedLine} onClick={() => setEditingQty(true)}>
+          <kbd>F3</kbd> Quantity
+        </button>
+        <button className="fkey" disabled={!selectedLine} onClick={removeSelected}>
+          <kbd>F4</kbd> Remove line
+        </button>
+        <button className="fkey" disabled={!cart.length} onClick={clearSale}>
+          <kbd>F6</kbd> Clear sale
+        </button>
+        <button className="fkey spacer" disabled={!lastSale} onClick={() => lastSale && printReceipt(lastSale)}>
+          Reprint last receipt
+        </button>
+      </div>
+
+      {editingQty && selectedLine && (
+        <QtyDialog
+          line={selectedLine}
+          onCancel={() => {
+            setEditingQty(false)
+            focusScan()
+          }}
+          onSave={(qty) => {
+            setQty(selectedLine.product.id, qty)
+            setEditingQty(false)
+            focusScan()
+          }}
+        />
+      )}
 
       {paying && (
         <PaymentDialog
@@ -189,11 +407,44 @@ export default function Sell({ boot }: { boot: BootInfo }) {
           totalCents={total}
           onCancel={() => {
             setPaying(null)
-            focusInput()
+            focusScan()
           }}
           onConfirm={completeSale}
         />
       )}
+    </div>
+  )
+}
+
+function QtyDialog(props: { line: CartLine; onCancel: () => void; onSave: (qty: number) => void }) {
+  const [text, setText] = useState(String(props.line.qty))
+  const qty = Number(text)
+  const valid = Number.isInteger(qty) && qty >= 0 && qty <= 9999
+  return (
+    <div className="modal-backdrop">
+      <form
+        className="modal"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (valid) props.onSave(qty)
+        }}
+        onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
+      >
+        <h2>Change quantity</h2>
+        <div>{props.line.product.name}</div>
+        <label>
+          Quantity (0 removes the line)
+          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onFocus={(e) => e.target.select()} />
+        </label>
+        <div className="row gap end">
+          <button type="button" onClick={props.onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={!valid}>
+            OK
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
@@ -215,6 +466,7 @@ function PaymentDialog(props: {
   const valid = !isNaN(tenderedCents) && tenderedCents >= totalCents
 
   async function confirm() {
+    if (!valid || busy) return
     setBusy(true)
     setError('')
     try {
@@ -227,21 +479,28 @@ function PaymentDialog(props: {
 
   return (
     <div className="modal-backdrop">
-      <div className="modal">
+      <form
+        className="modal"
+        onSubmit={(e) => {
+          e.preventDefault()
+          confirm()
+        }}
+        onKeyDown={(e) => e.key === 'Escape' && !busy && props.onCancel()}
+      >
         <h2>{method === 'cash' ? 'Cash payment' : 'Card payment'}</h2>
-        <div className="total-big">Due: {money(totalCents)}</div>
+        <div className="total-big">Amount due: {money(totalCents)}</div>
 
         {method === 'cash' ? (
           <>
             <label>
               Amount received
-              <input autoFocus value={tendered} onChange={(e) => setTendered(e.target.value)} />
+              <input autoFocus value={tendered} onChange={(e) => setTendered(e.target.value)} onFocus={(e) => e.target.select()} />
             </label>
             <div className="row gap">
-              {[totalCents, 2000, 5000, 10000]
+              {[totalCents, 1000, 2000, 5000, 10000]
                 .filter((v, i, a) => v >= totalCents && a.indexOf(v) === i)
                 .map((v) => (
-                  <button key={v} onClick={() => setTendered((v / 100).toFixed(2))}>
+                  <button type="button" key={v} onClick={() => setTendered((v / 100).toFixed(2))}>
                     {v === totalCents ? 'Exact' : money(v)}
                   </button>
                 ))}
@@ -266,14 +525,14 @@ function PaymentDialog(props: {
 
         {error && <div className="error-text">{error}</div>}
         <div className="row gap end">
-          <button onClick={props.onCancel} disabled={busy}>
+          <button type="button" onClick={props.onCancel} disabled={busy}>
             Cancel
           </button>
-          <button className="primary" disabled={!valid || busy} onClick={confirm}>
+          <button type="submit" className="primary" disabled={!valid || busy}>
             {busy ? 'Saving…' : method === 'card' ? 'Card approved – complete sale' : 'Complete sale'}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }

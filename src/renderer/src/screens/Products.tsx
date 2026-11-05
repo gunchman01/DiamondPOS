@@ -56,9 +56,9 @@ export default function Products() {
   return (
     <div className="page">
       <div className="row between">
-        <h2>Products</h2>
+        <h2>Items</h2>
         <button className="primary" onClick={() => open('new')}>
-          + Add product
+          + Add item
         </button>
       </div>
       <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
