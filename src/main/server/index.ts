@@ -34,6 +34,7 @@ import { registerKioskRoutes } from './kiosk'
 import { registerQuickBooksRoutes } from './quickbooks/qbwc'
 import { registerMarketingRoutes } from './marketing/routes'
 import { startMarketingSender, stopMarketingSender } from './marketing/mailer'
+import { addUnitFromSale, registerWorkOrderRoutes } from './workorders'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
@@ -228,6 +229,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // ----- Marketing mailers (email) -----------------------------------------
   registerMarketingRoutes(app, db, readSettings)
 
+  // ----- Work orders (repairs) + customer units -----------------------------
+  registerWorkOrderRoutes(app, db, readSettings)
+
   // ----- Sales -------------------------------------------------------------
   app.post('/api/sales', (req, res) => {
     const sale = createSale(db, req.body as SaleRequest)
@@ -394,8 +398,12 @@ function createSale(db: DB, req: SaleRequest): Sale {
     const row = getActive.get(it.productId) as ProductRow | undefined
     if (!row) throw new HttpError(400, `Item ${it.productId} not found or inactive`)
     const p = toProduct(row)
+    const serial = String((it as { serial?: string }).serial ?? '').trim().slice(0, 80)
+    if (serial && qty !== 1) throw new HttpError(400, `${p.name}: a serial-numbered item must be one per line`)
     return {
       productId: p.id,
+      serial,
+      manufacturer: p.manufacturer,
       name: p.name,
       unitPriceCents: p.priceCents,
       qty,
@@ -445,12 +453,15 @@ function createSale(db: DB, req: SaleRequest): Sale {
       )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
-      `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
     for (const l of lines) {
-      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0)
+      addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0, l.serial || null)
+      // A serial-numbered item sold to a customer is saved as one of their units (for repairs later)
+      if (l.serial && customerId)
+        addUnitFromSale(db, { customerId, saleId, serial: l.serial, name: l.name, department: l.department, manufacturer: l.manufacturer })
       if (l.tracksStock) takeStock.run(l.qty, l.productId) // on-hand quantity for inventory items
     }
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
@@ -490,6 +501,7 @@ function getSale(db: DB, id: number): Sale | null {
     unit_price_cents: number
     qty: number
     line_total_cents: number
+    serial: string | null
   }[]
   const payments = db.prepare('SELECT * FROM payments WHERE sale_id = ? ORDER BY id').all(id) as {
     method: 'cash' | 'card'
@@ -513,7 +525,8 @@ function getSale(db: DB, id: number): Sale | null {
       name: i.name,
       unitPriceCents: i.unit_price_cents,
       qty: i.qty,
-      lineTotalCents: i.line_total_cents
+      lineTotalCents: i.line_total_cents,
+      serial: i.serial
     })),
     payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, reference: p.reference ?? undefined }))
   }

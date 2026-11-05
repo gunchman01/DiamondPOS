@@ -272,6 +272,74 @@ export const migrations: Migration[] = [
       CREATE INDEX idx_marketing_sends_status ON marketing_sends(campaign_id, status);
       INSERT INTO settings (key, value) VALUES ('store_address', '') ON CONFLICT(key) DO NOTHING;
     `
+  },
+  {
+    version: 11,
+    name: 'work orders and customer units',
+    up: `
+      -- Equipment a customer owns (bought here with a serial number, or added for a repair)
+      CREATE TABLE customer_units (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id   INTEGER NOT NULL REFERENCES customers(id),
+        category      TEXT NOT NULL DEFAULT 'other',   -- handheld | mower | other
+        unit_type     TEXT NOT NULL DEFAULT '',
+        brand         TEXT NOT NULL DEFAULT '',
+        model         TEXT NOT NULL DEFAULT '',
+        serial        TEXT NOT NULL DEFAULT '',
+        hours         REAL,                            -- mower hour meter (optional)
+        purchased_here INTEGER NOT NULL DEFAULT 0,
+        purchase_date TEXT,
+        sale_id       INTEGER REFERENCES sales(id),
+        notes         TEXT NOT NULL DEFAULT '',
+        active        INTEGER NOT NULL DEFAULT 1,
+        created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_units_customer ON customer_units(customer_id);
+      CREATE INDEX idx_units_serial ON customer_units(serial);
+
+      -- Serial number of a serialized item sold
+      ALTER TABLE sale_items ADD COLUMN serial TEXT;
+
+      CREATE TABLE work_orders (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id     INTEGER NOT NULL REFERENCES customers(id),
+        unit_id         INTEGER NOT NULL REFERENCES customer_units(id),
+        status          TEXT NOT NULL DEFAULT 'needs_estimate',
+        problem         TEXT NOT NULL DEFAULT '',
+        diagnosis       TEXT NOT NULL DEFAULT '',
+        work_done       TEXT NOT NULL DEFAULT '',
+        internal_notes  TEXT NOT NULL DEFAULT '',
+        hours_in        REAL,
+        last_emailed_at TEXT,
+        last_emailed_status TEXT,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_wo_status ON work_orders(status);
+      CREATE INDEX idx_wo_customer ON work_orders(customer_id);
+
+      CREATE TABLE work_order_lines (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        work_order_id    INTEGER NOT NULL REFERENCES work_orders(id),
+        kind             TEXT NOT NULL,          -- part | labor | shop | misc
+        product_id       INTEGER REFERENCES products(id),
+        description      TEXT NOT NULL,
+        qty              REAL NOT NULL DEFAULT 1, -- hours for labor
+        unit_price_cents INTEGER NOT NULL DEFAULT 0,
+        taxable          INTEGER NOT NULL DEFAULT 1,
+        stock_taken      REAL NOT NULL DEFAULT 0  -- parts taken out of stock for this ticket
+      );
+      CREATE INDEX idx_wo_lines ON work_order_lines(work_order_id);
+
+      CREATE TABLE work_order_history (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        work_order_id INTEGER NOT NULL REFERENCES work_orders(id),
+        at            TEXT NOT NULL DEFAULT (datetime('now')),
+        status        TEXT,
+        note          TEXT NOT NULL,
+        by_name       TEXT NOT NULL DEFAULT ''
+      );
+    `
   }
 ]
 

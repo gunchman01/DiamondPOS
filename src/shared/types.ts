@@ -101,13 +101,15 @@ export interface SaleRequest {
   customerId?: number | null
   /** Apply the customer's tax exemption (their Farm Tax ID must be on file and not expired) */
   taxExempt?: boolean
-  items: { productId: number; qty: number }[]
+  /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
+  items: { productId: number; qty: number; serial?: string }[]
   payments: PaymentInput[]
 }
 
 export interface SaleItem {
   productId: number | null
   name: string
+  serial?: string | null
   unitPriceCents: number
   qty: number
   lineTotalCents: number

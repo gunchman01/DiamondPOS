@@ -10,8 +10,11 @@ import CustomerEditor from './CustomerEditor'
 import { priceSale } from '../../../shared/pricing'
 
 interface CartLine {
+  /** product id, plus the serial number for serial-numbered items (one per line) */
+  key: string
   product: Product
   qty: number
+  serial?: string
 }
 
 type Message = { kind: 'error' | 'info'; text: string } | null
@@ -28,7 +31,9 @@ type Message = { kind: 'error' | 'info'; text: string } | null
  */
 export default function Sell({ boot }: { boot: BootInfo }) {
   const [cart, setCart] = useState<CartLine[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  /** Item waiting for its serial number to be typed or scanned */
+  const [serialFor, setSerialFor] = useState<Product | null>(null)
   const [quickPicks, setQuickPicks] = useState<Product[]>([])
   const [settings, setSettings] = useState<StoreSettings | null>(null)
   const [code, setCode] = useState('')
@@ -71,28 +76,44 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   const total = priced.totalCents
   const shelfTotal = cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0)
   const gst = priced.taxCents
-  const selectedLine = cart.find((l) => l.product.id === selectedId) ?? null
+  const selectedLine = cart.find((l) => l.key === selectedId) ?? null
   const hasQuickPicks = quickPicks.length > 0
-  const dialogOpen = paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen || editingCustomer
+  const dialogOpen =
+    paying !== null || editingQty || findQuery !== null || pickingCustomer || kioskOpen || editingCustomer || serialFor !== null
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
   // ----- cart actions -----
-  function addToCart(p: Product, qty = 1) {
+  function addToCart(p: Product, qty = 1, serial?: string) {
+    // Serial-numbered items ("Use Serial #" on the item): ask for the serial, one per line
+    if (p.useSerial && serial === undefined) {
+      setSerialFor(p)
+      return
+    }
+    if (serial && cart.some((l) => l.product.id === p.id && l.serial?.toLowerCase() === serial.toLowerCase())) {
+      setMessage({ kind: 'error', text: `Serial ${serial} is already on this sale` })
+      return
+    }
+    const key = serial ? `${p.id}:${serial}` : String(p.id)
     setCart((c) => {
-      const existing = c.find((l) => l.product.id === p.id)
+      const existing = serial ? undefined : c.find((l) => l.key === key)
       if (existing) return c.map((l) => (l === existing ? { ...l, qty: l.qty + qty } : l))
-      return [...c, { product: p, qty }]
+      return [...c, { key, product: p, qty: serial ? 1 : qty, serial }]
     })
-    setSelectedId(p.id)
+    setSelectedId(key)
     setLastSale(null)
     setMessage(null)
     setCode('')
     focusScan()
   }
 
-  function setQty(id: number, qty: number) {
-    setCart((c) => c.map((l) => (l.product.id === id ? { ...l, qty } : l)).filter((l) => l.qty > 0))
+  function setQty(key: string, qty: number) {
+    const line = cart.find((l) => l.key === key)
+    if (line?.serial && qty > 1) {
+      setMessage({ kind: 'error', text: 'Serial-numbered items are one per line. Add the item again for the next serial number.' })
+      return
+    }
+    setCart((c) => c.map((l) => (l.key === key ? { ...l, qty } : l)).filter((l) => l.qty > 0))
     if (qty <= 0) setSelectedId(null)
   }
 
@@ -131,7 +152,14 @@ export default function Sell({ boot }: { boot: BootInfo }) {
   }
 
   function startPayment(method: PaymentMethod) {
-    if (cart.length) setPaying(method)
+    if (!cart.length) return
+    // A serial-numbered unit is saved under the customer, so one must be attached
+    if (cart.some((l) => l.serial) && !customer) {
+      setMessage({ kind: 'error', text: 'This sale has a serial-numbered item. Add the customer (F5) so the unit is saved to them.' })
+      setPickingCustomer(true)
+      return
+    }
+    setPaying(method)
   }
 
   // Barcode scanners "type" the code and press Enter.
@@ -161,7 +189,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
       tillName: boot.config.tillName,
       customerId: customer?.id ?? null,
       taxExempt: applyExempt,
-      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty })),
+      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial })),
       payments: [{ method, amountCents, reference: reference || undefined }]
     })
     setPaying(null)
@@ -298,17 +326,20 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             <tbody>
               {cart.map((l, i) => (
                 <tr
-                  key={l.product.id}
-                  className={l.product.id === selectedId ? 'selected' : ''}
-                  onClick={() => setSelectedId(l.product.id)}
+                  key={l.key}
+                  className={l.key === selectedId ? 'selected' : ''}
+                  onClick={() => setSelectedId(l.key)}
                   onDoubleClick={() => {
-                    setSelectedId(l.product.id)
+                    setSelectedId(l.key)
                     setEditingQty(true)
                   }}
                 >
                   <td className="dim">{i + 1}</td>
                   <td className="dim">{l.product.sku ?? ''}</td>
-                  <td>{l.product.name}</td>
+                  <td>
+                    {l.product.name}
+                    {l.serial && <span className="serial-tag">S/N {l.serial}</span>}
+                  </td>
                   <td className="num">{l.qty}</td>
                   <td className="num">
                     {money(priced.lines[i].unitPriceCents)}
@@ -333,7 +364,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         <div className="line-actions">
           <button
             disabled={!selectedLine}
-            onClick={() => selectedLine && setQty(selectedLine.product.id, selectedLine.qty - 1)}
+            onClick={() => selectedLine && setQty(selectedLine.key, selectedLine.qty - 1)}
           >
             − 1
           </button>
@@ -492,6 +523,21 @@ export default function Sell({ boot }: { boot: BootInfo }) {
         </button>
       </div>
 
+      {serialFor && (
+        <SerialDialog
+          product={serialFor}
+          onCancel={() => {
+            setSerialFor(null)
+            focusScan()
+          }}
+          onSave={(serial) => {
+            const p = serialFor
+            setSerialFor(null)
+            addToCart(p, 1, serial)
+          }}
+        />
+      )}
+
       {editingCustomer && customer && (
         <CustomerEditor
           customerId={customer.id}
@@ -561,7 +607,7 @@ export default function Sell({ boot }: { boot: BootInfo }) {
             focusScan()
           }}
           onSave={(qty) => {
-            setQty(selectedLine.product.id, qty)
+            setQty(selectedLine.key, qty)
             setEditingQty(false)
             focusScan()
           }}
@@ -785,6 +831,41 @@ function PaymentDialog(props: {
           </button>
           <button type="submit" className="primary" disabled={!valid || busy}>
             {busy ? 'Saving…' : method === 'card' ? 'Card approved – complete sale' : 'Complete sale'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+/** Ask for the serial number of a serial-numbered item (type it or scan the barcode on the unit) */
+function SerialDialog(props: { product: Product; onCancel: () => void; onSave: (serial: string) => void }) {
+  const [serial, setSerial] = useState('')
+  return (
+    <div className="modal-backdrop">
+      <form
+        className="modal"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (serial.trim()) props.onSave(serial.trim())
+        }}
+        onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
+      >
+        <h2>Serial number</h2>
+        <div>
+          <b>{props.product.name}</b>
+          <div className="muted small">The unit will be saved under the customer, so it can be picked for repairs later.</div>
+        </div>
+        <label>
+          Serial number (type or scan)
+          <input autoFocus value={serial} onChange={(e) => setSerial(e.target.value)} />
+        </label>
+        <div className="row gap end">
+          <button type="button" onClick={props.onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={!serial.trim()}>
+            Add to sale
           </button>
         </div>
       </form>

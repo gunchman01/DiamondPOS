@@ -142,6 +142,26 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
   return String(info?.messageId ?? '')
 }
 
+/** Send any email (e.g. work order updates) from the store's email account */
+export async function sendEmail(
+  db: DB,
+  store: StoreSettings,
+  m: { to: string; subject: string; html: string; text: string }
+): Promise<string> {
+  const s = getSmtp(db)
+  const problems = smtpProblems(s)
+  if (problems.length) throw new Error(`Email isn't set up yet (Marketing → Email settings): ${problems.join('; ')}`)
+  const info = await transport(s).sendMail({
+    from: { name: s.fromName || store.storeName, address: s.fromEmail },
+    to: m.to,
+    replyTo: s.replyTo || s.fromEmail,
+    subject: m.subject,
+    html: m.html,
+    text: m.text
+  })
+  return String(info?.messageId ?? '')
+}
+
 /** Simple "it works" email for the Email settings screen */
 export async function sendSmtpTest(db: DB, store: StoreSettings, to: string): Promise<void> {
   await sendMailer(db, store, {

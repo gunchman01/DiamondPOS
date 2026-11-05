@@ -505,6 +505,59 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .email-settings label { color: var(--text); font-weight: 600; font-size: 12px; }
 .email-settings { max-width: 980px; }
 
+.serial-tag { display: block; font-size: 11px; color: var(--muted); font-family: Consolas, monospace; }
+
+/* ---------- Work orders ---------- */
+.stage-badge { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.stage-badge.big { font-size: 13px; padding: 4px 12px; margin-top: 4px; }
+.stage-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--border); border-left-width: 5px; border-radius: 999px; padding: 5px 12px; font-size: 12px; background: #fff; }
+.chip b { margin-left: 4px; }
+.chip.active { color: #fff; background: var(--red-dark); border-color: var(--red-dark); }
+.short-pill { margin-left: 8px; background: var(--red-tint-strong); color: var(--red-darker); }
+.new-wo { width: 640px; }
+.wo-step { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--panel-alt); }
+.wo-step.col { flex-direction: column; align-items: stretch; }
+.wo-step.disabled { opacity: 0.55; }
+.step-body { flex: 1; }
+.step-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--red-dark); color: #fff; font-size: 12px; font-weight: 700; }
+.unit-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 220px; overflow: auto; }
+.unit-card { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 8px 10px; background: #fff; }
+.unit-card.selected { border: 2px solid var(--red); background: var(--red-tint); }
+.unit-modal { width: 600px; }
+.unit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.unit-modal label, .new-wo label { color: var(--text); font-weight: 600; font-size: 12px; }
+.ticket-head { display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; }
+.ticket-no { font-size: 24px; font-weight: 800; color: var(--red-dark); }
+.ticket-who { display: flex; flex-direction: column; gap: 2px; }
+.ticket-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.stage-flow { display: flex; flex-wrap: wrap; gap: 4px; }
+.flow-step { font-size: 11px; padding: 4px 10px; border-radius: 4px; background: #e5e7eb; color: #4b5563; font-weight: 600; }
+.flow-step.current { color: #fff; }
+.stage-buttons .big-ish { padding: 9px 16px; font-weight: 700; }
+.info-bar { background: #eef4ff; border: 1px solid #c7d7f5; color: #1e429f; border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.warn-bar { background: var(--red-tint); border: 1px solid var(--red-tint-strong); color: var(--red-darker); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.ticket-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.ticket label { color: var(--text); font-weight: 600; font-size: 12px; }
+.wo-lines td, .wo-lines th { padding: 5px 8px; font-size: 13px; vertical-align: middle; }
+.wo-lines tr.short-row td, .grid tr.short-row td { background: #fde8eb; color: var(--red-darker); }
+.stock-note { font-size: 11px; color: var(--ok); }
+.stock-note.bad { color: var(--bad); font-weight: 700; }
+.cell-input { width: 70px; padding: 3px 6px; text-align: right; font-size: 13px; }
+.cell-input.money { width: 82px; }
+.wo-totals { display: grid; grid-template-columns: 1fr auto; gap: 3px 16px; font-size: 13px; max-width: 320px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.wo-totals b { font-size: 17px; }
+.wo-history { max-height: 220px; overflow: auto; font-size: 12px; border-top: 1px solid var(--border-soft); }
+.wo-history > div { padding: 3px 0; border-bottom: 1px solid var(--border-soft); }
+.email-modal { width: 700px; max-height: 92vh; }
+.email-modal .email-body { max-height: 55vh; }
+.shop-row { display: grid; grid-template-columns: 160px 1fr 110px; gap: 10px; align-items: center; }
+.shop-row .money { text-align: right; }
+.placeholders { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.placeholders code { background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 4px; padding: 1px 5px; }
+.template-box { border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: var(--panel-alt); }
+.wo-settings label { color: var(--text); font-weight: 600; font-size: 12px; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

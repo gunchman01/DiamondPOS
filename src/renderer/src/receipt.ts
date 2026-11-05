@@ -6,7 +6,7 @@ export function receiptHtml(sale: Sale, settings: StoreSettings): string {
   const rows = sale.items
     .map(
       (i) =>
-        `<tr><td>${i.qty} x ${escapeHtml(i.name)}</td><td class="r">${money(i.lineTotalCents)}</td></tr>`
+        `<tr><td>${i.qty} x ${escapeHtml(i.name)}${i.serial ? `<br>&nbsp;&nbsp;S/N ${escapeHtml(i.serial)}` : ''}</td><td class="r">${money(i.lineTotalCents)}</td></tr>`
     )
     .join('')
   const pays = sale.payments

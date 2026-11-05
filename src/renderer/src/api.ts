@@ -27,6 +27,15 @@ import type {
   SmtpSettings,
   SmtpSettingsView
 } from '../../shared/marketing'
+import type {
+  CustomerUnit,
+  CustomerUnitInput,
+  WoLineInput,
+  WoSettings,
+  WoStatus,
+  WoSummary,
+  WorkOrder
+} from '../../shared/workorders'
 
 let baseUrl = ''
 let apiKey = ''
@@ -101,6 +110,29 @@ export const api = {
   startKioskSession: (tillName: string) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName }),
   getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
+
+  // Work orders + customer units
+  woSettings: () => request<WoSettings>('GET', '/api/workorders/settings'),
+  woSaveSettings: (st: Partial<WoSettings>) => request<WoSettings>('PUT', '/api/workorders/settings', st),
+  units: (customerId: number) => request<CustomerUnit[]>('GET', `/api/customers/${customerId}/units`),
+  addUnit: (customerId: number, u: Partial<CustomerUnitInput>) =>
+    request<CustomerUnit>('POST', `/api/customers/${customerId}/units`, u),
+  updateUnit: (id: number, u: Partial<CustomerUnitInput>) => request<CustomerUnit>('PUT', `/api/units/${id}`, u),
+  woList: (status: string, search = '') =>
+    request<WoSummary[]>('GET', `/api/workorders?status=${status}&search=${encodeURIComponent(search)}`),
+  woCounts: () => request<Record<WoStatus, number>>('GET', '/api/workorders/counts'),
+  wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
+  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string }) =>
+    request<WorkOrder>('POST', '/api/workorders', b),
+  woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
+    request<WorkOrder>('PUT', `/api/workorders/${id}`, b),
+  woStatus: (id: number, status: WoStatus, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/status`, { status, by }),
+  woAddLine: (id: number, l: Partial<WoLineInput>) => request<WorkOrder>('POST', `/api/workorders/${id}/lines`, l),
+  woUpdateLine: (id: number, lineId: number, l: Partial<WoLineInput>) =>
+    request<WorkOrder>('PUT', `/api/workorders/${id}/lines/${lineId}`, l),
+  woRemoveLine: (id: number, lineId: number) => request<WorkOrder>('POST', `/api/workorders/${id}/lines/${lineId}/remove`),
+  woEmailPreview: (id: number) => request<{ subject: string; html: string; text: string }>('GET', `/api/workorders/${id}/email-preview`),
+  woEmail: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by }),
 
   // Marketing mailers
   mkOptions: () => request<AudienceOptions>('GET', '/api/marketing/options'),
