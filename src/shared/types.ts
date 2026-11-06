@@ -14,6 +14,8 @@ export interface AppConfig {
   updateChannel: UpdateChannel
   /** QuickBooks is on this PC: relay the Web Connector from localhost to the store server */
   qbBridge: boolean
+  /** Columns shown on the Sale screen's receipt grid, in order (right-click the grid header to change) */
+  saleColumns?: string[]
 }
 
 export interface BootInfo {

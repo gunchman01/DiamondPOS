@@ -627,6 +627,28 @@ button.primary.pay-btn { background: linear-gradient(#1a7f37, #146c2e); border-c
 .kind-chip.active { border-color: var(--red-darker); background: #fdf2f3; color: var(--red-darker); font-weight: 700; }
 .feedback-page .grow { flex: 1; }
 
+/* ---------- Sale grid column menu + receipt viewer ---------- */
+.register .grid thead th { cursor: context-menu; }
+.col-menu { position: fixed; z-index: 50; width: 230px; background: #fff; border: 1px solid var(--border-soft); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.25); padding: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.col-menu-title { font-weight: 700; color: var(--red-darker); padding: 2px 4px; }
+.col-menu-list { display: flex; flex-direction: column; max-height: 360px; overflow: auto; }
+.col-menu-list label { display: flex; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 8px; font-size: 13px; color: var(--text, #222); margin: 0; padding: 3px 6px; border-radius: 4px; cursor: pointer; }
+.col-menu-list label:hover { background: #fdf2f3; }
+.col-menu-list label.disabled { color: var(--muted); cursor: default; }
+.col-menu-list input { width: auto; margin: 0; }
+.col-menu-actions { display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid var(--border-soft); padding-top: 6px; }
+.col-menu-actions button { flex: 1; font-size: 12px; padding: 4px 6px; }
+.col-menu-actions .col-menu-title { width: 100%; padding: 0 2px; font-size: 12px; }
+button.history-row { width: 100%; border: 0; border-bottom: 1px solid var(--border-soft); border-radius: 0; text-align: left; font: inherit; background: transparent; cursor: pointer; }
+button.history-row:nth-child(even) { background: var(--panel-alt); }
+button.history-row:hover { background: #fdf2f3; color: var(--red-darker); }
+.modal.sale-dlg { width: min(760px, 94vw); }
+.sale-dlg .sale-head { display: flex; flex-wrap: wrap; gap: 18px; }
+.sale-dlg .sale-head > div { display: flex; flex-direction: column; }
+.sale-dlg .sale-lines { max-height: 45vh; overflow: auto; }
+.sale-dlg .sale-totals { margin-left: auto; width: 300px; display: flex; flex-direction: column; gap: 3px; }
+.sale-dlg .tline.big { font-size: 16px; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

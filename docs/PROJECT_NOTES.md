@@ -315,13 +315,15 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] In-app logo: `src/renderer/src/Logo.tsx` (same drawing, inline SVG) at the top left and on the first-run Setup screen.
 - [x] Display name **"Diamond POS"** (window title, top bar, Setup, manual, feedback subject, QuickBooks screen text, test email, Excel file names). **Not changed on purpose:** `productName: DiamondPOS` (install folder and `%APPDATA%\DiamondPOS` data folder, renaming would lose the data), the repo name, `DiamondPOS.qwc` and the QuickBooks customer "DiamondPOS Daily Sales" (renaming would create a new QuickBooks customer).
 - [x] Updater: a release whose body is the workflow placeholder ("No release notes were written…") now falls back to CHANGELOG.md, so v0.3.7–v0.3.9 show notes once v0.3.10 is installed.
+- [x] **Sale screen columns**: right-click the receipt grid header → menu (`src/renderer/src/saleColumns.tsx`): show/hide any of #, Item #, UPC, ALU, Description*, Item Details, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Reg Price, Qty*, Price, Ext. Price* (*always shown), move the clicked column left/right, reset. Saved per computer in `pos-config.json` (`AppConfig.saleColumns`). Work order / return rows fill the item-only columns with blanks.
+- [x] **Receipt viewer** `screens/SaleDialog.tsx` (header, lines incl. returns, totals, payments, Reprint): opened by clicking a sale in the customer window's History and in Sales History / Reports.
 - To regenerate the icon after changing `build/logo.svg`: render each size (16, 24, 32, 48, 64, 128, 256) to PNG and pack them into `build/icon.ico` (ImageMagick + Pillow were used).
 
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.9** (feedback). Next release: **v0.3.10** (logo + app icon + "Diamond POS" name; no DB change).
+**Latest release: v0.3.9** (feedback). Next release: **v0.3.10** (logo + app icon + "Diamond POS" name, Sale screen columns, open past receipts; no DB change).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %

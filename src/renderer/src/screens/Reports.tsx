@@ -3,6 +3,7 @@ import type { DailyReport, SaleSummary } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money, today } from '../format'
 import { receiptHtml } from '../receipt'
+import SaleDialog from './SaleDialog'
 
 /** End-of-day totals across ALL tills, plus a list of sales with reprint. */
 export default function Reports() {
@@ -10,6 +11,7 @@ export default function Reports() {
   const [report, setReport] = useState<DailyReport | null>(null)
   const [sales, setSales] = useState<SaleSummary[]>([])
   const [error, setError] = useState('')
+  const [viewSale, setViewSale] = useState<number | null>(null)
 
   useEffect(() => {
     setError('')
@@ -66,7 +68,7 @@ export default function Reports() {
         </thead>
         <tbody>
           {sales.map((s) => (
-            <tr key={s.id}>
+            <tr key={s.id} className="clickable" title="Open this receipt" onClick={() => setViewSale(s.id)}>
               <td>{s.id}</td>
               <td>{dateTime(s.createdAt)}</td>
               <td>{s.tillName}</td>
@@ -76,12 +78,20 @@ export default function Reports() {
               </td>
               <td className="r">{money(s.totalCents)}</td>
               <td className="r">
-                <button onClick={() => reprint(s.id)}>Reprint</button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    reprint(s.id)
+                  }}
+                >
+                  Reprint
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => setViewSale(null)} />}
     </div>
   )
 }

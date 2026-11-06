@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
 import { api } from '../api'
+import SaleDialog from './SaleDialog'
 import { dateTime, money } from '../format'
 import TaxExemptBadge from '../TaxExemptBadge'
 
@@ -81,6 +82,8 @@ export interface CustomerEditorProps {
 
 /** Add / edit customer window. */
 export default function CustomerEditor(props: CustomerEditorProps) {
+  /** Receipt opened from the History list */
+  const [viewSale, setViewSale] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(props.customerId)
   const [detail, setDetail] = useState<CustomerDetail | null>(null)
   const [form, setForm] = useState<Form>(() => toForm(null, props.prefill))
@@ -320,11 +323,17 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               <div className="history-list">
                 {detail?.history.length ? (
                   detail.history.map((h) => (
-                    <div key={h.id} className="history-row">
+                    <button
+                      type="button"
+                      key={h.id}
+                      className="history-row clickable"
+                      title="Open this receipt"
+                      onClick={() => setViewSale(h.id)}
+                    >
                       <span>{dateTime(h.createdAt)}</span>
                       <span className="dim">Receipt #{h.id}</span>
                       <b>{money(h.totalCents)}</b>
-                    </div>
+                    </button>
                   ))
                 ) : (
                   <p className="muted small">No sales yet.</p>
@@ -379,6 +388,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
           ))}
         </datalist>
       </form>
+      {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => setViewSale(null)} />}
     </div>
   )
 }

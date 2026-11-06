@@ -16,6 +16,7 @@ import {
 } from '../../../shared/workorders'
 import WoPayPicker from './WoPayPicker'
 import ReturnDialog, { type ReturnLine } from './ReturnDialog'
+import { ColumnMenu, visibleColumns, type GridRow } from '../saleColumns'
 import { returnAmount } from '../../../shared/returns'
 
 interface CartLine {
@@ -41,9 +42,12 @@ type Message = { kind: 'error' | 'info'; text: string } | null
 export default function Sell({
   boot,
   workOrder,
-  onWorkOrderDone
+  onWorkOrderDone,
+  onBootChange
 }: {
   boot: BootInfo
+  /** Saves this computer's settings (used for the receipt grid columns) */
+  onBootChange?: (b: BootInfo) => void
   /** Opened from a work order ticket: load it onto this sale */
   workOrder?: { id: number; mode: WoSaleMode } | null
   onWorkOrderDone?: () => void
@@ -150,6 +154,105 @@ export default function Sell({
   const suggestMethod = origMethods.length === 1 ? origMethods[0] : null
   const selectedLine = cart.find((l) => l.key === selectedId) ?? null
   const selectedReturn = returns.find((l) => l.key === selectedId) ?? null
+
+  // ----- receipt grid: columns chosen by right-clicking the header (saved on this computer) -----
+  const [colIds, setColIds] = useState<string[] | undefined>(boot.config.saleColumns)
+  const [colMenu, setColMenu] = useState<{ x: number; y: number; target: string | null } | null>(null)
+  const cols = visibleColumns(colIds)
+  function openColMenu(e: React.MouseEvent, target: string | null) {
+    e.preventDefault()
+    setColMenu({ x: e.clientX, y: e.clientY, target })
+  }
+  async function saveColumns(ids: string[]) {
+    setColIds(ids)
+    try {
+      onBootChange?.(await window.pos.saveConfig({ saleColumns: ids }))
+    } catch {
+      /* still shown for this session */
+    }
+  }
+  const rows: GridRow[] = [
+    ...cart.map((l, i) => ({
+      key: l.key,
+      kind: 'item' as const,
+      product: l.product,
+      lineNo: i + 1,
+      sku: l.product.sku,
+      name: l.product.name,
+      tags: l.serial && !cols.some((c) => c.id === 'serial') ? [<span key="sn" className="serial-tag">S/N {l.serial}</span>] : [],
+      serial: l.serial ?? null,
+      qty: l.qty,
+      unitCents: priced.lines[i].unitPriceCents,
+      extCents: priced.lines[i].lineTotalCents,
+      exTax: priced.lines[i].unitPriceCents !== l.product.priceCents
+    })),
+    ...woLines.map((l, j) => ({
+      key: `wo-${j}`,
+      kind: 'wo' as const,
+      lineNo: '🔧',
+      sku: wo!.order.number,
+      name: l.description.replace(` - ${wo!.order.number}`, ''),
+      tags: [],
+      serial: null,
+      qty: l.qty,
+      unitCents: priced.lines[cart.length + j].unitPriceCents,
+      extCents: priced.lines[cart.length + j].lineTotalCents
+    })),
+    ...(priced.creditCents > 0
+      ? [
+          {
+            key: 'wo-credit',
+            kind: 'credit' as const,
+            lineNo: '🔧',
+            sku: wo!.order.number,
+            name: `Estimate fee credit${wo!.order.feeSaleId ? ` (paid on receipt #${wo!.order.feeSaleId})` : ''}`,
+            tags: [],
+            serial: null,
+            qty: 1,
+            unitCents: priced.creditCents,
+            extCents: priced.creditCents
+          }
+        ]
+      : []),
+    ...returns.map((l, k) => ({
+      key: l.key,
+      kind: 'return' as const,
+      lineNo: '↩',
+      sku: l.sku,
+      name: (
+        <>
+          <span className="return-tag">RETURN</span> {l.name}
+        </>
+      ),
+      tags: [
+        ...(l.serial && !cols.some((c) => c.id === 'serial') ? [<span key="sn" className="serial-tag">S/N {l.serial}</span>] : []),
+        <span key="why" className="serial-tag">
+          {l.saleId ? `Receipt #${l.saleId}` : "NO RECEIPT (today's price)"} · {l.reason} ·{' '}
+          {l.tracksStock ? (l.restock ? 'back to stock' : 'damaged, not restocked') : 'not a stock item'}
+        </span>
+      ],
+      serial: l.serial,
+      qty: l.qty,
+      unitCents: l.unitCents,
+      extCents: retPriced[k].amountCents
+    })),
+    ...(feeKept > 0
+      ? [
+          {
+            key: 'fee-kept',
+            kind: 'feekept' as const,
+            lineNo: '↩',
+            sku: null,
+            name: 'Not refunded: estimate fee credit on the receipt is kept',
+            tags: [],
+            serial: null,
+            qty: 1,
+            unitCents: feeKept,
+            extCents: feeKept
+          }
+        ]
+      : [])
+  ]
   const hasQuickPicks = quickPicks.length > 0
   const dialogOpen =
     paying !== null ||
@@ -160,7 +263,8 @@ export default function Sell({
     editingCustomer ||
     serialFor !== null ||
     pickingWo ||
-    returning
+    returning ||
+    colMenu !== null
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
 
@@ -447,102 +551,49 @@ export default function Sell({
         </div>
         <div className="grid-wrap">
           <table className="grid">
-            <thead>
-              <tr>
-                <th style={{ width: 36 }}>#</th>
-                <th style={{ width: 120 }}>Item #</th>
-                <th>Description</th>
-                <th className="num" style={{ width: 60 }}>
-                  Qty
-                </th>
-                <th className="num" style={{ width: 90 }}>
-                  Price
-                </th>
-                <th className="num" style={{ width: 100 }}>
-                  Ext. Price
-                </th>
+            <thead onContextMenu={(e) => openColMenu(e, (e.target as HTMLElement).closest('th')?.dataset.col ?? null)}>
+              <tr title="Right-click to choose columns">
+                {cols.map((c) => (
+                  <th key={c.id} data-col={c.id} className={c.num ? 'num' : ''} style={c.width ? { width: c.width } : undefined}>
+                    {c.label}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {cart.map((l, i) => (
-                <tr
-                  key={l.key}
-                  className={l.key === selectedId ? 'selected' : ''}
-                  onClick={() => setSelectedId(l.key)}
-                  onDoubleClick={() => {
-                    setSelectedId(l.key)
-                    setEditingQty(true)
-                  }}
-                >
-                  <td className="dim">{i + 1}</td>
-                  <td className="dim">{l.product.sku ?? ''}</td>
-                  <td>
-                    {l.product.name}
-                    {l.serial && <span className="serial-tag">S/N {l.serial}</span>}
-                  </td>
-                  <td className="num">{l.qty}</td>
-                  <td className="num">
-                    {money(priced.lines[i].unitPriceCents)}
-                    {priced.lines[i].unitPriceCents !== l.product.priceCents && <span className="ex-tag">ex tax</span>}
-                  </td>
-                  <td className="num">{money(priced.lines[i].lineTotalCents)}</td>
-                </tr>
-              ))}
-              {woLines.map((l, j) => {
-                const p = priced.lines[cart.length + j]
+            <tbody onContextMenu={(e) => openColMenu(e, null)}>
+              {rows.map((r) => {
+                const selectable = r.kind === 'item' || r.kind === 'return'
+                const cls = [
+                  r.kind === 'wo' || r.kind === 'feekept' ? 'wo-row' : '',
+                  r.kind === 'credit' ? 'wo-row credit-row' : '',
+                  r.kind === 'return' ? 'return-row' : '',
+                  r.key === selectedId ? 'selected' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')
                 return (
-                  <tr key={`wo-${j}`} className="wo-row" title="From the work order (can't be changed here)">
-                    <td className="dim">🔧</td>
-                    <td className="dim">{wo!.order.number}</td>
-                    <td>{l.description.replace(` - ${wo!.order.number}`, '')}</td>
-                    <td className="num">{l.qty}</td>
-                    <td className="num">{money(p.unitPriceCents)}</td>
-                    <td className="num">{money(p.lineTotalCents)}</td>
+                  <tr
+                    key={r.key}
+                    className={cls}
+                    title={r.kind === 'wo' || r.kind === 'credit' ? "From the work order (can't be changed here)" : r.kind === 'return' ? 'Item coming back' : undefined}
+                    onClick={selectable ? () => setSelectedId(r.key) : undefined}
+                    onDoubleClick={
+                      r.kind === 'item'
+                        ? () => {
+                            setSelectedId(r.key)
+                            setEditingQty(true)
+                          }
+                        : undefined
+                    }
+                  >
+                    {cols.map((c) => (
+                      <td key={c.id} className={[c.num ? 'num' : '', c.dim ? 'dim' : ''].filter(Boolean).join(' ')}>
+                        {c.cell(r)}
+                      </td>
+                    ))}
                   </tr>
                 )
               })}
-              {priced.creditCents > 0 && (
-                <tr className="wo-row credit-row">
-                  <td className="dim">🔧</td>
-                  <td className="dim">{wo!.order.number}</td>
-                  <td>Estimate fee credit{wo!.order.feeSaleId ? ` (paid on receipt #${wo!.order.feeSaleId})` : ''}</td>
-                  <td className="num">1</td>
-                  <td className="num">−{money(priced.creditCents)}</td>
-                  <td className="num">−{money(priced.creditCents)}</td>
-                </tr>
-              )}
-              {returns.map((l, k) => (
-                <tr
-                  key={l.key}
-                  className={l.key === selectedId ? 'return-row selected' : 'return-row'}
-                  onClick={() => setSelectedId(l.key)}
-                  title="Item coming back"
-                >
-                  <td className="dim">↩</td>
-                  <td className="dim">{l.sku ?? ''}</td>
-                  <td>
-                    <span className="return-tag">RETURN</span> {l.name}
-                    {l.serial && <span className="serial-tag">S/N {l.serial}</span>}
-                    <span className="serial-tag">
-                      {l.saleId ? `Receipt #${l.saleId}` : 'NO RECEIPT (today\'s price)'} · {l.reason} ·{' '}
-                      {l.tracksStock ? (l.restock ? 'back to stock' : 'damaged, not restocked') : 'not a stock item'}
-                    </span>
-                  </td>
-                  <td className="num">−{l.qty}</td>
-                  <td className="num">{money(l.unitCents)}</td>
-                  <td className="num">−{money(retPriced[k].amountCents)}</td>
-                </tr>
-              ))}
-              {feeKept > 0 && (
-                <tr className="wo-row">
-                  <td className="dim">↩</td>
-                  <td />
-                  <td>Not refunded: estimate fee credit on the receipt is kept</td>
-                  <td className="num">1</td>
-                  <td className="num">{money(feeKept)}</td>
-                  <td className="num">{money(feeKept)}</td>
-                </tr>
-              )}
             </tbody>
           </table>
           {!hasLines && (
@@ -761,6 +812,20 @@ export default function Sell({
           Reprint last receipt
         </button>
       </div>
+
+      {colMenu && (
+        <ColumnMenu
+          x={colMenu.x}
+          y={colMenu.y}
+          target={colMenu.target}
+          shown={cols.map((c) => c.id)}
+          onChange={saveColumns}
+          onClose={() => {
+            setColMenu(null)
+            focusScan()
+          }}
+        />
+      )}
 
       {returning && (
         <ReturnDialog

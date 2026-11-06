@@ -44,6 +44,8 @@ After the sale, click **Print receipt** or **Reprint last receipt**.
 | F9 | Send the sign-up form to the customer kiosk (iPad) |
 | Delete | Remove the selected line |
 
+**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty and Ext. Price are always shown.
+
 **Serial-numbered items** (items with "Use Serial #" ticked) ask for the serial number when scanned. Type it or scan the barcode on the unit. A customer must be on the sale, and the unit is saved under that customer for repairs later.
 
 ## Customers on a sale
@@ -124,7 +126,7 @@ Open **Item List**.
 Open **Customer List** to search, add and edit customers.
 - **Contact Info**: name, company, phone, email, address and "OK to e-mail" (needed for marketing mailers).
 - **Customer Settings**: customer type, tax exempt with **Farm Tax ID**, expiry date and "card copied", discount, notes.
-- **History** and **Statistics** show what they've bought.
+- **History** and **Statistics** show what they've bought. Click a sale in History to open that receipt, see every item and payment, and reprint it.
 
 ## Customer kiosk (iPad)
 The iPad on the counter shows the store logo until a till sends it the sign-up form.
@@ -140,7 +142,7 @@ The iPad on the counter shows the store logo until a till sends it the sign-up f
 ## Sales history and reports
 Open **Sales History** or **Reports** and pick a date.
 - Totals across all tills: number of sales, takings (after refunds), tax, **cash** (after change), **card**, tax-exempt sales and **returns**.
-- Every sale is listed with its till and customer. Refunds and exchanges are marked. Click **Reprint** for a copy of any receipt.
+- Every sale is listed with its till and customer. Refunds and exchanges are marked. Click a sale to open the full receipt, or **Reprint** for a printed copy.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
 
 ## QuickBooks

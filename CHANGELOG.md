@@ -17,6 +17,8 @@ How to write a section (newest at the top):
 ## v0.3.10 - 6 Nov 2026
 - New **Diamond POS logo**: the red diamond with the white "P" is now the app icon (desktop, taskbar and installer) and appears at the top left of every screen.
 - The name now shows as **Diamond POS** (two words) throughout the app.
+- **Choose the columns on the Sale screen**: right-click the column headings to show item details such as UPC, Department, Manufacturer, Vendor, Size, On Hand or Serial #, and move columns left or right. Each till remembers its own layout.
+- **Open a past receipt**: click a sale in a customer's History (or in Sales History) to see every item, payment and the total, and reprint it.
 - Fixed: versions released without notes now show their notes on the Updates screen.
 
 ## v0.3.9 - 6 Nov 2026

@@ -175,7 +175,7 @@ export default function App() {
 
       <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
         {tab === 'home' && <Home onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />}
-        {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} />}
+        {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} onBootChange={setBoot} />}
         {tab === 'products' && <Products />}
         {tab === 'customers' && <Customers />}
         {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
