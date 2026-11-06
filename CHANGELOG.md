@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.15 - 6 Nov 2026
+- **Choose the printer every time**: when a receipt prints, a window asks **Receipt** or **Full page**, and which printer. The usual choice is already picked (Enter prints it). Can be switched off in Settings → Printing.
+- **Drag-and-drop Receipt Layout**: the top and bottom of the receipt are now drag-and-drop areas like the Label Designer (store name, address, logo, receipt #, customer, your own text, barcode, signature…). The middle (items, totals, payments) is a list you tick and reorder. Receipt layouts from v0.3.13 keep their middle settings and get the standard top and bottom.
+- **Help: "Kiosk tablet won't connect"** step-by-step checks, showing this store's real server address.
+
 ## v0.3.14 - 6 Nov 2026
 > Update the Store Server PC first.
 - **Held receipts**: build a sale ahead of time (e.g. a part was ordered) and press **F6 Hold receipt** with a note. When the customer comes in, open it from **F6 Held receipts** on the Sale screen or **Held Receipts** on Home and take payment. Any till can open it; items load at today's price.

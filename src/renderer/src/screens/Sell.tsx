@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, taxExemptState, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
-import { printSale, currentPrintSettings } from '../printing'
+import { currentPrintSettings } from '../printing'
+import PrintChooser from '../PrintChooser'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
 import TaxExemptBadge from '../TaxExemptBadge'
@@ -90,6 +91,8 @@ export default function Sell({
   const [holding, setHolding] = useState(false)
   const [recalling, setRecalling] = useState(false)
   const [heldCount, setHeldCount] = useState(0)
+  /** Sale waiting for "which printer?" */
+  const [printingSale, setPrintingSale] = useState<Sale | null>(null)
   /** Type-ahead matches for the Item # / Barcode box */
   const [sugs, setSugs] = useState<Product[]>([])
   const [sugIdx, setSugIdx] = useState(-1)
@@ -379,6 +382,7 @@ export default function Sell({
     returning ||
     holding ||
     recalling ||
+    printingSale !== null ||
     colMenu !== null
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
@@ -555,13 +559,9 @@ export default function Sell({
     focusScan()
   }
 
-  async function printReceipt(sale: Sale) {
-    try {
-      const where = await printSale(sale)
-      if (where === 'fullPage') setMessage({ kind: 'info', text: `Receipt #${sale.id} sent to the full-page printer` })
-    } catch (e) {
-      setMessage({ kind: 'error', text: (e as Error).message })
-    }
+  /** Opens the printer chooser (or prints straight away if this till doesn't ask) */
+  function printReceipt(sale: Sale) {
+    setPrintingSale(sale)
   }
 
   // ----- keyboard shortcuts (F-keys) -----
@@ -878,7 +878,7 @@ export default function Sell({
             </div>
           ) : (
             <div className="tline muted">
-              <span>GST included ({Math.round(rate * 1000) / 10}%)</span>
+              <span>Tax included ({Math.round(rate * 1000) / 10}%)</span>
               <span>{money(gst)}</span>
             </div>
           )}
@@ -1001,6 +1001,21 @@ export default function Sell({
           Reprint last receipt
         </button>
       </div>
+
+      {printingSale && (
+        <PrintChooser
+          sale={printingSale}
+          onDone={(text) => {
+            setPrintingSale(null)
+            setMessage({ kind: 'info', text })
+            focusScan()
+          }}
+          onCancel={() => {
+            setPrintingSale(null)
+            focusScan()
+          }}
+        />
+      )}
 
       {holding && (
         <HoldDialog

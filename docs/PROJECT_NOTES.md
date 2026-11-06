@@ -344,11 +344,19 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] **✕** column at the left of each item/return row (not part of the custom columns). **Cost** added to the column options.
 - Verified: new server test `held.ts` (validation, hold, list/count, today's price, update, no stock taken, ring up closes it, inactive item left off, delete); TypeScript; all suites; preview of type-ahead + ✕ + Hold badge.
 
+### 6 Nov 2026: Printer chooser, drag-and-drop receipt layout, kiosk help (next release **v0.3.15**, no DB change)
+- [x] **PrintChooser** (`src/renderer/src/PrintChooser.tsx`): every receipt print (Sale screen print/reprint/auto-print, receipt viewer, Sales History reprint) asks Receipt or Full page + printer + copies; suggested format preselected (`suggestedFormat` = serial-numbered / work order rules). `PrintSettings.askPrinter` (default on); off = prints straight away. `printing.ts`: `printSaleAs(sale, format, printer, copies)`.
+- [x] **Receipt layout v2** (`ReceiptLayout.version = 2`): `header` and `footer` zones `{heightMm, elements[]}` with free-placed `ReceiptElement`s (`kind text|logo|barcode|line`, `field` storeName/address/title/saleInfo/receiptNo/dateTime/till/customer/footer/text/signature, **x / w in % of the paper width** so one layout fits 80 and 58 mm, y / h in mm, font, bold, align, `onlyRefund` for the signature). Middle = `blocks` (items, totals, taxExempt, payments, divider, text). `normaliseDesigns` converts a v0.3.13 block layout (keeps middle blocks, adds default zones) and clamps zones. Rendering: `receiptElementInner` / `receiptElementCss` / zone HTML in `receipt.ts`.
+- [x] **ReceiptDesigner** rewritten: Top / Bottom canvases (drag, corner resize, ⇕ to change area height, arrows/Delete/Shift), middle list (tick, drag/▲▼ reorder, add), properties panel, live preview iframe (sale / serial / refund, 80/58 mm).
+- [x] **Help**: new "Kiosk tablet won't connect" section; the manual supports `{server_ip}`, `{server_ips}`, `{kiosk_url}`, `{kiosk_urls}`, `{port}` placeholders filled from this PC (`lanAddresses` on the server, the server URL's host on a till). Markdown renderer now shows ``` code blocks (copyable).
+- Small: "GST included" → "Tax included" on the Sale screen and Reports.
+- Verified: `designs.ts` updated (v1 → v2 conversion, zone clamping, signature/barcode in zones); TypeScript; all suites; previews of the printer chooser, receipt designer and kiosk help.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.13** (Label Designer, Receipt Layout). Next release: **v0.3.14** (held receipts, type-ahead, line ✕, Cost column; DB migration 16: update the Store Server PC first).
+**Latest release: v0.3.14** (held receipts, type-ahead, line ✕, Cost column). Next release: **v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help; no DB change).
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %

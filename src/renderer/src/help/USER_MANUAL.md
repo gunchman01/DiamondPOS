@@ -31,7 +31,7 @@ Open **Make a Sale**.
 **Card:** enter the total on the card terminal. When it says APPROVED, type the terminal's reference number and click **Card approved – complete sale**.
 **Check:** check the amount and signature, type the **check number** (required) and click **Check received – complete sale**. No change is given from a check.
 
-After the sale, click **Print receipt** or **Reprint last receipt** (or set the till to print automatically, see **Printing**). Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
+After the sale, click **Print receipt** or **Reprint last receipt** (or set the till to print automatically, see **Printing**). A window asks where to print: the **receipt printer** or a **full page**, on any printer. The usual choice is already picked, so just press Enter. Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
 
 | Key | What it does |
 |---|---|
@@ -161,6 +161,9 @@ The iPad on the counter shows the store logo until a till sends it the sign-up f
 
 **Using it:** press **F9** on the Sale screen. The customer fills in name, address, city, state, zip, phone and email (business name is optional). If they tick **tax exempt**, they enter their Farm Tax ID and expiry and are asked to hand their card to the cashier to copy.
 
+
+> Tablet won't connect? See **Kiosk tablet won't connect** below for step-by-step checks.
+
 ## Sales history and reports
 Open **Sales History** or **Reports** and pick a date.
 - Totals across all tills: number of sales, takings (after refunds), tax, **cash** (after change), **card**, tax-exempt sales and **returns**.
@@ -196,7 +199,7 @@ Open **Settings** and click the area you want to change. Click **← Settings** 
 
 ## Printing
 Each computer has its own printers, so set this up on every till (**Settings → Printing**). Install the printers in Windows first.
-- **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Tick **Print the receipt automatically** to print as soon as a sale is completed.
+- **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Tick **Print the receipt automatically** to print as soon as a sale is completed. **Ask which printer every time** (on by default) shows a window each time a receipt prints, so you can send a small sale to the laser printer as a full page. Untick it to always print on the usual printer without asking.
 - **Full-page printer (laser)**: prints on Letter paper. Choose what prints here instead of the receipt printer:
   - sales with a **serial-numbered unit** (mowers, saws, blowers…), with the customer's details, serial numbers and a signature line
   - **work order** receipts (estimate fee, repair pick-up)
@@ -216,13 +219,20 @@ Each computer has its own printers, so set this up on every till (**Settings →
 > Which design prints is set per till in **Settings → Printing**: one for items with a price, one for items without. When printing tags you can also pick a design for that print.
 
 ## Receipt Layout
-**Settings → Receipt Layout** chooses what prints on receipts, for every till.
-- Tick or untick blocks: store logo, store name, address, receipt #/date/till, customer, items, totals, tax exempt, payments, receipt barcode, signature line, footer, dashed lines and your own text (e.g. return policy or hours).
-- **Drag** blocks (or use ▲ ▼) to change the order. **+ Add a block** adds another, for example a second line of your own text.
-- Click a block to set its **text size**, **bold** and **alignment** (logo and barcode: width). For items you can show the Item #, "2 @ $12.99" and serial numbers.
-- The preview on the right shows a sale, a serial-numbered sale or a refund, on 80 mm or 58 mm paper.
-- Click **Save receipt layout**.
-> Turn on **Receipt barcode** to print a barcode of the receipt number: scanning it on the **Return** screen finds the sale straight away.
+**Settings → Receipt Layout** designs the receipt for every till. The receipt has three parts:
+- **Top of receipt**: drag-and-drop area. Put the store name, address, logo, receipt #, date, till, customer, REFUND title or your own text wherever you want.
+- **Middle**: items, totals, tax exempt and payments. These grow with every sale, so they're a list: tick them on or off and drag them into order. You can add dashed lines and your own text here too.
+- **Bottom of receipt**: drag-and-drop area for the signature line, receipt footer, receipt barcode, return policy, website and so on.
+
+**Working with the top and bottom areas**
+- Choose **Top** or **Bottom**, pick what to add, and click **+ Add** (or **+ Logo**, **+ Barcode**, **+ Line**).
+- **Drag** an element to move it; drag the **red corner square** to resize it. Arrow keys nudge it, **Delete** removes it, **Shift** gives finer steps.
+- Drag the **⇕** bar under an area to make it taller or shorter.
+- On the left, change the text size, bold, alignment and exact position. The signature line can print on every receipt or only on refunds and exchanges.
+- Things that don't apply to a sale (no customer, not a refund) print blank.
+
+The preview on the right shows a real receipt (a sale, a serial-numbered sale or a refund) on 80 mm or 58 mm paper. Click **Save receipt layout** when you're done.
+> Add the **Barcode** to print a barcode of the receipt number: scanning it on the **Return** screen finds the sale straight away.
 
 ## Updates
 Open **Updates** to see the installed version and any newer ones.
@@ -242,10 +252,44 @@ Have an idea that would make Diamond POS better, something that isn't working ri
 
 The address it goes to can be changed under **Settings → Email feedback & requests to**.
 
+## Kiosk tablet won't connect
+If the tablet (iPad or Android) can't open the kiosk page, it's almost always the network or Windows Firewall, not the tablet. Work through these in order.
+
+The Store Server's address: **{server_ips}**. The kiosk page is **{kiosk_urls}**.
+
+### 1. Type the address exactly
+- In Chrome (or Safari) on the tablet, type the full address including `http://` and the port: **{kiosk_url}**
+- If the browser changes it to `https://`, type it again with `http://`.
+- The address is also shown under **Settings → This Computer** on the Store Server PC. If it lists more than one, try each.
+
+### 2. Check the tablet is on the same Wi-Fi as the server
+- Not the guest network. Guest Wi-Fi usually blocks devices from reaching other computers.
+- On the tablet, turn off **mobile data** while testing. Android sometimes sends traffic over mobile data when the Wi-Fi has no internet.
+- Turn off any VPN on the tablet.
+
+### 3. Check Windows Firewall on the Store Server PC
+This is the most common cause. When Diamond POS first ran, Windows may have asked whether to allow it on networks, and that may have been dismissed or set to "Public".
+- In Windows **Settings → Network & internet**, click the Wi-Fi or Ethernet connection and set it to **Private network**.
+- Then open port {port}. Open **PowerShell as administrator** on the server PC and run:
+
+```
+New-NetFirewallRule -DisplayName "Diamond POS" -Direction Inbound -Protocol TCP -LocalPort {port} -Action Allow -Profile Private,Domain
+```
+
+### 4. Narrow down where it fails
+- On the server PC itself, open `http://localhost:{port}/kiosk` in a browser. If that doesn't work, Diamond POS isn't running on the server.
+- If it works there, open **{kiosk_url}** from another PC or a till:
+  - **Works from the till but not the tablet:** it's the Wi-Fi. The tablet is on a guest network, or the router has "AP isolation" / "client isolation" switched on. Turn that off in the router, or move the tablet to the main network.
+  - **Fails from the till too:** it's the firewall from step 3.
+
+### 5. Check the IP hasn't changed
+If it worked before and stopped, the server's IP address probably changed. Reserve a fixed IP for the server PC in your router so it doesn't keep changing.
+
 ## Troubleshooting
 - **"Server offline"**: the till can't reach the Store Server. Check the server PC is on, Diamond POS is open on it, and both are on the store network.
 - **An item won't scan**: check the barcode is on the item (Item List → UPC), or press F2 to search for it.
 - **"Farm Tax ID has EXPIRED"**: ask for the customer's new card and click **Update Tax ID**.
 - **Mailers aren't sending**: check the email account settings on the Marketing screen. The mailer shows the last error.
 - **QuickBooks shows a Problem**: read the message, fix the account mapping, then click **Retry**.
+- **The kiosk tablet won't connect**: see **Kiosk tablet won't connect** above.
 - **Something broke after an update**: open Updates and **Revert** to the previous version.

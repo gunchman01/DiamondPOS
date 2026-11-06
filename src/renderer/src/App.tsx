@@ -205,7 +205,7 @@ export default function App() {
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
-        {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} />}
+        {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} boot={boot} />}
         {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
         {tab === 'held' && (
           <HeldReceipts

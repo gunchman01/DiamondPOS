@@ -90,6 +90,10 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
           <input type="checkbox" checked={s.autoPrint} onChange={(e) => set({ autoPrint: e.target.checked })} />
           Print the receipt automatically when a sale is completed
         </label>
+        <label className="check">
+          <input type="checkbox" checked={s.askPrinter} onChange={(e) => set({ askPrinter: e.target.checked })} />
+          Ask which printer every time (receipt printer or a full page on any printer)
+        </label>
         <div>
           <button onClick={() => test('receipt')}>Print test receipt</button>
         </div>

@@ -1,10 +1,67 @@
 import type { Sale, StoreSettings } from '../../shared/types'
-import { defaultDesigns, type ReceiptBlock, type ReceiptLayout } from '../../shared/printDesigns'
+import { defaultDesigns, type ReceiptBlock, type ReceiptElement, type ReceiptLayout, type ReceiptZone } from '../../shared/printDesigns'
 import { code128Svg } from './code128'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
 const PAY_LABEL = { cash: 'Cash', card: 'Card', check: 'Check' } as const
+
+/** What a free-placed element (top / bottom of the receipt) shows, as HTML. Also used by the Receipt Layout designer. */
+export function receiptElementInner(e: ReceiptElement, sale: Sale, settings: StoreSettings, logoUrl: string | null): string {
+  const refund = sale.totalCents < 0
+  const hasReturn = sale.items.some((i) => i.kind === 'return')
+  if (e.kind === 'line') return ''
+  if (e.kind === 'logo') return logoUrl && settings.hasLogo ? `<img src="${esc(logoUrl)}" style="max-width:100%;max-height:100%;object-fit:contain">` : ''
+  if (e.kind === 'barcode') return sale.id ? `<div style="width:100%;height:100%">${code128Svg(String(sale.id))}</div>` : ''
+  const br = (t: string) => esc(t).replace(/\n/g, '<br>')
+  switch (e.field) {
+    case 'storeName':
+      return esc(settings.storeName)
+    case 'address':
+      return br(settings.storeAddress)
+    case 'title':
+      return refund ? '*** REFUND ***' : hasReturn ? 'EXCHANGE' : ''
+    case 'saleInfo': {
+      const origs = [...new Set(sale.items.map((i) => i.returnOfSaleId).filter((x): x is number => !!x))]
+      return `Receipt #${sale.id}<br>${dateTime(sale.createdAt)}<br>${esc(sale.tillName)}${
+        origs.length ? `<br>Original receipt: ${origs.map((o) => '#' + o).join(', ')}` : ''
+      }${sale.noReceiptReturn ? '<br>Return without receipt' : ''}`
+    }
+    case 'receiptNo':
+      return `Receipt #${sale.id}`
+    case 'dateTime':
+      return dateTime(sale.createdAt)
+    case 'till':
+      return esc(sale.tillName)
+    case 'customer':
+      return sale.customerName ? `Customer: ${esc(sale.customerName)}` : ''
+    case 'footer':
+      return br(settings.receiptFooter)
+    case 'signature':
+      return !e.onlyRefund || refund || hasReturn ? '<div style="width:100%;border-top:1px solid #000;padding-top:2px">Customer signature</div>' : ''
+    case 'text':
+      return br(e.text)
+  }
+}
+
+/** Inside-the-box CSS for a receipt element */
+export function receiptElementCss(e: ReceiptElement): string {
+  if (e.kind === 'line') return 'width:100%;height:100%;border-top:1px dashed #000;'
+  const justify = e.align === 'left' ? 'flex-start' : e.align === 'right' ? 'flex-end' : 'center'
+  return `width:100%;height:100%;display:flex;align-items:center;justify-content:${justify};text-align:${e.align};font-size:${e.fontPt}pt;font-weight:${
+    e.bold ? 700 : 400
+  };line-height:1.2;overflow:hidden;word-break:break-word;`
+}
+
+function zoneHtml(z: ReceiptZone, sale: Sale, settings: StoreSettings, logoUrl: string | null): string {
+  if (!z.heightMm || !z.elements.length) return ''
+  return `<div style="position:relative;height:${z.heightMm}mm;overflow:hidden">${z.elements
+    .map(
+      (e) =>
+        `<div style="position:absolute;left:${e.x}%;width:${e.w}%;top:${e.y}mm;height:${e.h}mm;overflow:hidden"><div style="${receiptElementCss(e)}">${receiptElementInner(e, sale, settings, logoUrl)}</div></div>`
+    )
+    .join('')}</div>`
+}
 
 /**
  * Receipt for a roll receipt printer (80 or 58 mm), built from the receipt layout
@@ -98,10 +155,12 @@ export function receiptHtml(
     .bc { height: 12mm; }
     img { max-width: 100%; }
   </style></head><body>
+    ${layout.header ? zoneHtml(layout.header, sale, settings, logoUrl) : ''}
     ${layout.blocks
       .filter((b) => b.on)
       .map(block)
       .filter(Boolean)
       .join('\n')}
+    ${layout.footer ? zoneHtml(layout.footer, sale, settings, logoUrl) : ''}
   </body></html>`
 }

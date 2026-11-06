@@ -19,6 +19,8 @@ export interface PrintSettings {
   receiptWidthMm: 80 | 58
   /** Print the receipt as soon as a sale is completed */
   autoPrint: boolean
+  /** Ask which printer (receipt or full page) every time a receipt prints */
+  askPrinter: boolean
   receiptCopies: number
   fullPagePrinter: string
   /** Which sales print full page on the laser printer instead of the receipt printer */
@@ -36,6 +38,7 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   receiptPrinter: '',
   receiptWidthMm: 80,
   autoPrint: false,
+  askPrinter: true,
   receiptCopies: 1,
   fullPagePrinter: '',
   fullPageFor: { serialized: true, workOrders: true },

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { DailyReport, SaleSummary } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money, today } from '../format'
-import { printSale } from '../printing'
+import PrintChooser from '../PrintChooser'
+import type { Sale } from '../../../shared/types'
 import SaleDialog from './SaleDialog'
 
 /** End-of-day totals across ALL tills, plus a list of sales with reprint. */
@@ -23,13 +24,15 @@ export default function Reports() {
       .catch((e) => setError(e.message))
   }, [date])
 
+  const [printing, setPrinting] = useState<Sale | null>(null)
   async function reprint(id: number) {
     try {
-      await printSale(await api.getSale(id))
+      setPrinting(await api.getSale(id))
     } catch (e) {
       setError((e as Error).message)
     }
   }
+
 
   return (
     <div className="page">
@@ -43,7 +46,7 @@ export default function Reports() {
         <div className="stats">
           <Stat label="Sales" value={String(report.saleCount)} />
           <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
-          <Stat label="GST included" value={money(report.taxCents)} />
+          <Stat label="Tax included" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />
           <Stat label="Checks" value={money(report.checkCents ?? 0)} />
@@ -92,6 +95,7 @@ export default function Reports() {
         </tbody>
       </table>
       {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => setViewSale(null)} />}
+      {printing && <PrintChooser sale={printing} onDone={() => setPrinting(null)} onCancel={() => setPrinting(null)} />}
     </div>
   )
 }

@@ -617,6 +617,7 @@ button.primary.pay-btn { background: linear-gradient(#1a7f37, #146c2e); border-c
 .markdown h4 { margin: 10px 0 4px; font-size: 14px; }
 .markdown code { font-family: Consolas, monospace; background: #f3f4f6; padding: 0 3px; border-radius: 3px; }
 .markdown mark { background: #fde68a; padding: 0 1px; }
+.md-code { background: #1f2937; color: #f9fafb; padding: 10px 12px; border-radius: 6px; font: 12px/1.4 Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: all; margin: 6px 0; }
 .md-table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
 .md-table th, .md-table td { border: 1px solid var(--border-soft); padding: 4px 10px; text-align: left; }
 .md-table th { background: #f6f7f9; }
@@ -730,6 +731,26 @@ button.history-row:hover { background: #fdf2f3; color: var(--red-darker); }
 .held-table .held-note { max-width: 260px; white-space: pre-wrap; }
 .nowrap { white-space: nowrap; }
 .danger-text { color: #b91c1c !important; }
+
+/* ---------- Printer chooser + receipt designer v2 ---------- */
+.modal.print-chooser { width: min(640px, 94vw); }
+.pc-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pc-card { border: 2px solid var(--border-soft); border-radius: 10px; padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; background: #fff; }
+.pc-card.active { border-color: var(--red-darker); background: #fdf2f3; }
+.pc-head { display: flex; gap: 10px; align-items: center; }
+.pc-icon { font-size: 28px; }
+.pc-card select { width: 100%; }
+.receipt-designer2 { grid-template-columns: 270px auto 1fr; }
+.rd-editor { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.rd-paper-edit { background: #fff; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.rz { display: flex; flex-direction: column; gap: 3px; }
+.rz-title { font-size: 11px; font-weight: 700; color: var(--red-darker); text-transform: uppercase; letter-spacing: 0.5px; }
+.rz-canvas { position: relative; transform-origin: top left; color: #000; line-height: 1.2; background: repeating-linear-gradient(0deg, transparent 0 calc(5mm - 1px), #f1f3f6 calc(5mm - 1px) 5mm); outline: 1px dashed #c9ced6; }
+.rz-empty { color: #aab; font-style: italic; font-size: 8pt; }
+.rz-grow { text-align: center; cursor: ns-resize; color: var(--muted); font-size: 12px; line-height: 12px; border-bottom: 2px dotted #d4d8de; user-select: none; touch-action: none; }
+.rz-grow:hover { color: var(--red-darker); border-color: var(--red-darker); }
+.rz-middle { background: #fafbfc; border: 1px dashed #c9ced6; padding: 6px; border-radius: 4px; margin: 4px 0; }
+.rz-middle select { width: 100%; }
 
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Sale } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money } from '../format'
-import { printSale } from '../printing'
+import PrintChooser from '../PrintChooser'
 
 /** Shows one receipt / transaction (from a customer's history or Sales History) with Reprint. */
 export default function SaleDialog({ saleId, onClose }: { saleId: number; onClose: () => void }) {
@@ -14,15 +14,9 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
     api.getSale(saleId).then(setSale).catch((e) => setError(e.message))
   }, [saleId])
 
-  async function reprint() {
-    if (!sale) return
-    try {
-      const where = await printSale(sale)
-      setMsg(where === 'fullPage' ? 'Sent to the full-page printer' : 'Sent to the receipt printer')
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
+  const [choosing, setChoosing] = useState(false)
+  const reprint = () => sale && setChoosing(true)
+
 
   const refund = !!sale && sale.totalCents < 0
   const hasReturn = !!sale?.items.some((i) => i.kind === 'return')
@@ -141,6 +135,16 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
           </button>
         </div>
       </div>
+      {choosing && sale && (
+        <PrintChooser
+          sale={sale}
+          onDone={(t) => {
+            setChoosing(false)
+            setMsg(t)
+          }}
+          onCancel={() => setChoosing(false)}
+        />
+      )}
     </div>
   )
 }

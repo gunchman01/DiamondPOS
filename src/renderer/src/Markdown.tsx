@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 /**
  * Small Markdown renderer for the Help manual and release notes.
  * Supports: # headings, paragraphs, - bullets and 1. numbered lists (indent to nest),
- * | tables |, > notes, **bold** and `code`. Built as React elements (no raw HTML).
+ * | tables |, > notes, **bold**, `code` and ``` code blocks. Built as React elements (no raw HTML).
  */
 export default function Markdown({ text, highlight }: { text: string; highlight?: string }) {
   const lines = text.replace(/\r\n/g, '\n').split('\n')
@@ -14,7 +14,20 @@ export default function Markdown({ text, highlight }: { text: string; highlight?
   while (i < lines.length) {
     const line = lines[i]
     const t = line.trim()
-    if (!t || t.startsWith('```')) {
+    if (t.startsWith('```')) {
+      // Code block (e.g. a command to copy)
+      const code: string[] = []
+      i++
+      while (i < lines.length && !lines[i].trim().startsWith('```')) code.push(lines[i++].trim())
+      i++
+      blocks.push(
+        <pre key={blocks.length} className="md-code">
+          {code.join('\n')}
+        </pre>
+      )
+      continue
+    }
+    if (!t) {
       i++
       continue
     }

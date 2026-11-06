@@ -129,11 +129,70 @@ export interface ReceiptBlock {
   always: boolean
 }
 
+/** What a free-placed receipt element shows (top and bottom of the receipt) */
+export type ReceiptField =
+  | 'storeName'
+  | 'address'
+  | 'title'
+  | 'saleInfo'
+  | 'receiptNo'
+  | 'dateTime'
+  | 'till'
+  | 'customer'
+  | 'footer'
+  | 'text'
+  | 'signature'
+
+export const RECEIPT_FIELDS: { field: ReceiptField; label: string }[] = [
+  { field: 'storeName', label: 'Store name' },
+  { field: 'address', label: 'Store address' },
+  { field: 'saleInfo', label: 'Receipt #, date and till' },
+  { field: 'receiptNo', label: 'Receipt #' },
+  { field: 'dateTime', label: 'Date and time' },
+  { field: 'till', label: 'Till name' },
+  { field: 'customer', label: 'Customer' },
+  { field: 'title', label: 'REFUND / EXCHANGE title' },
+  { field: 'footer', label: 'Receipt footer (Settings → Store)' },
+  { field: 'signature', label: 'Signature line' },
+  { field: 'text', label: 'Your own text' }
+]
+
+/** An element placed on the top or bottom area of the receipt. x / w are % of the paper width; y / h are mm. */
+export interface ReceiptElement {
+  id: string
+  kind: 'text' | 'logo' | 'barcode' | 'line'
+  field: ReceiptField
+  text: string
+  x: number
+  w: number
+  y: number
+  h: number
+  fontPt: number
+  bold: boolean
+  align: 'left' | 'center' | 'right'
+  /** Signature line: only on refunds and exchanges */
+  onlyRefund: boolean
+}
+
+export interface ReceiptZone {
+  heightMm: number
+  elements: ReceiptElement[]
+}
+
 export interface ReceiptLayout {
+  version: 2
+  /** Top of the receipt: elements dragged into place */
+  header: ReceiptZone
+  /** Middle: items, totals and payments, which grow with the sale */
   blocks: ReceiptBlock[]
+  /** Bottom of the receipt: elements dragged into place */
+  footer: ReceiptZone
   /** Base font for the receipt */
   font: 'mono' | 'sans'
 }
+
+/** Middle blocks (they flow, because their length changes with every sale) */
+export const MIDDLE_BLOCKS: ReceiptBlockType[] = ['items', 'totals', 'taxExempt', 'payments', 'divider', 'text']
 
 export interface PrintDesigns {
   labels: LabelTemplate[]
@@ -183,8 +242,60 @@ export function receiptBlock(type: ReceiptBlockType, c: Partial<ReceiptBlock> = 
   }
 }
 
+export function receiptElement(kind: ReceiptElement['kind'], c: Partial<ReceiptElement> = {}): ReceiptElement {
+  return {
+    id: newId('r'),
+    kind,
+    field: 'text',
+    text: '',
+    x: 0,
+    w: 100,
+    y: 0,
+    h: kind === 'line' ? 0.4 : kind === 'barcode' ? 10 : kind === 'logo' ? 16 : 5,
+    fontPt: 9,
+    bold: false,
+    align: 'center',
+    onlyRefund: true,
+    ...c
+  }
+}
+
+export function defaultReceiptZones(): { header: ReceiptZone; footer: ReceiptZone } {
+  return {
+    header: {
+      heightMm: 36,
+      elements: [
+        receiptElement('text', { field: 'storeName', y: 0, h: 7, fontPt: 13, bold: true }),
+        receiptElement('text', { field: 'address', y: 7, h: 7, fontPt: 8 }),
+        receiptElement('text', { field: 'title', y: 14, h: 5, fontPt: 11, bold: true }),
+        receiptElement('text', { field: 'saleInfo', y: 19, h: 12, fontPt: 8 }),
+        receiptElement('text', { field: 'customer', y: 31, h: 5, fontPt: 8 })
+      ]
+    },
+    footer: {
+      heightMm: 22,
+      elements: [
+        receiptElement('text', { field: 'signature', y: 2, h: 8, fontPt: 8, align: 'left' }),
+        receiptElement('text', { field: 'footer', y: 11, h: 9, fontPt: 8 })
+      ]
+    }
+  }
+}
+
 export const DEFAULT_PRICE_TAG_ID = 'tag-price'
 export const DEFAULT_NO_PRICE_TAG_ID = 'tag-noprice'
+
+function defaultMiddle(): ReceiptBlock[] {
+  return [
+    receiptBlock('divider'),
+    receiptBlock('items'),
+    receiptBlock('divider'),
+    receiptBlock('totals'),
+    receiptBlock('taxExempt'),
+    receiptBlock('payments'),
+    receiptBlock('divider')
+  ]
+}
 
 export function defaultDesigns(): PrintDesigns {
   return {
@@ -214,25 +325,10 @@ export function defaultDesigns(): PrintDesigns {
       }
     ],
     receipt: {
+      version: 2,
       font: 'mono',
-      blocks: [
-        receiptBlock('logo', { on: false }),
-        receiptBlock('storeName'),
-        receiptBlock('address', { on: false }),
-        receiptBlock('title'),
-        receiptBlock('saleInfo'),
-        receiptBlock('customer'),
-        receiptBlock('divider'),
-        receiptBlock('items'),
-        receiptBlock('divider'),
-        receiptBlock('totals'),
-        receiptBlock('taxExempt'),
-        receiptBlock('payments'),
-        receiptBlock('signature'),
-        receiptBlock('divider'),
-        receiptBlock('footer'),
-        receiptBlock('barcode', { on: false })
-      ]
+      ...defaultReceiptZones(),
+      blocks: defaultMiddle()
     }
   }
 }
@@ -284,27 +380,67 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
       })
     : d.labels
   const r = (src.receipt ?? {}) as Partial<ReceiptLayout>
-  const blocks = Array.isArray(r.blocks)
-    ? r.blocks.slice(0, 40).map((b) => {
-        const type = pick(b?.type, BLOCKS, 'text')
-        const base = receiptBlock(type)
+  const cleanBlock = (b: Partial<ReceiptBlock>) => {
+    const type = pick(b?.type, BLOCKS, 'text')
+    const base = receiptBlock(type)
+    return {
+      ...base,
+      id: str(b?.id, 40) || base.id,
+      on: b?.on !== false,
+      align: pick(b?.align, ALIGN, base.align),
+      fontPt: num(b?.fontPt, base.fontPt, 6, 30),
+      bold: b?.bold === true,
+      text: str(b?.text, 1000),
+      widthPct: num(b?.widthPct, 60, 10, 100),
+      showSku: b?.showSku === true,
+      showUnitPrice: b?.showUnitPrice === true,
+      showSerial: b?.showSerial !== false,
+      always: b?.always === true
+    }
+  }
+  const zones = defaultReceiptZones()
+  const cleanZone = (z: Partial<ReceiptZone> | undefined, d: ReceiptZone): ReceiptZone => {
+    if (!z || typeof z !== 'object') return d
+    const height = num(z.heightMm, d.heightMm, 0, 200)
+    return {
+      heightMm: height,
+      elements: (Array.isArray(z.elements) ? z.elements : []).slice(0, 30).map((e) => {
+        const base = receiptElement(pick(e?.kind, ['text', 'logo', 'barcode', 'line'] as const, 'text'))
+        const x = num(e?.x, 0, 0, 98)
+        const y = num(e?.y, 0, 0, Math.max(0, height - 0.5))
         return {
           ...base,
-          id: str(b?.id, 40) || base.id,
-          on: b?.on !== false,
-          align: pick(b?.align, ALIGN, base.align),
-          fontPt: num(b?.fontPt, base.fontPt, 6, 30),
-          bold: b?.bold === true,
-          text: str(b?.text, 1000),
-          widthPct: num(b?.widthPct, 60, 10, 100),
-          showSku: b?.showSku === true,
-          showUnitPrice: b?.showUnitPrice === true,
-          showSerial: b?.showSerial !== false,
-          always: b?.always === true
+          id: str(e?.id, 40) || base.id,
+          field: pick(e?.field, RECEIPT_FIELDS.map((f) => f.field), 'text'),
+          text: str(e?.text, 500),
+          x,
+          w: num(e?.w, 100, 2, 100 - x),
+          y,
+          h: num(e?.h, base.h, 0.2, Math.max(0.2, height - y)),
+          fontPt: num(e?.fontPt, 9, 5, 40),
+          bold: e?.bold === true,
+          align: pick(e?.align, ALIGN, 'center'),
+          onlyRefund: e?.onlyRefund !== false
         }
       })
-    : d.receipt.blocks
-  return { labels: labels.length ? labels : d.labels, receipt: { blocks, font: pick(r.font, ['mono', 'sans'] as const, 'mono') } }
+    }
+  }
+  let receipt: ReceiptLayout
+  if (r.version === 2 || r.header || r.footer) {
+    const blocks = Array.isArray(r.blocks) ? r.blocks.slice(0, 40).map(cleanBlock) : defaultMiddle()
+    receipt = {
+      version: 2,
+      font: pick(r.font, ['mono', 'sans'] as const, 'mono'),
+      header: cleanZone(r.header, zones.header),
+      footer: cleanZone(r.footer, zones.footer),
+      blocks
+    }
+  } else {
+    // Older (v0.3.13) block-only layout: keep its middle blocks, put the standard top and bottom on
+    const old = Array.isArray(r.blocks) ? r.blocks.map(cleanBlock).filter((b) => MIDDLE_BLOCKS.includes(b.type)) : []
+    receipt = { version: 2, font: pick(r.font, ['mono', 'sans'] as const, 'mono'), ...zones, blocks: old.length ? old : defaultMiddle() }
+  }
+  return { labels: labels.length ? labels : d.labels, receipt }
 }
 
 /** The text a label field shows for an item */

@@ -31,27 +31,33 @@ async function storeAndLogo() {
 
 const woNumber = (id: number | null) => (id ? `WO-${String(id).padStart(6, '0')}` : null)
 
-/** Print a sale on the right printer. Returns where it went (for messages). */
-export async function printSale(sale: Sale): Promise<'receipt' | 'fullPage'> {
-  const s = await currentPrintSettings()
+export type SaleFormat = 'receipt' | 'fullPage'
+
+/** Which format a sale prints in by default (full page for serial-numbered units / work orders, if set up) */
+export function suggestedFormat(sale: Sale, s: PrintSettings): SaleFormat {
+  return printsFullPage(sale, s) ? 'fullPage' : 'receipt'
+}
+
+/** Print a sale in a chosen format on a chosen printer ('' = Windows default) */
+export async function printSaleAs(sale: Sale, format: SaleFormat, printer: string, copies = 1): Promise<void> {
   const { store, logo } = await storeAndLogo()
-  if (printsFullPage(sale, s)) {
+  if (format === 'fullPage') {
     const customer = sale.customerId ? await api.getCustomer(sale.customerId).then((d) => d.customer).catch(() => null) : null
-    await window.pos.print({
-      html: fullPageSaleHtml(sale, store, customer, logo, woNumber(sale.workOrderId)),
-      printer: s.fullPagePrinter,
-      copies: s.fullPageCopies,
-      letter: true
-    })
-    return 'fullPage'
+    await window.pos.print({ html: fullPageSaleHtml(sale, store, customer, logo, woNumber(sale.workOrderId)), printer, copies, letter: true })
+    return
   }
+  const s = await currentPrintSettings()
   const designs = await printDesigns()
-  await window.pos.print({
-    html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo),
-    printer: s.receiptPrinter,
-    copies: s.receiptCopies
-  })
-  return 'receipt'
+  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo), printer, copies })
+}
+
+/** Print a sale on its usual printer without asking. Returns where it went (for messages). */
+export async function printSale(sale: Sale): Promise<SaleFormat> {
+  const s = await currentPrintSettings()
+  const f = suggestedFormat(sale, s)
+  if (f === 'fullPage') await printSaleAs(sale, f, s.fullPagePrinter, s.fullPageCopies)
+  else await printSaleAs(sale, f, s.receiptPrinter, s.receiptCopies)
+  return f
 }
 
 /** Print a work order ticket (estimate / repair) full page */
