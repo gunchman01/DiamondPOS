@@ -130,7 +130,7 @@ export default function Marketing() {
   )
 }
 
-function EmailSettings({ smtp, onSaved }: { smtp: SmtpSettingsView; onSaved: (s: SmtpSettingsView) => void }) {
+export function EmailSettings({ smtp, onSaved }: { smtp: SmtpSettingsView; onSaved: (s: SmtpSettingsView) => void }) {
   const [f, setF] = useState<Omit<SmtpSettings, 'password'>>(smtp)
   const [password, setPassword] = useState('')
   const [testTo, setTestTo] = useState('')

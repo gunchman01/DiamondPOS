@@ -152,7 +152,7 @@ export default function ReturnDialog(props: {
             {dateTime(receipt.createdAt)} · {receipt.tillName}
             {receipt.customerName && <> · Customer: <b>{receipt.customerName}</b></>}
             {receipt.taxExempt && <> · <b>Tax exempt</b></>} · Paid{' '}
-            {receipt.payments.map((p) => `${p.method === 'cash' ? 'cash' : 'card'} ${money(p.amountCents)}`).join(' + ') || 'nothing'}
+            {receipt.payments.map((p) => `${p.method} ${money(p.amountCents)}`).join(' + ') || 'nothing'}
             {receipt.refundedCents > 0 && <> · Already refunded {money(receipt.refundedCents)}</>}
           </div>
           <div className="grid-wrap return-lines">

@@ -140,6 +140,12 @@ export default function Home({ onNavigate }: { onNavigate: (t: NavTarget) => voi
             <span>Card</span>
             <span>{report ? money(report.cardCents) : '—'}</span>
           </div>
+          {!!report?.checkCents && (
+            <div className="side-row muted">
+              <span>Checks</span>
+              <span>{money(report.checkCents)}</span>
+            </div>
+          )}
         </div>
       </aside>
 

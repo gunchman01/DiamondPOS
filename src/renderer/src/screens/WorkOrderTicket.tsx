@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { STAGES, stage, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
+import { printWorkOrder } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
@@ -88,6 +89,13 @@ export default function WorkOrderTicket(props: {
           </span>
         </div>
         <div className="ticket-actions">
+          <button
+            disabled={busy}
+            title="Print this work order on the full-page printer"
+            onClick={() => run(() => printWorkOrder(wo).then(() => api.wo(wo.id)), 'Work order sent to the printer')}
+          >
+            🖨 Print
+          </button>
           {st.canEmail && (
             <button
               disabled={busy}

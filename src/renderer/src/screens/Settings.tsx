@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react'
 import type { BootInfo, StoreSettings } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
+import type { SmtpSettingsView } from '../../../shared/marketing'
 import { api } from '../api'
+import { Icons, type IconName } from '../icons'
 import KioskSettings from './KioskSettings'
+import PrintSettings from './PrintSettings'
+import { EmailSettings } from './Marketing'
+
+type Section = 'store' | 'computer' | 'kiosk' | 'email' | 'printing'
+
+/** The Settings menu: one tile per area. Add a tile here (and a section below) for each new kind of setting. */
+const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
+  { id: 'store', icon: 'store', label: 'Store', text: 'Name, tax rate, address, receipt footer' },
+  { id: 'computer', icon: 'computer', label: 'This Computer', text: 'Till name, server connection, pairing code' },
+  { id: 'printing', icon: 'printer', label: 'Printing', text: 'Receipt, full-page and Zebra label printers' },
+  { id: 'email', icon: 'email', label: 'Email', text: 'Account for mailers, work order and feedback emails' },
+  { id: 'kiosk', icon: 'tablet', label: 'Customer Kiosk', text: 'iPad sign-up screen and store logo' }
+]
 
 export default function Settings({ boot, onChange }: { boot: BootInfo; onChange: (b: BootInfo) => void }) {
   const { config } = boot
@@ -11,6 +26,8 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
   const [tillName, setTillName] = useState(config.tillName)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [section, setSection] = useState<Section | null>(null)
+  const [smtp, setSmtp] = useState<SmtpSettingsView | null>(null)
 
   useEffect(() => {
     api
@@ -21,6 +38,11 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       })
       .catch((e) => setError(e.message))
   }, [])
+  useEffect(() => {
+    setMsg('')
+    setError('')
+    if (section === 'email' && !smtp) api.mkSmtp().then(setSmtp).catch((e) => setError(e.message))
+  }, [section])
 
   async function saveStore() {
     if (!store) return
@@ -44,12 +66,39 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
     onChange(await window.pos.saveConfig({ mode: null }))
   }
 
+  const tile = TILES.find((t) => t.id === section)
+
+  if (!section)
+    return (
+      <div className="page settings">
+        <h2>Settings</h2>
+        {error && <div className="error-text">{error}</div>}
+        <div className="settings-tiles">
+          {TILES.map((t) => (
+            <button key={t.id} className="settings-tile" onClick={() => setSection(t.id)}>
+              <span className="st-icon">{Icons[t.icon]}</span>
+              <b>{t.label}</b>
+              <span className="muted small">{t.text}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+
   return (
     <div className="page settings">
-      <h2>Settings</h2>
+      <div>
+        <button className="link" onClick={() => setSection(null)}>
+          ← Settings
+        </button>
+      </div>
+      <h2>
+        <span className="st-head-icon">{tile && Icons[tile.icon]}</span> {tile?.label}
+      </h2>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
 
+      {section === 'computer' && (
       <div className="card form">
         <h3>This computer</h3>
         <p>
@@ -85,8 +134,11 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
           </button>
         </div>
       </div>
+      )}
 
-      {store && (
+      {section === 'store' &&
+        (store ? (
+
         <div className="card form">
           <h3>Store (shared by all tills)</h3>
           <label>
@@ -94,11 +146,11 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
             <input value={store.storeName} onChange={(e) => setStore({ ...store, storeName: e.target.value })} />
           </label>
           <label>
-            GST rate (%)
+            Sales tax rate (%)
             <input value={taxText} onChange={(e) => setTaxText(e.target.value)} />
           </label>
           <label>
-            Store postal address (printed at the bottom of marketing emails)
+            Store address (printed on full-page receipts, work orders and marketing emails)
             <textarea
               className="comments"
               rows={2}
@@ -123,9 +175,13 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
             Save store settings
           </button>
         </div>
-      )}
+        ) : (
+          <p className="muted">Loading…</p>
+        ))}
 
-      {store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
+      {section === 'kiosk' && store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
+      {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
+      {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}
     </div>
   )
 }

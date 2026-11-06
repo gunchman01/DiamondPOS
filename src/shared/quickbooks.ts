@@ -1,6 +1,7 @@
 // QuickBooks Desktop sync: shapes shared by the server and the QuickBooks screen.
 
-export type QbMethod = 'cash' | 'card'
+export type QbMethod = 'cash' | 'card' | 'check'
+export const QB_METHODS: QbMethod[] = ['cash', 'card', 'check']
 
 /** How DiamondPOS posts into QuickBooks (set on the QuickBooks screen) */
 export interface QbConfig {
@@ -109,5 +110,5 @@ export const QB_ROUNDING_ITEM = 'POS Tax Rounding'
 
 /** Sales Receipt No. (max 11 characters in QuickBooks), e.g. POS261105C */
 export function qbRefNumber(saleDate: string, method: QbMethod): string {
-  return `POS${saleDate.slice(2, 4)}${saleDate.slice(5, 7)}${saleDate.slice(8, 10)}${method === 'cash' ? 'C' : 'D'}`
+  return `POS${saleDate.slice(2, 4)}${saleDate.slice(5, 7)}${saleDate.slice(8, 10)}${method === 'cash' ? 'C' : method === 'check' ? 'K' : 'D'}`
 }

@@ -39,7 +39,8 @@ export function getQbConfig(db: DB): QbConfig {
     defaultIncomeAccount: saved.defaultIncomeAccount ?? '',
     methods: {
       cash: { depositAccount: 'Undeposited Funds', paymentMethod: 'Cash', ...(saved.methods?.cash ?? {}) },
-      card: { depositAccount: 'Undeposited Funds', paymentMethod: '', ...(saved.methods?.card ?? {}) }
+      card: { depositAccount: 'Undeposited Funds', paymentMethod: '', ...(saved.methods?.card ?? {}) },
+      check: { depositAccount: 'Undeposited Funds', paymentMethod: 'Check', ...(saved.methods?.check ?? {}) }
     },
     refreshLists: saved.refreshLists ?? true
   }
@@ -61,7 +62,8 @@ export function saveQbConfig(db: DB, changes: Partial<QbConfig>): QbConfig {
     password: cur.password,
     methods: {
       cash: { ...cur.methods.cash, ...(changes.methods?.cash ?? {}) },
-      card: { ...cur.methods.card, ...(changes.methods?.card ?? {}) }
+      card: { ...cur.methods.card, ...(changes.methods?.card ?? {}) },
+      check: { ...cur.methods.check, ...(changes.methods?.check ?? {}) }
     },
     departmentAccounts: changes.departmentAccounts ?? cur.departmentAccounts
   }
@@ -115,7 +117,7 @@ export function readQbLog(db: DB, limit = 200): QbLogEntry[] {
 type ExportRow = {
   id: number
   sale_date: string
-  method: 'cash' | 'card'
+  method: 'cash' | 'card' | 'check'
   ref_number: string
   total_cents: number
   sale_count: number

@@ -107,7 +107,7 @@ export function dailySummaries(
   }
 
   const result: QbDailySummary[] = []
-  for (const method of ['cash', 'card'] as QbMethod[]) {
+  for (const method of ['cash', 'card', 'check'] as QbMethod[]) {
     const group = sales.filter((s) => (methodOf.get(s.id) ?? 'cash') === method)
     if (group.length === 0) continue
 

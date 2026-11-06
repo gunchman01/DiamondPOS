@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { api } from '../api'
 import { money } from '../format'
+import TagPrintDialog from './TagPrintDialog'
 import ItemEditor from './ItemEditor'
 import ImportItems from './ImportItems'
 import { COLUMNS, itemToRow } from '../../../shared/itemImport'
@@ -20,6 +21,8 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
+  /** Print price tags dialog (with these items pre-filled) */
+  const [tagging, setTagging] = useState<Product[] | null>(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
 
@@ -64,6 +67,7 @@ export default function Products() {
         <div className="row gap">
           <button onClick={() => setImporting(true)}>Import from Excel</button>
           <button onClick={exportItems}>Export to Excel</button>
+          <button onClick={() => setTagging([])}>🏷 Print tags</button>
           <button className="primary" onClick={() => setEditing('new')}>
             + Add item
           </button>
@@ -119,6 +123,7 @@ export default function Products() {
 
       {importing && <ImportItems onClose={() => setImporting(false)} onImported={load} />}
 
+      {tagging && <TagPrintDialog initial={tagging} onClose={() => setTagging(null)} />}
       {editing && (
         <ItemEditor
           item={editing === 'new' ? null : editing}

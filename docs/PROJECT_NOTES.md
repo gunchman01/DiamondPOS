@@ -309,7 +309,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] UI: **💬 Feedback** in the top bar (remembers the screen you came from), **Feedback & Requests** on Home, "Can't find it? Send feedback" on Help. Feedback screen: type chips, title, details, name, reply email, list with Sent / Not sent yet + **Send again**. Manual section added.
 - Verified: server test `feedback.ts` (validation, not set up → kept, sent + backlog retried, reply-to, HTML escaped, failure → Send again, address change + default); TypeScript checks; all suites pass
 
-### 6 Nov 2026: Logo, app icon, "Diamond POS" name (next release **v0.3.10**, no DB change)
+### 6 Nov 2026: Logo, app icon, "Diamond POS" name (released as **v0.3.10**, no DB change)
 - Released so far: **v0.3.6** returns, **v0.3.7** release notes on Updates, **v0.3.8** Help manual, **v0.3.9** feedback (CHANGELOG split into those versions; check they match what was actually tagged).
 - [x] Logo redrawn as a vector from Greg's "P" diamond image: **`build/logo.svg`** (source). Generated **`build/icon.ico`** (16–256 px) + `build/icon.png` (512). electron-builder picks up `build/icon.ico` automatically (buildResources = build) for the exe, installer, desktop shortcut and taskbar.
 - [x] In-app logo: `src/renderer/src/Logo.tsx` (same drawing, inline SVG) at the top left and on the first-run Setup screen.
@@ -319,18 +319,26 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] **Receipt viewer** `screens/SaleDialog.tsx` (header, lines incl. returns, totals, payments, Reprint): opened by clicking a sale in the customer window's History and in Sales History / Reports.
 - To regenerate the icon after changing `build/logo.svg`: render each size (16, 24, 32, 48, 64, 128, 256) to PNG and pack them into `build/icon.ico` (ImageMagick + Pillow were used).
 
+### 6 Nov 2026: Check payments, printing setup, Settings menu (next release **v0.3.11**, DB migration 15)
+- [x] **DB migration 15**: rebuilds `payments` (same columns + data) so `method` can be `'check'` (SQLite can't change a CHECK constraint in place). Older apps still work with it.
+- [x] **Check tender**: `PaymentMethod` adds `check` (`PAYMENT_LABEL`); server requires the check # (`reference`), no change from a check (only cash gives change). Sale screen **Check** button (no F-key: F10/F11 are taken by Windows/Electron menus), check # dialog; receipts "Check #1234"; daily report `checkCents`; Home "Checks". QuickBooks: `QbMethod` adds `check` (Sales Receipt No. ends in **K**, default payment method "Check", deposit Undeposited Funds); config PUT keeps a method an older screen didn't send.
+- [x] **Printing** (per computer, `AppConfig.printing`, `src/shared/printing.ts`): receipt printer + width (80/58 mm) + copies + auto-print; full-page (Letter) printer + rules (serial-numbered sales, work order receipts); Zebra label printer + size presets + tag contents. Main process IPC `print:printers` (getPrintersAsync) and `print:job` (silent print to a named printer, Letter or custom page size in mm). Renderer `printing.ts` routes: `printSale`, `printWorkOrder`, `printTags`, `testPrint`. Templates in `printTemplates.ts` (full-page sale, work order, tags) and `receipt.ts` (now takes the width). Code 128 barcodes: `code128.ts` (set B + set C for digit runs).
+- [x] **Price tags**: `TagPrintDialog` (Item List 🏷 Print tags, item window 🏷 Tags): add by scan/search, qty per item (click On hand for one per item in stock), add all "Print Tags" items. **Work order 🖨 Print** on the ticket.
+- [x] **Settings menu**: Settings is now tiles (Store, This Computer, Printing, Email, Customer Kiosk); each opens its page with ← Settings. Add a tile to `TILES` in `Settings.tsx` for new areas. Email settings reuse Marketing's `EmailSettings`.
+- Verified: new server test `checks.ts` (migration 15 on a v14 DB keeps payments, check # required, no change from a check, split check + cash, report, QuickBooks check summary + K ref); all suites pass; TypeScript; previews of Settings menu, Printing page, full-page receipt and tags. **Not tested on real printers** (receipt, laser, Zebra): check on site, especially the Zebra driver label size.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.9** (feedback). Next release: **v0.3.10** (logo + app icon + "Diamond POS" name, Sale screen columns, open past receipts; no DB change).
+**Latest release: v0.3.10** (logo + app icon + "Diamond POS" name, Sale screen columns, open past receipts). Next release: **v0.3.11** (check payments, printing setup, Settings menu; DB migration 15: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. ~~Refunds~~ (done). Still to do: **void** a sale the same day (the `sales.status` column already exists); manager PIN to approve no-receipt returns; print a barcode on receipts so scanning finds them instantly; a "no-receipt returns" report
-3. Receipt printer (ESC/POS) and cash drawer kick
+3. ~~Receipt printer~~ (printing setup done in v0.3.11). Still to do: cash drawer kick (most drawers open from the receipt printer; needs a raw ESC/POS command)
 4. Automatic daily database backups
 5. Windows code-signing certificate (removes the SmartScreen warning)
 6. ~~App icon~~ (done in v0.3.10)

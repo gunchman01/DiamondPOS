@@ -70,7 +70,7 @@ export function qbMissing(db: DB, cfg: QbConfig = getQbConfig(db)): string[] {
   if (!cfg.salesTaxItem) out.push('Choose the QuickBooks sales tax item')
   if (!cfg.taxableCode || !cfg.nonTaxableCode) out.push('Choose the taxable and non-taxable sales tax codes')
   if (!cfg.defaultIncomeAccount) out.push('Choose the default income account')
-  for (const m of ['cash', 'card'] as const)
+  for (const m of ['cash', 'card', 'check'] as const)
     if (!cfg.methods[m].depositAccount) out.push(`Choose where ${m} sales are deposited`)
   return out
 }
@@ -434,11 +434,13 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       clean.departmentAccounts = Object.fromEntries(
         Object.entries(b.departmentAccounts).map(([k, v]) => [k, str(v)]).filter(([, v]) => v)
       )
-    if (b.methods)
-      clean.methods = {
-        cash: { depositAccount: str(b.methods.cash?.depositAccount), paymentMethod: str(b.methods.cash?.paymentMethod) },
-        card: { depositAccount: str(b.methods.card?.depositAccount), paymentMethod: str(b.methods.card?.paymentMethod) }
-      }
+    if (b.methods) {
+      // A method the screen didn't send (e.g. an older till without "check") keeps its saved mapping
+      const cur = getQbConfig(db).methods
+      const m = (k: 'cash' | 'card' | 'check') =>
+        b.methods?.[k] ? { depositAccount: str(b.methods[k]!.depositAccount), paymentMethod: str(b.methods[k]!.paymentMethod) } : cur[k]
+      clean.methods = { cash: m('cash'), card: m('card'), check: m('check') }
+    }
     saveQbConfig(db, clean)
     res.json(status())
   })

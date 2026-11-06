@@ -402,6 +402,26 @@ export const migrations: Migration[] = [
         created_at  TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `
+  },
+  {
+    version: 15,
+    name: 'check payments',
+    up: `
+      -- The payments table only allowed cash and card. SQLite can't change that rule in place,
+      -- so the table is copied into a new one that also allows 'check' (same columns, same data).
+      CREATE TABLE payments_new (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        sale_id      INTEGER NOT NULL REFERENCES sales(id),
+        method       TEXT NOT NULL CHECK (method IN ('cash', 'card', 'check')),
+        amount_cents INTEGER NOT NULL,
+        reference    TEXT
+      );
+      INSERT INTO payments_new (id, sale_id, method, amount_cents, reference)
+        SELECT id, sale_id, method, amount_cents, reference FROM payments;
+      DROP TABLE payments;
+      ALTER TABLE payments_new RENAME TO payments;
+      CREATE INDEX idx_payments_sale ON payments(sale_id);
+    `
   }
 ]
 

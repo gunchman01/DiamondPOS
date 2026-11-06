@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, taxExemptState, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
-import { receiptHtml } from '../receipt'
+import { printSale, currentPrintSettings } from '../printing'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
 import TaxExemptBadge from '../TaxExemptBadge'
@@ -431,13 +431,17 @@ export default function Sell({
     setExempt(false)
     setLastSale(sale)
     setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
+    // Print straight away if this till is set to (Settings → Printing)
+    currentPrintSettings()
+      .then((ps) => (ps.autoPrint ? printReceipt(sale) : undefined))
+      .catch(() => {})
     focusScan()
   }
 
   async function printReceipt(sale: Sale) {
     try {
-      const s = settings ?? (await api.getSettings())
-      await window.pos.printReceipt(receiptHtml(sale, s))
+      const where = await printSale(sale)
+      if (where === 'fullPage') setMessage({ kind: 'info', text: `Receipt #${sale.id} sent to the full-page printer` })
     } catch (e) {
       setMessage({ kind: 'error', text: (e as Error).message })
     }
@@ -778,6 +782,11 @@ export default function Sell({
               <span>{isRefund ? 'Refund card' : 'Card'}</span>
               <kbd>F8</kbd>
             </button>
+            {!isRefund && (
+              <button className="primary" disabled={!hasLines} onClick={() => startPayment('check')} title="Pay by check (asks for the check number)">
+                <span>Check</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -1124,7 +1133,7 @@ function PaymentDialog(props: {
 
   const tenderedCents = method === 'cash' ? parseMoney(tendered) : totalCents
   const change = tenderedCents - totalCents
-  const valid = !isNaN(tenderedCents) && tenderedCents >= totalCents
+  const valid = !isNaN(tenderedCents) && tenderedCents >= totalCents && (method !== 'check' || reference.trim() !== '')
 
   async function confirm() {
     if (!valid || busy) return
@@ -1148,7 +1157,7 @@ function PaymentDialog(props: {
         }}
         onKeyDown={(e) => e.key === 'Escape' && !busy && props.onCancel()}
       >
-        <h2>{method === 'cash' ? 'Cash payment' : 'Card payment'}</h2>
+        <h2>{method === 'cash' ? 'Cash payment' : method === 'check' ? 'Check payment' : 'Card payment'}</h2>
         <div className="total-big">Amount due: {money(totalCents)}</div>
 
         {method === 'cash' ? (
@@ -1173,6 +1182,19 @@ function PaymentDialog(props: {
             </div>
             {valid && <div className="change">Change: {money(change)}</div>}
           </>
+        ) : method === 'check' ? (
+          <>
+            <ol className="steps">
+              <li>
+                Check the check is made out for <b>{money(totalCents)}</b> and signed.
+              </li>
+              <li>Type the check number and confirm.</li>
+            </ol>
+            <label>
+              Check number (required)
+              <input autoFocus inputMode="numeric" value={reference} maxLength={30} onChange={(e) => setReference(e.target.value)} />
+            </label>
+          </>
         ) : (
           <>
             <ol className="steps">
@@ -1195,7 +1217,7 @@ function PaymentDialog(props: {
             Cancel
           </button>
           <button type="submit" className="primary" disabled={!valid || busy}>
-            {busy ? 'Saving…' : method === 'card' ? 'Card approved – complete sale' : 'Complete sale'}
+            {busy ? 'Saving…' : method === 'card' ? 'Card approved – complete sale' : method === 'check' ? 'Check received – complete sale' : 'Complete sale'}
           </button>
         </div>
       </form>

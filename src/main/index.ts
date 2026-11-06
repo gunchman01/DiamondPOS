@@ -8,6 +8,7 @@
  */
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'path'
+import type { PrintJob, PrinterInfo } from '../shared/printing'
 import { lanAddresses, loadConfig, newPairingCode, saveConfig } from './config'
 import { isServerRunning, startServer, stopServer } from './server'
 import { registerUpdater } from './updater'
@@ -127,21 +128,41 @@ function registerIpc(): void {
     return bootInfo()
   })
 
-  // Print a receipt silently to the Windows default printer.
-  // (For ESC/POS receipt printers, set them as default or see docs.)
-  ipcMain.handle('receipt:print', async (_e, html: string) => {
-    const win = new BrowserWindow({ show: false, webPreferences: { javascript: false } })
-    try {
-      await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-      await new Promise<void>((resolve, reject) => {
-        win.webContents.print({ silent: true, printBackground: false, margins: { marginType: 'none' } }, (ok, reason) =>
-          ok ? resolve() : reject(new Error(`Print failed: ${reason}`))
-        )
-      })
-    } finally {
-      win.close()
-    }
+  // Print a receipt silently to the Windows default printer (older screens; new code uses print:job).
+  ipcMain.handle('receipt:print', (_e, html: string) => printJob({ html, printer: '' }))
+
+  // Printers installed on this PC (for Settings → Printing)
+  ipcMain.handle('print:printers', async (): Promise<PrinterInfo[]> => {
+    const list = await (mainWindow ?? BrowserWindow.getAllWindows()[0]).webContents.getPrintersAsync()
+    return list.map((p) => ({ name: p.name, displayName: p.displayName || p.name, isDefault: !!(p as { isDefault?: boolean }).isDefault }))
   })
+
+  // Print silently to a chosen printer: receipt printer, laser (Letter) or label printer (Zebra)
+  ipcMain.handle('print:job', (_e, job: PrintJob) => printJob(job))
+}
+
+/** Render the HTML in a hidden window and print it without a dialog */
+async function printJob(job: PrintJob): Promise<void> {
+  const win = new BrowserWindow({ show: false, webPreferences: { javascript: false } })
+  try {
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(String(job.html)))
+    const options: Electron.WebContentsPrintOptions = {
+      silent: true,
+      printBackground: true,
+      margins: { marginType: 'none' },
+      copies: Math.max(1, Math.min(10, Math.round(job.copies ?? 1)))
+    }
+    if (job.printer) options.deviceName = job.printer
+    if (job.pageMm) options.pageSize = { width: Math.round(job.pageMm.width * 1000), height: Math.round(job.pageMm.height * 1000) }
+    else if (job.letter) options.pageSize = 'Letter'
+    await new Promise<void>((resolve, reject) => {
+      win.webContents.print(options, (ok, reason) =>
+        ok ? resolve() : reject(new Error(`Print failed${job.printer ? ` on "${job.printer}"` : ''}: ${reason}`))
+      )
+    })
+  } finally {
+    win.close()
+  }
 }
 
 app.on('window-all-closed', async () => {

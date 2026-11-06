@@ -25,12 +25,13 @@ Open **Make a Sale**.
 2. Tap a **Quick Pick** button for items that are often sold (if any are set up).
 3. Click a line to select it, then use **+1 / −1**, **Change qty** or **Remove line**.
 4. Add a **customer** if needed (F5), see below.
-5. Take payment with **Cash (F7)** or **Card (F8)**.
+5. Take payment with **Cash (F7)**, **Card (F8)** or **Check**.
 
 **Cash:** type the amount received (or tap Exact / $10 / $20…). The change is shown.
 **Card:** enter the total on the card terminal. When it says APPROVED, type the terminal's reference number and click **Card approved – complete sale**.
+**Check:** check the amount and signature, type the **check number** (required) and click **Check received – complete sale**. No change is given from a check.
 
-After the sale, click **Print receipt** or **Reprint last receipt**.
+After the sale, click **Print receipt** or **Reprint last receipt** (or set the till to print automatically, see **Printing**). Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
 
 | Key | What it does |
 |---|---|
@@ -98,6 +99,8 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - **Ready for Customer Pick Up**: the customer can collect it and pay.
 - **Picked up / Closed**: the ticket is finished and locked.
 
+**Printing:** click **🖨 Print** on a ticket to print the work order on a full page (customer, unit, problem, diagnosis, parts and labor, totals and a signature line), for example as the claim ticket at drop-off or the estimate for approval.
+
 **Emails:** each stage (except Ready for Review) has an **Email** button that sends the customer an update. The pick-up email includes the full bill. You can change the wording under **⚙ Work order settings**.
 
 **Work order settings** also hold the labor rate, the shop supplies charge added to new tickets (by unit type), and the estimate fees.
@@ -117,6 +120,11 @@ Open **Item List**.
 - Tick **Quick Pick** to show the item as a button on the Sale screen.
 - Tick **Use Serial #** for items that have a serial number (mowers, saws, blowers…).
 - Untick **Active** to hide an item from sales without deleting it.
+
+**Price tags (Zebra label printer)**
+- Click **🏷 Print tags** on the Item List, or **🏷 Tags** in an item's window.
+- Scan or search items to add them, and set how many tags of each (click the On hand number for one tag per item in stock). **+ Items marked "Print Tags"** adds every item with Print Tags ticked.
+- Click **Print**. The printer and label size are set in **Settings → Printing**.
 
 **Excel import and export**
 - **Export to Excel** saves every item to a spreadsheet.
@@ -163,10 +171,23 @@ Open **Marketing** to email a flyer to a group of customers.
 4. **Preview**, then **Send**. Only customers with an email address and **OK to e-mail** ticked receive it.
 
 ## Settings
-- **Store (shared by all tills)**: store name, tax rate, store address (printed at the bottom of marketing emails) and receipt footer.
-- **This computer**: the till name.
-- On the Store Server: the address and **pairing code** that tills need to connect.
-- **Customer Kiosk (iPad)**: pair iPads and upload the logo.
+Open **Settings** and click the area you want to change. Click **← Settings** to go back to the menu.
+- **Store** (shared by all tills): store name, sales tax rate, store address (printed on full-page receipts, work orders and marketing emails), where feedback is emailed, and the receipt footer.
+- **This Computer**: the till name. On the Store Server it also shows the address and **pairing code** that tills need to connect.
+- **Printing**: which printers this computer uses (see below).
+- **Email**: the email account used for marketing mailers, work order emails and feedback.
+- **Customer Kiosk**: pair iPads and upload the store logo.
+
+## Printing
+Each computer has its own printers, so set this up on every till (**Settings → Printing**). Install the printers in Windows first.
+- **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Tick **Print the receipt automatically** to print as soon as a sale is completed.
+- **Full-page printer (laser)**: prints on Letter paper. Choose what prints here instead of the receipt printer:
+  - sales with a **serial-numbered unit** (mowers, saws, blowers…), with the customer's details, serial numbers and a signature line
+  - **work order** receipts (estimate fee, repair pick-up)
+  - Work order tickets (🖨 Print on a ticket) always print here.
+- **Label printer (Zebra)**: for price tags. Choose the label size (for example 2.25" × 1.25") and what's on the tag: store name, price, barcode, item #.
+- Use the **Print test** buttons to check each printer before saving, then click **Save printing settings**.
+> For a Zebra printer, install the ZDesigner driver and set the same label size in the driver's printing preferences.
 
 ## Updates
 Open **Updates** to see the installed version and any newer ones.

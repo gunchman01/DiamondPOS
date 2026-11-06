@@ -1,4 +1,5 @@
 import type { ReturnRequestLine } from './returns'
+import type { PrintJob, PrinterInfo, PrintSettings } from './printing'
 // Data shapes shared between the server, the Electron main process and the UI.
 // Money is always stored as whole cents (integers) to avoid rounding errors.
 
@@ -16,6 +17,8 @@ export interface AppConfig {
   qbBridge: boolean
   /** Columns shown on the Sale screen's receipt grid, in order (right-click the grid header to change) */
   saleColumns?: string[]
+  /** Printers and what prints where (Settings → Printing) */
+  printing?: Partial<PrintSettings>
 }
 
 export interface BootInfo {
@@ -89,7 +92,9 @@ export interface ImportSummary {
   results: ImportRowResult[]
 }
 
-export type PaymentMethod = 'cash' | 'card'
+export type PaymentMethod = 'cash' | 'card' | 'check'
+
+export const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: 'Cash', card: 'Card', check: 'Check' }
 
 export interface PaymentInput {
   method: PaymentMethod
@@ -259,6 +264,8 @@ export interface DailyReport {
   taxCents: number
   cashCents: number
   cardCents: number
+  /** Checks taken (net of check refunds) */
+  checkCents?: number
   /** Tax-exempt sales today and the tax removed on them */
   taxExemptCount: number
   taxExemptCents: number
@@ -334,6 +341,10 @@ export interface PosBridge {
   getBootInfo(): Promise<BootInfo>
   saveConfig(changes: Partial<AppConfig>): Promise<BootInfo>
   printReceipt(html: string): Promise<void>
+  /** Printers installed on this computer */
+  listPrinters(): Promise<PrinterInfo[]>
+  /** Print silently to a chosen printer */
+  print(job: PrintJob): Promise<void>
   listReleases(): Promise<ReleaseInfo[]>
   installRelease(tag: string): Promise<void>
   onUpdateEvent(cb: (e: UpdateEvent) => void): () => void

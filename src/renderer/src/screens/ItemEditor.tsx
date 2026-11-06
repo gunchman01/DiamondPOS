@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ItemType, Product, ProductInput } from '../../../shared/types'
+import TagPrintDialog from './TagPrintDialog'
 import { api } from '../api'
 import { parseMoney } from '../format'
 
@@ -167,6 +168,7 @@ export default function ItemEditor(props: ItemEditorProps) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [tagging, setTagging] = useState(false)
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }))
   const text = (key: keyof Form) => ({
@@ -370,6 +372,11 @@ export default function ItemEditor(props: ItemEditorProps) {
           <div className="id-msg">
             {error ? <span className="error-text">{error}</span> : notice && <span className="ok-text">{notice}</span>}
           </div>
+          {editing && (
+            <button type="button" disabled={busy} onClick={() => setTagging(true)} title="Print price tags for this item">
+              🏷 Tags
+            </button>
+          )}
           <button type="submit" className="primary" disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
           </button>
@@ -394,6 +401,7 @@ export default function ItemEditor(props: ItemEditorProps) {
           ))}
         </datalist>
       </form>
+      {tagging && editing && <TagPrintDialog initial={[editing]} onClose={() => setTagging(false)} />}
     </div>
   )
 }

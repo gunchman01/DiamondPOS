@@ -1,3 +1,4 @@
+import { PAYMENT_LABEL } from '../../../shared/types'
 import { useEffect, useMemo, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
 import type { QbConfig, QbDailySummary, QbExport, QbLogEntry, QbStatus } from '../../../shared/quickbooks'
@@ -70,7 +71,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
   if (!st || !draft || !lists) return <div className="page">{error ? <div className="error-text">{error}</div> : 'Loading…'}</div>
 
   const set = (changes: Partial<QbConfig>) => setDraft({ ...draft, ...changes })
-  const setMethod = (m: 'cash' | 'card', k: 'depositAccount' | 'paymentMethod', v: string) =>
+  const setMethod = (m: 'cash' | 'card' | 'check', k: 'depositAccount' | 'paymentMethod', v: string) =>
     setDraft({ ...draft, methods: { ...draft.methods, [m]: { ...draft.methods[m], [k]: v } } })
   const dirty = JSON.stringify(draft) !== JSON.stringify(st.config)
   const isServer = boot.config.mode === 'server'
@@ -323,10 +324,10 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             </tr>
           </thead>
           <tbody>
-            {(['cash', 'card'] as const).map((m) => (
+            {(['cash', 'card', 'check'] as const).map((m) => (
               <tr key={m}>
                 <td>
-                  <b>{m === 'cash' ? 'Cash' : 'Card (terminal)'}</b>
+                  <b>{m === 'cash' ? 'Cash' : m === 'check' ? 'Check' : 'Card (terminal)'}</b>
                 </td>
                 <td>
                   <Select
@@ -373,7 +374,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           <div key={s.refNumber} className="qb-preview">
             <div className="row between">
               <b>
-                Sales Receipt {s.refNumber} · {s.method === 'cash' ? 'Cash' : 'Card'} · {s.saleCount} sale(s)
+                Sales Receipt {s.refNumber} · {PAYMENT_LABEL[s.method]} · {s.saleCount} sale(s)
                 {s.taxExemptCount ? ` (${s.taxExemptCount} tax exempt)` : ''}
               </b>
               <b>{money(s.totalCents)}</b>
@@ -421,7 +422,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               {exports.map((e) => (
                 <tr key={e.id}>
                   <td>{new Date(e.saleDate + 'T00:00:00').toLocaleDateString()}</td>
-                  <td>{e.method === 'cash' ? 'Cash' : 'Card'}</td>
+                  <td>{PAYMENT_LABEL[e.method]}</td>
                   <td>{e.refNumber}</td>
                   <td className="r">{money(e.totalCents)}</td>
                   <td>

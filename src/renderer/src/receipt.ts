@@ -2,7 +2,7 @@ import type { Sale, StoreSettings } from '../../shared/types'
 import { dateTime, escapeHtml, money } from './format'
 
 /** Builds receipt HTML sized for an 80mm receipt printer. */
-export function receiptHtml(sale: Sale, settings: StoreSettings): string {
+export function receiptHtml(sale: Sale, settings: StoreSettings, widthMm: number = 80): string {
   const refund = sale.totalCents < 0
   const hasReturn = sale.items.some((i) => i.kind === 'return')
   const rows = sale.items
@@ -16,15 +16,15 @@ export function receiptHtml(sale: Sale, settings: StoreSettings): string {
     .join('')
   const pays = sale.payments
     .map((p) => {
-      const label = p.method === 'cash' ? 'Cash' : 'Card'
-      return `<tr><td>${p.amountCents < 0 ? `${label} refund` : label}${p.reference ? ' (' + escapeHtml(p.reference) + ')' : ''}</td><td class="r">${money(p.amountCents)}</td></tr>`
+      const label = p.method === 'check' ? 'Check' : p.method === 'cash' ? 'Cash' : 'Card'
+      return `<tr><td>${p.amountCents < 0 ? `${label} refund` : label}${p.reference ? (p.method === 'check' ? ' #' + escapeHtml(p.reference) : ' (' + escapeHtml(p.reference) + ')') : ''}</td><td class="r">${money(p.amountCents)}</td></tr>`
     })
     .join('')
   const origs = [...new Set(sale.items.map((i) => i.returnOfSaleId).filter((x): x is number => !!x))]
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: 80mm auto; margin: 0; }
-    body { width: 72mm; margin: 4mm; font: 12px/1.35 'Courier New', monospace; color: #000; }
+    @page { size: ${widthMm}mm auto; margin: 0; }
+    body { width: ${widthMm - 8}mm; margin: 4mm; font: ${widthMm < 70 ? 10 : 12}px/1.35 'Courier New', monospace; color: #000; }
     h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
     h2 { font-size: 15px; text-align: center; margin: 4px 0; letter-spacing: 2px; }
     .c { text-align: center; } .r { text-align: right; white-space: nowrap; vertical-align: top; }

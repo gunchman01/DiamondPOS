@@ -14,6 +14,16 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.11 - 6 Nov 2026
+> Update the Store Server PC first.
+- **Check payments**: new **Check** button on the Sale screen. It asks for the check number, which prints on the receipt. Checks show on the daily report and go to QuickBooks as their own daily Sales Receipt (map them on the QuickBooks screen).
+- **Printing setup** (Settings → Printing), set on each computer:
+  - **Receipt printer** with paper width, copies and **automatic printing** after each sale.
+  - **Full-page (laser) printer**: sales with a serial-numbered unit and work order receipts print on a full Letter page with the customer's details, serial numbers and a signature line.
+  - **Zebra label printer** for **price tags** with barcodes: 🏷 Print tags on the Item List or 🏷 Tags in an item.
+  - **Print** button on work order tickets.
+- **Settings** is now a menu: Store, This Computer, Printing, Email and Customer Kiosk.
+
 ## v0.3.10 - 6 Nov 2026
 - New **Diamond POS logo**: the red diamond with the white "P" is now the app icon (desktop, taskbar and installer) and appears at the top left of every screen.
 - The name now shows as **Diamond POS** (two words) throughout the app.

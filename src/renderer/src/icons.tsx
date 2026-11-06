@@ -143,6 +143,39 @@ export const Icons = {
       <path d="M24 14v17M16.5 23.5L24 31l7.5-7.5" />
     </Svg>
   ),
+  printer: (
+    <Svg>
+      <path d="M14 18V6h20v12" />
+      <rect x="6" y="18" width="36" height="16" rx="3" />
+      <path d="M14 28h20v14H14z" />
+      <path d="M36 23h1" />
+    </Svg>
+  ),
+  email: (
+    <Svg>
+      <rect x="6" y="11" width="36" height="26" rx="3" />
+      <path d="M7 13l17 13 17-13" />
+    </Svg>
+  ),
+  tablet: (
+    <Svg>
+      <rect x="10" y="5" width="28" height="38" rx="4" />
+      <path d="M21 37h6" />
+    </Svg>
+  ),
+  store: (
+    <Svg>
+      <path d="M7 19l3-10h28l3 10" />
+      <path d="M7 19c0 3 2.5 5 5.5 5S18 22 18 19c0 3 2.5 5 6 5s6-2 6-5c0 3 2.5 5 5.5 5S41 22 41 19" />
+      <path d="M10 24v17h28V24M20 41V31h8v10" />
+    </Svg>
+  ),
+  computer: (
+    <Svg>
+      <rect x="6" y="8" width="36" height="24" rx="2" />
+      <path d="M18 40h12M24 32v8" />
+    </Svg>
+  ),
   feedback: (
     <Svg>
       <path d="M8 10h32v21H22l-9 8v-8H8z" />

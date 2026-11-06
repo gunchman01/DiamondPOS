@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { DailyReport, SaleSummary } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money, today } from '../format'
-import { receiptHtml } from '../receipt'
+import { printSale } from '../printing'
 import SaleDialog from './SaleDialog'
 
 /** End-of-day totals across ALL tills, plus a list of sales with reprint. */
@@ -25,8 +25,7 @@ export default function Reports() {
 
   async function reprint(id: number) {
     try {
-      const [sale, settings] = await Promise.all([api.getSale(id), api.getSettings()])
-      await window.pos.printReceipt(receiptHtml(sale, settings))
+      await printSale(await api.getSale(id))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -47,6 +46,7 @@ export default function Reports() {
           <Stat label="GST included" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />
+          <Stat label="Checks" value={money(report.checkCents ?? 0)} />
           <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
           <Stat label={`Returns (${report.refundCount ?? 0})`} value={`−${money(report.refundCents ?? 0)}`} />
         </div>

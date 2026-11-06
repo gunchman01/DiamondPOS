@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Sale } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money } from '../format'
-import { receiptHtml } from '../receipt'
+import { printSale } from '../printing'
 
 /** Shows one receipt / transaction (from a customer's history or Sales History) with Reprint. */
 export default function SaleDialog({ saleId, onClose }: { saleId: number; onClose: () => void }) {
@@ -17,8 +17,8 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
   async function reprint() {
     if (!sale) return
     try {
-      await window.pos.printReceipt(receiptHtml(sale, await api.getSettings()))
-      setMsg('Sent to the printer')
+      const where = await printSale(sale)
+      setMsg(where === 'fullPage' ? 'Sent to the full-page printer' : 'Sent to the receipt printer')
     } catch (e) {
       setError((e as Error).message)
     }
@@ -115,9 +115,9 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
               {sale.payments.map((p, k) => (
                 <div key={k} className="tline">
                   <span>
-                    {p.method === 'cash' ? 'Cash' : 'Card'}
+                    {p.method === 'check' ? 'Check' : p.method === 'cash' ? 'Cash' : 'Card'}
                     {p.amountCents < 0 ? ' refund' : ''}
-                    {p.reference ? ` (${p.reference})` : ''}
+                    {p.reference ? (p.method === 'check' ? ` #${p.reference}` : ` (${p.reference})`) : ''}
                   </span>
                   <span>{money(p.amountCents)}</span>
                 </div>

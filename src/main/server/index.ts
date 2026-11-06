@@ -324,6 +324,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       taxCents: totals.tax,
       cashCents: amt('cash') - totals.change, // net cash kept in the drawer
       cardCents: amt('card'),
+      checkCents: amt('check'),
       taxExemptCount: totals.exemptN,
       taxExemptCents: totals.exemptCents,
       refundCount: refunds.n,
@@ -529,7 +530,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
   const refund = totalCents < 0
   const payments: PaymentInput[] = req.payments.map((p) => {
     const amountCents = Number(p.amountCents)
-    if (p.method !== 'cash' && p.method !== 'card') throw new HttpError(400, 'Unknown payment method')
+    if (p.method !== 'cash' && p.method !== 'card' && p.method !== 'check') throw new HttpError(400, 'Unknown payment method')
+    if (p.method === 'check' && !String(p.reference ?? '').trim()) throw new HttpError(400, 'Enter the check number')
     if (!Number.isInteger(amountCents) || amountCents === 0 || (refund ? amountCents > 0 : amountCents < 0))
       throw new HttpError(400, refund ? 'A refund is entered as money given back (a negative amount)' : 'Payment amount must be above 0')
     return { method: p.method, amountCents, reference: p.reference ? String(p.reference).slice(0, 60) : undefined }
@@ -542,7 +544,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
     if (paid < totalCents) throw new HttpError(400, 'Payment is less than the sale total')
     changeCents = paid - totalCents
     const cashPaid = payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amountCents, 0)
-    if (changeCents > cashPaid) throw new HttpError(400, 'Card payments cannot be more than the amount owed')
+    if (changeCents > cashPaid) throw new HttpError(400, 'Card and check payments cannot be more than the amount owed (change is only given from cash)')
   }
 
   const id = db.transaction(() => {
@@ -630,7 +632,7 @@ function getSale(db: DB, id: number): Sale | null {
     serial: string | null
   }[]
   const payments = db.prepare('SELECT * FROM payments WHERE sale_id = ? ORDER BY id').all(id) as {
-    method: 'cash' | 'card'
+    method: 'cash' | 'card' | 'check'
     amount_cents: number
     reference: string | null
   }[]

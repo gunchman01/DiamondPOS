@@ -38,7 +38,7 @@ export const rq = {
   addSalesReceipt: (s: QbDailySummary, cfg: QbConfig) => {
     const m = cfg.methods[s.method]
     const memo =
-      `DiamondPOS ${s.method === 'cash' ? 'cash' : 'card'} sales ${s.saleDate}: ${s.saleCount} receipt(s) ` +
+      `DiamondPOS ${s.method} sales ${s.saleDate}: ${s.saleCount} receipt(s) ` +
       `#${s.firstSaleId}-#${s.lastSaleId}` +
       (s.taxExemptCount ? `, ${s.taxExemptCount} tax exempt` : '')
     const lines = s.lines
