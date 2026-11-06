@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { api } from '../api'
 import { money } from '../format'
-import { printTags } from '../printing'
+import { currentPrintSettings, printDesigns, printTags, templateFor } from '../printing'
+import type { LabelTemplate } from '../../../shared/printDesigns'
+import type { PrintSettings } from '../../../shared/printing'
 
 /** Print price tags on the label printer (Zebra): pick items and how many tags of each. */
 export default function TagPrintDialog(props: { initial?: Product[]; onClose: () => void }) {
@@ -11,6 +13,15 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
   const [results, setResults] = useState<Product[]>([])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  /** '' = automatic: price tag for priced items, no-price label for items without a price */
+  const [template, setTemplate] = useState('')
+  const [labels, setLabels] = useState<LabelTemplate[]>([])
+  const [ps, setPs] = useState<PrintSettings | null>(null)
+  useEffect(() => {
+    printDesigns().then((d) => setLabels(d.labels))
+    currentPrintSettings().then(setPs)
+  }, [])
+  const auto = (p: Product) => (ps && labels.length ? templateFor(p, ps, labels).name : '')
 
   useEffect(() => {
     if (!query.trim()) return setResults([])
@@ -36,7 +47,10 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
     setBusy(true)
     setMsg(null)
     try {
-      const n = await printTags(rows.map((r) => ({ product: r.product, qty: Math.min(500, Math.max(0, Math.floor(Number(r.qty) || 0))) })))
+      const n = await printTags(
+        rows.map((r) => ({ product: r.product, qty: Math.min(500, Math.max(0, Math.floor(Number(r.qty) || 0))) })),
+        template || null
+      )
       setMsg({ ok: true, text: `${n} tag(s) sent to the label printer` })
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message })
@@ -87,6 +101,7 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
                 <th style={{ width: 110 }}>Item #</th>
                 <th className="num" style={{ width: 90 }}>Price</th>
                 <th className="num" style={{ width: 80 }}>On hand</th>
+                <th style={{ width: 150 }}>Label</th>
                 <th style={{ width: 90 }}>Tags</th>
                 <th style={{ width: 40 }} />
               </tr>
@@ -104,6 +119,7 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
                       </button>
                     )}
                   </td>
+                  <td className="dim small">{template ? labels.find((t) => t.id === template)?.name : auto(r.product)}</td>
                   <td>
                     <input className="qty-in" value={r.qty} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))} />
                   </td>
@@ -120,7 +136,17 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
         </div>
         {msg && <div className={msg.ok ? 'ok-text' : 'error-text'}>{msg.text}</div>}
         <div className="row between">
-          <span className="muted small">Printer and label size: Settings → Printing</span>
+          <label className="inline">
+            Label
+            <select value={template} onChange={(e) => setTemplate(e.target.value)}>
+              <option value="">Automatic (price tag, or no-price label for items without a price)</option>
+              {labels.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="row gap">
             <button onClick={props.onClose}>Close</button>
             <button className="primary" disabled={busy || total === 0} onClick={print}>

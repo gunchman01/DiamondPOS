@@ -62,7 +62,7 @@ After the sale, click **Print receipt** or **Reprint last receipt** (or set the 
 ## Returns, refunds and exchanges
 Click **↩ Return** on the Sale screen.
 1. Find the original sale:
-   - type the **receipt number**, or
+   - type or **scan** the **receipt number** (receipts can print a barcode, see Receipt Layout), or
    - click **Find by customer** and pick the receipt from their list, or
    - click **No receipt** (see below).
 2. Tick each item coming back. Enter how many, choose a **reason**, and choose **Back to stock** or **Damaged – don't restock**.
@@ -175,6 +175,8 @@ Open **Settings** and click the area you want to change. Click **← Settings** 
 - **Store** (shared by all tills): store name, sales tax rate, store address (printed on full-page receipts, work orders and marketing emails), where feedback is emailed, and the receipt footer.
 - **This Computer**: the till name. On the Store Server it also shows the address and **pairing code** that tills need to connect.
 - **Printing**: which printers this computer uses (see below).
+- **Label Designer**: build price tags and part labels (see below).
+- **Receipt Layout**: choose what prints on receipts (see below).
 - **Email**: the email account used for marketing mailers, work order emails and feedback.
 - **Customer Kiosk**: pair iPads and upload the store logo.
 
@@ -185,9 +187,28 @@ Each computer has its own printers, so set this up on every till (**Settings →
   - sales with a **serial-numbered unit** (mowers, saws, blowers…), with the customer's details, serial numbers and a signature line
   - **work order** receipts (estimate fee, repair pick-up)
   - Work order tickets (🖨 Print on a ticket) always print here.
-- **Label printer (Zebra)**: for price tags. Choose the label size (for example 2.25" × 1.25") and what's on the tag: store name, price, barcode, item #.
+- **Label printer (Zebra)**: choose the printer, then which label design to use for items **with a price** (price tag) and for items with **no price** (parts, bin labels). Design the labels under **Label Designer**.
 - Use the **Print test** buttons to check each printer before saving, then click **Save printing settings**.
 > For a Zebra printer, install the ZDesigner driver and set the same label size in the driver's printing preferences.
+
+## Label Designer
+**Settings → Label Designer** builds the tags printed on the Zebra printer. Every till uses the same designs.
+- The list on the left has your labels. **Price tag** and **Part / bin label (no price)** come ready-made. Click **+ New** or **Copy** to make more, and set the name and label size.
+- To add something, pick it in the toolbar (Item name, Price, Item details, Item #, UPC, Department, Manufacturer, Vendor, Size, Store name, Your own text…) and click **+ Add field**. Click **+ Barcode** for a barcode or **+ Line** for a line.
+- **Drag** an element to move it. Drag the **red corner square** to make it bigger or smaller. Arrow keys nudge it, **Delete** removes it, and holding **Shift** gives finer steps.
+- On the right, change the font size, bold, alignment, or the exact position in inches. For a barcode, choose UPC, Item # or ALU.
+- Type an item # or UPC and click **Preview** to see a real item on the label. **Print test label** prints one.
+- Click **Save labels**.
+> Which design prints is set per till in **Settings → Printing**: one for items with a price, one for items without. When printing tags you can also pick a design for that print.
+
+## Receipt Layout
+**Settings → Receipt Layout** chooses what prints on receipts, for every till.
+- Tick or untick blocks: store logo, store name, address, receipt #/date/till, customer, items, totals, tax exempt, payments, receipt barcode, signature line, footer, dashed lines and your own text (e.g. return policy or hours).
+- **Drag** blocks (or use ▲ ▼) to change the order. **+ Add a block** adds another, for example a second line of your own text.
+- Click a block to set its **text size**, **bold** and **alignment** (logo and barcode: width). For items you can show the Item #, "2 @ $12.99" and serial numbers.
+- The preview on the right shows a sale, a serial-numbered sale or a refund, on 80 mm or 58 mm paper.
+- Click **Save receipt layout**.
+> Turn on **Receipt barcode** to print a barcode of the receipt number: scanning it on the **Return** screen finds the sale straight away.
 
 ## Updates
 Open **Updates** to see the installed version and any newer ones.

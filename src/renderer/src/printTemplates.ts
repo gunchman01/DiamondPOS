@@ -3,7 +3,7 @@
  * The 80 mm receipt is in receipt.ts.
  */
 import type { Customer, Product, Sale, StoreSettings } from '../../shared/types'
-import type { LabelLayout } from '../../shared/printing'
+import { barcodeValue, labelFieldValue, type LabelElement, type LabelTemplate } from '../../shared/printDesigns'
 import type { WorkOrder } from '../../shared/workorders'
 import { stage, unitLabel } from '../../shared/workorders'
 import { code128Svg } from './code128'
@@ -138,33 +138,49 @@ export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Cus
   </body></html>`
 }
 
-/** Price tags: one label per page, sized for the label printer */
-export function tagsHtml(items: { product: Product; qty: number }[], store: StoreSettings, layout: LabelLayout): string {
-  const w = layout.widthIn
-  const h = layout.heightIn
-  const small = h <= 1.05
-  const labels: string[] = []
-  for (const { product: p, qty } of items) {
-    const code = p.barcode || p.sku || ''
-    const one = `<div class="label">
-      ${layout.showStore ? `<div class="store">${esc(store.storeName)}</div>` : ''}
-      <div class="name">${esc(p.name)}</div>
-      ${layout.showPrice ? `<div class="price">${money(p.priceCents)}</div>` : ''}
-      ${layout.showBarcode && code ? `<div class="bc">${code128Svg(code)}</div>` : ''}
-      ${layout.showSku && (p.sku || code) ? `<div class="sku">${esc(p.sku || code)}</div>` : ''}
-    </div>`
-    for (let k = 0; k < qty; k++) labels.push(one)
+/** Inside of one label element (text, barcode or line), as HTML. Used for printing and by the label designer. */
+export function labelElementInner(e: LabelElement, p: Partial<Product>, store: Pick<StoreSettings, 'storeName'>): string {
+  if (e.kind === 'line') return ''
+  if (e.kind === 'barcode') {
+    const code = barcodeValue(e.barcodeOf, p)
+    if (!code) return ''
+    const codePt = Math.max(5, Math.min(9, e.h * 14))
+    return `<div style="display:flex;flex-direction:column;width:100%;height:100%"><div style="flex:1;min-height:0">${code128Svg(code)}</div>${
+      e.showCode ? `<div style="font:${codePt}pt Consolas,monospace;text-align:center;line-height:1.1">${esc(code)}</div>` : ''
+    }</div>`
   }
+  return esc(labelFieldValue(e, p, store, money))
+}
+
+/** CSS for what's inside an element box (font, alignment); no position */
+export function labelContentCss(e: LabelElement): string {
+  if (e.kind === 'line') return 'width:100%;height:100%;background:#000;'
+  if (e.kind === 'barcode') return 'width:100%;height:100%;'
+  const justify = e.align === 'left' ? 'flex-start' : e.align === 'right' ? 'flex-end' : 'center'
+  return `width:100%;height:100%;display:flex;align-items:center;justify-content:${justify};text-align:${e.align};font-size:${e.fontPt}pt;font-weight:${
+    e.bold ? 700 : 400
+  };line-height:1.1;word-break:break-word;overflow:hidden;`
+}
+
+/** CSS for an element box: position and size in inches */
+export function labelElementStyle(e: LabelElement): string {
+  return `position:absolute;left:${e.x}in;top:${e.y}in;width:${e.w}in;height:${e.h}in;overflow:hidden;`
+}
+
+/** Tags printed with one label template: one label per page, sized to the template */
+export function tagsHtml(items: { product: Partial<Product>; qty: number }[], store: Pick<StoreSettings, 'storeName'>, t: LabelTemplate): string {
+  const one = (p: Partial<Product>) =>
+    `<div class="label">${t.elements
+      .map((e) => `<div style="${labelElementStyle(e)}"><div style="${labelContentCss(e)}">${labelElementInner(e, p, store)}</div></div>`)
+      .join('')}</div>`
+  const labels: string[] = []
+  for (const { product, qty } of items) for (let k = 0; k < qty; k++) labels.push(one(product))
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: ${w}in ${h}in; margin: 0; }
+    @page { size: ${t.widthIn}in ${t.heightIn}in; margin: 0; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; color: #000; }
-    .label { width: ${w}in; height: ${h}in; padding: 0.05in 0.08in; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; page-break-after: always; text-align: center; }
+    .label { position: relative; width: ${t.widthIn}in; height: ${t.heightIn}in; overflow: hidden; page-break-after: always; }
     .label:last-child { page-break-after: auto; }
-    .store { font-size: ${small ? 6 : 7}pt; text-transform: uppercase; letter-spacing: 0.5px; }
-    .name { font-size: ${small ? 7 : 8.5}pt; font-weight: bold; line-height: 1.1; max-height: 2.2em; overflow: hidden; }
-    .price { font-size: ${Math.min(22, Math.max(12, h * 14))}pt; font-weight: bold; line-height: 1; }
-    .bc { width: 100%; height: ${Math.max(0.22, h * 0.26)}in; }
-    .sku { font-size: 6.5pt; font-family: Consolas, monospace; }
+    svg { display: block; }
   </style></head><body>${labels.join('')}</body></html>`
 }

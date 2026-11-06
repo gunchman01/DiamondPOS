@@ -44,6 +44,7 @@ import {
 } from './workorders'
 import { priceWithFeeCredit } from '../../shared/workorders'
 import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
+import { normaliseDesigns } from '../../shared/printDesigns'
 import { registerFeedbackRoutes } from './feedback'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
@@ -247,6 +248,25 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Work orders (repairs) + customer units -----------------------------
   registerWorkOrderRoutes(app, db, readSettings)
+
+  // ----- Label templates + receipt layout (shared by every till) -------------
+  app.get('/api/print-designs', (_req, res) => {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'print_designs'").get() as { value: string } | undefined
+    let saved: unknown = undefined
+    try {
+      saved = row ? JSON.parse(row.value) : undefined
+    } catch {
+      /* use defaults */
+    }
+    res.json(normaliseDesigns(saved))
+  })
+  app.put('/api/print-designs', (req, res) => {
+    const clean = normaliseDesigns(req.body)
+    db.prepare("INSERT INTO settings (key, value) VALUES ('print_designs', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(
+      JSON.stringify(clean)
+    )
+    res.json(clean)
+  })
 
   // ----- Feedback / enhancement requests (emailed to the developer) ------------
   registerFeedbackRoutes(app, db, readSettings)
@@ -618,7 +638,10 @@ function getSale(db: DB, id: number): Sale | null {
       >)
     | undefined
   if (!s) return null
-  const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id').all(id) as {
+  const items = db
+    .prepare('SELECT si.*, p.sku AS product_sku FROM sale_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.sale_id = ? ORDER BY si.id')
+    .all(id) as {
+    product_sku: string | null
     id: number
     kind: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
     return_of_sale_id: number | null
@@ -658,6 +681,7 @@ function getSale(db: DB, id: number): Sale | null {
       returnReason: i.return_reason,
       restocked: i.restocked === 1,
       productId: i.product_id,
+      sku: i.product_sku,
       name: i.name,
       unitPriceCents: i.unit_price_cents,
       qty: i.qty,

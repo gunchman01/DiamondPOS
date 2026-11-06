@@ -25,7 +25,11 @@ export interface PrintSettings {
   fullPageFor: { serialized: boolean; workOrders: boolean }
   fullPageCopies: number
   labelPrinter: string
+  /** Older single label layout (before the label designer); kept so old settings files still load */
   label: LabelLayout
+  /** Label template for items with a price, and for items with no price (parts / bin labels) */
+  priceTagTemplate: string
+  noPriceTagTemplate: string
 }
 
 export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
@@ -37,7 +41,9 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   fullPageFor: { serialized: true, workOrders: true },
   fullPageCopies: 1,
   labelPrinter: '',
-  label: { widthIn: 2.25, heightIn: 1.25, showStore: true, showPrice: true, showSku: true, showBarcode: true }
+  label: { widthIn: 2.25, heightIn: 1.25, showStore: true, showPrice: true, showSku: true, showBarcode: true },
+  priceTagTemplate: 'tag-price',
+  noPriceTagTemplate: 'tag-noprice'
 }
 
 /** Common Zebra label sizes (inches) */

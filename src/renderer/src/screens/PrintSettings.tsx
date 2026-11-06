@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
-import { LABEL_SIZES, printSettings, type PrinterInfo, type PrintSettings as PS } from '../../../shared/printing'
+import { printSettings, type PrinterInfo, type PrintSettings as PS } from '../../../shared/printing'
 import { testPrint } from '../printing'
+import { api } from '../api'
+import type { LabelTemplate } from '../../../shared/printDesigns'
 
 /** Settings → Printing: which printer prints what, on this computer. */
 export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onChange: (b: BootInfo) => void }) {
@@ -10,6 +12,10 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [dirty, setDirty] = useState(false)
 
+  const [labels, setLabels] = useState<LabelTemplate[] | null>(null)
+  useEffect(() => {
+    api.printDesigns().then((d) => setLabels(d.labels)).catch(() => setLabels([]))
+  }, [])
   useEffect(() => {
     window.pos
       .listPrinters()
@@ -21,7 +27,6 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
     setS({ ...s, ...c })
     setDirty(true)
   }
-  const setLabel = (c: Partial<PS['label']>) => set({ label: { ...s.label, ...c } })
 
   async function save() {
     try {
@@ -54,8 +59,6 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
       {value && printers && !printers.some((p) => p.name === value) && <option value={value}>{value} (not found on this PC)</option>}
     </select>
   )
-  const sizeKey = `${s.label.widthIn}x${s.label.heightIn}`
-  const preset = LABEL_SIZES.find((z) => `${z.widthIn}x${z.heightIn}` === sizeKey)
 
   return (
     <div className="print-settings">
@@ -130,57 +133,37 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
             <Picker value={s.labelPrinter} onPick={(v) => set({ labelPrinter: v })} />
           </label>
           <label>
-            Label size
-            <select
-              value={preset ? sizeKey : 'custom'}
-              onChange={(e) => {
-                const z = LABEL_SIZES.find((x) => `${x.widthIn}x${x.heightIn}` === e.target.value)
-                if (z) setLabel({ widthIn: z.widthIn, heightIn: z.heightIn })
-                else setLabel({ widthIn: s.label.widthIn + 0.001 })
-              }}
-            >
-              {LABEL_SIZES.map((z) => (
-                <option key={z.label} value={`${z.widthIn}x${z.heightIn}`}>
-                  {z.label}
+            <span>
+              Tag for items <b>with</b> a price
+            </span>
+            <select value={s.priceTagTemplate} onChange={(e) => set({ priceTagTemplate: e.target.value })}>
+              {(labels ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.widthIn}" × {t.heightIn}")
                 </option>
               ))}
-              <option value="custom">Other size…</option>
             </select>
           </label>
-          {!preset && (
-            <div className="row gap">
-              <label>
-                Width (in)
-                <input type="number" step={0.05} min={0.5} max={6} value={Math.round(s.label.widthIn * 100) / 100} onChange={(e) => setLabel({ widthIn: Number(e.target.value) || 2 })} />
-              </label>
-              <label>
-                Height (in)
-                <input type="number" step={0.05} min={0.5} max={6} value={Math.round(s.label.heightIn * 100) / 100} onChange={(e) => setLabel({ heightIn: Number(e.target.value) || 1 })} />
-              </label>
-            </div>
-          )}
-        </div>
-        <div className="row gap wrap">
-          {(
-            [
-              ['showStore', 'Store name'],
-              ['showPrice', 'Price'],
-              ['showBarcode', 'Barcode'],
-              ['showSku', 'Item # / UPC']
-            ] as const
-          ).map(([k, l]) => (
-            <label key={k} className="check">
-              <input type="checkbox" checked={s.label[k]} onChange={(e) => setLabel({ [k]: e.target.checked })} />
-              {l}
-            </label>
-          ))}
+          <label>
+            <span>
+              Tag for items with <b>no</b> price (parts, bins)
+            </span>
+            <select value={s.noPriceTagTemplate} onChange={(e) => set({ noPriceTagTemplate: e.target.value })}>
+              {(labels ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.widthIn}" × {t.heightIn}")
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <p className="muted small">
-          Uses the Zebra Windows driver (ZDesigner). Set the same label size in the driver's printing preferences. Tags are
-          printed from the Item List (🏷 Print tags) or an item's window (🏷 Tags).
+          Design the labels (what's on them and where) under <b>Settings → Label Designer</b>. Uses the Zebra Windows driver
+          (ZDesigner): set the same label size in the driver's printing preferences. Tags are printed from the Item List (🏷 Print
+          tags) or an item's window (🏷 Tags).
         </p>
         <div>
-          <button onClick={() => test('label')}>Print test tag</button>
+          <button onClick={() => test('label')}>Print test tag (sample item with a price)</button>
         </div>
       </div>
 

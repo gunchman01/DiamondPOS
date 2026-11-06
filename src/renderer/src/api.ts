@@ -1,3 +1,4 @@
+import type { PrintDesigns } from '../../shared/printDesigns'
 import type { CustomerReceipt, ReturnableSale } from '../../shared/returns'
 import type { Feedback, FeedbackInput } from '../../shared/feedback'
 // Small HTTP client the UI uses to talk to the store server.
@@ -171,6 +172,8 @@ export const api = {
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
   listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
+  printDesigns: () => request<PrintDesigns>('GET', '/api/print-designs'),
+  savePrintDesigns: (d: PrintDesigns) => request<PrintDesigns>('PUT', '/api/print-designs', d),
   feedbackList: () => request<Feedback[]>('GET', '/api/feedback'),
   sendFeedback: (f: FeedbackInput) => request<Feedback>('POST', '/api/feedback', f),
   resendFeedback: (id: number) => request<Feedback>('POST', `/api/feedback/${id}/resend`),

@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.13 - 6 Nov 2026
+> Update the Store Server PC first.
+- **Label Designer** (Settings → Label Designer): build your own tags. Add the item name, price, item #, UPC, department, barcode, your own text and more, then **drag them where you want** and resize them on the label. Make as many label designs as you need.
+- **Two kinds of tags**: one design for items **with a price** and one for **parts with no price** (bin labels). Choose them per till in Settings → Printing; the right one is picked automatically when printing tags, or choose one for a print.
+- **Receipt Layout** (Settings → Receipt Layout): pick what prints on receipts (logo, address, customer, items, totals, payments, your own text such as a return policy, signature line…), **drag the blocks into order**, and set the text size and alignment, with a live preview.
+- Receipts can print a **barcode of the receipt number**; scan it on the Return screen to find the sale.
+
 ## v0.3.11 - 6 Nov 2026
 > Update the Store Server PC first.
 - **Check payments**: new **Check** button on the Sale screen. It asks for the check number, which prints on the receipt. Checks show on the daily report and go to QuickBooks as their own daily Sales Receipt (map them on the QuickBooks screen).

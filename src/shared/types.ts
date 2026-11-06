@@ -128,6 +128,8 @@ export interface SaleItem {
   returnReason?: string | null
   restocked?: boolean
   productId: number | null
+  /** Item # of the product (for receipts) */
+  sku?: string | null
   name: string
   serial?: string | null
   unitPriceCents: number

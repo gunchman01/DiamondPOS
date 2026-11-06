@@ -327,11 +327,21 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] **Settings menu**: Settings is now tiles (Store, This Computer, Printing, Email, Customer Kiosk); each opens its page with ← Settings. Add a tile to `TILES` in `Settings.tsx` for new areas. Email settings reuse Marketing's `EmailSettings`.
 - Verified: new server test `checks.ts` (migration 15 on a v14 DB keeps payments, check # required, no change from a check, split check + cash, report, QuickBooks check summary + K ref); all suites pass; TypeScript; previews of Settings menu, Printing page, full-page receipt and tags. **Not tested on real printers** (receipt, laser, Zebra): check on site, especially the Zebra driver label size.
 
+### 6 Nov 2026: Label Designer + Receipt Layout (next release **v0.3.13**; no DB migration, new server API)
+- [x] **Print designs** (`src/shared/printDesigns.ts`), shared by all tills, stored on the server in `settings.print_designs` (JSON) via `GET/PUT /api/print-designs`; `normaliseDesigns` cleans everything (clamps sizes/positions, unknown fields → defaults, max 30 labels × 40 elements, 40 receipt blocks).
+  - **Label templates**: name, size (in), elements `{kind text|barcode|line, field, text, barcodeOf upc|sku|alu, showCode, x,y,w,h (in), fontPt, bold, align}`. Defaults: "Price tag" (`tag-price`) and "Part / bin label (no price)" (`tag-noprice`).
+  - **Receipt layout**: ordered blocks `{type, on, align, fontPt, bold, text, widthPct, showSku, showUnitPrice, showSerial, always}` + font (mono/sans). Types: logo, storeName, address, title, saleInfo, customer, items, totals, taxExempt, payments, barcode (Code 128 of the receipt #), signature, footer, text, divider.
+- [x] Per computer (`AppConfig.printing`): `priceTagTemplate` / `noPriceTagTemplate`. `printTags` picks the template per item (price > 0 → price tag) unless one is chosen in the tag dialog, and prints one job per template (page = template size).
+- [x] **Label Designer** (`screens/LabelDesigner.tsx`): template list, size presets/custom, add field / barcode / line, drag to move, corner handle to resize (0.05" snap, Shift = 0.01"), arrow keys, Delete, properties panel (field, text, font, bold, align, x/y/w/h, barcode source), preview with a real item, test print. Rendering shared with printing via `labelElementInner` / `labelContentCss` / `labelElementStyle` in `printTemplates.ts`.
+- [x] **Receipt Layout** (`screens/ReceiptDesigner.tsx`): tick/untick, drag (HTML5) or ▲▼ to reorder, add/duplicate/remove blocks, size/bold/align per block, items options, live preview iframe (sale / serial / refund, 80/58 mm). `receipt.ts` now renders from the layout (+ logo). `SaleItem.sku` added (joined from products) for "Show the Item #".
+- [x] Settings menu gains **Label Designer** and **Receipt Layout** tiles; Printing page now picks the two label designs (old fixed label options removed).
+- Verified: new server test `designs.ts` (defaults, save + clean bad values, new template id, receipt blocks, tag HTML per qty, receipt only shows chosen blocks, 58 mm); TypeScript; all suites; previews of both designers. Not tested on real printers.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.10** (logo + app icon + "Diamond POS" name, Sale screen columns, open past receipts). Next release: **v0.3.11** (check payments, printing setup, Settings menu; DB migration 15: update the Store Server PC first).
+**Latest release: v0.3.11/v0.3.12** (check payments, printing setup, Settings menu). Next release: **v0.3.13** (Label Designer, Receipt Layout; update the Store Server PC first for the new print-designs API).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %

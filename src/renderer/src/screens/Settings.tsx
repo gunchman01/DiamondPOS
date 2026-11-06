@@ -6,15 +6,19 @@ import { api } from '../api'
 import { Icons, type IconName } from '../icons'
 import KioskSettings from './KioskSettings'
 import PrintSettings from './PrintSettings'
+import LabelDesigner from './LabelDesigner'
+import ReceiptDesigner from './ReceiptDesigner'
 import { EmailSettings } from './Marketing'
 
-type Section = 'store' | 'computer' | 'kiosk' | 'email' | 'printing'
+type Section = 'store' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
 
 /** The Settings menu: one tile per area. Add a tile here (and a section below) for each new kind of setting. */
 const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
   { id: 'store', icon: 'store', label: 'Store', text: 'Name, tax rate, address, receipt footer' },
   { id: 'computer', icon: 'computer', label: 'This Computer', text: 'Till name, server connection, pairing code' },
   { id: 'printing', icon: 'printer', label: 'Printing', text: 'Receipt, full-page and Zebra label printers' },
+  { id: 'labels', icon: 'itemList', label: 'Label Designer', text: 'Build price tags and part labels: drag fields where you want them' },
+  { id: 'receipt', icon: 'salesHistory', label: 'Receipt Layout', text: 'Choose what prints on receipts, in what order and size' },
   { id: 'email', icon: 'email', label: 'Email', text: 'Account for mailers, work order and feedback emails' },
   { id: 'kiosk', icon: 'tablet', label: 'Customer Kiosk', text: 'iPad sign-up screen and store logo' }
 ]
@@ -86,7 +90,7 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
     )
 
   return (
-    <div className="page settings">
+    <div className={section === 'labels' || section === 'receipt' ? 'page wide settings' : 'page settings'}>
       <div>
         <button className="link" onClick={() => setSection(null)}>
           ← Settings
@@ -182,6 +186,8 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       {section === 'kiosk' && store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
       {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
       {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}
+      {section === 'labels' && <LabelDesigner />}
+      {section === 'receipt' && <ReceiptDesigner />}
     </div>
   )
 }

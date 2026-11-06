@@ -11,6 +11,12 @@ import type { WorkOrder } from '../../shared/workorders'
 import { api } from './api'
 import { receiptHtml } from './receipt'
 import { fullPageSaleHtml, tagsHtml, workOrderHtml } from './printTemplates'
+import { normaliseDesigns, type LabelTemplate, type PrintDesigns } from '../../shared/printDesigns'
+
+/** Label templates + receipt layout (shared by all tills, kept on the Store Server) */
+export async function printDesigns(): Promise<PrintDesigns> {
+  return api.printDesigns().catch(() => normaliseDesigns(undefined))
+}
 
 export async function currentPrintSettings(): Promise<PrintSettings> {
   const boot = await window.pos.getBootInfo()
@@ -39,7 +45,12 @@ export async function printSale(sale: Sale): Promise<'receipt' | 'fullPage'> {
     })
     return 'fullPage'
   }
-  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm), printer: s.receiptPrinter, copies: s.receiptCopies })
+  const designs = await printDesigns()
+  await window.pos.print({
+    html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo),
+    printer: s.receiptPrinter,
+    copies: s.receiptCopies
+  })
   return 'receipt'
 }
 
@@ -51,18 +62,40 @@ export async function printWorkOrder(wo: WorkOrder): Promise<void> {
   await window.pos.print({ html: workOrderHtml(wo, store, customer, logo), printer: s.fullPagePrinter, letter: true })
 }
 
-/** Print price tags on the label printer */
-export async function printTags(items: { product: Product; qty: number }[]): Promise<number> {
+/** Which label template an item uses: the "no price" one for items without a price (parts, bin labels) */
+export function templateFor(p: Partial<Product>, s: PrintSettings, labels: LabelTemplate[], override?: string | null): LabelTemplate {
+  const want = override || ((p.priceCents ?? 0) > 0 ? s.priceTagTemplate : s.noPriceTagTemplate)
+  return labels.find((t) => t.id === want) ?? labels[0]
+}
+
+/** Print tags on the label printer. override = use this template for every item. One print job per template. */
+export async function printTags(items: { product: Product; qty: number }[], override?: string | null): Promise<number> {
   const list = items.filter((i) => i.qty > 0)
   if (list.length === 0) return 0
-  const s = await currentPrintSettings()
-  const { store } = await storeAndLogo()
-  await window.pos.print({
-    html: tagsHtml(list, store, s.label),
-    printer: s.labelPrinter,
-    pageMm: { width: s.label.widthIn * 25.4, height: s.label.heightIn * 25.4 }
-  })
+  const [s, designs, { store }] = await Promise.all([currentPrintSettings(), printDesigns(), storeAndLogo()])
+  const groups = new Map<LabelTemplate, { product: Product; qty: number }[]>()
+  for (const it of list) {
+    const t = templateFor(it.product, s, designs.labels, override)
+    groups.set(t, [...(groups.get(t) ?? []), it])
+  }
+  for (const [t, group] of groups)
+    await window.pos.print({ html: tagsHtml(group, store, t), printer: s.labelPrinter, pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 } })
   return list.reduce((n, i) => n + i.qty, 0)
+}
+
+export const SAMPLE_ITEM: Partial<Product> = {
+  name: 'Oregon 20in Chainsaw Chain 72LGX070G',
+  description: '3/8" pitch, .050 gauge, 70 drive links',
+  priceCents: 3499,
+  sku: 'ORE-72LGX070',
+  barcode: '009451404421',
+  alu: '72LGX070G',
+  department: 'Chainsaw Parts',
+  manufacturer: 'Oregon',
+  vendor: 'Oregon Tool',
+  size: '20 in',
+  attribute: 'Full chisel',
+  unitOfMeasure: 'Each'
 }
 
 /** Sample sale used by the Test buttons */
@@ -91,15 +124,17 @@ export function sampleSale(serial: boolean): Sale {
 export async function testPrint(kind: 'receipt' | 'fullPage' | 'label', s: PrintSettings): Promise<void> {
   const { store, logo } = await storeAndLogo()
   if (kind === 'receipt')
-    return window.pos.print({ html: receiptHtml(sampleSale(false), store, s.receiptWidthMm), printer: s.receiptPrinter })
+    return window.pos.print({
+      html: receiptHtml(sampleSale(false), store, s.receiptWidthMm, (await printDesigns()).receipt, logo),
+      printer: s.receiptPrinter
+    })
   if (kind === 'fullPage')
     return window.pos.print({ html: fullPageSaleHtml(sampleSale(true), store, null, logo, null), printer: s.fullPagePrinter, letter: true })
-  const sample = {
-    id: 0, name: 'Sample item 16oz', priceCents: 1299, sku: 'ITEM-001', barcode: '012345678905'
-  } as unknown as Product
+  const designs = await printDesigns()
+  const t = templateFor(SAMPLE_ITEM, s, designs.labels)
   return window.pos.print({
-    html: tagsHtml([{ product: sample, qty: 1 }], store, s.label),
+    html: tagsHtml([{ product: SAMPLE_ITEM, qty: 1 }], store, t),
     printer: s.labelPrinter,
-    pageMm: { width: s.label.widthIn * 25.4, height: s.label.heightIn * 25.4 }
+    pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
   })
 }
