@@ -303,11 +303,17 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] Shared `Markdown.tsx` renderer (headings, paragraphs, nested bullet + numbered lists, tables, > notes, **bold**, `code`, search highlight); release notes use it too
 - Verified: TypeScript checks; preview (F1 from the Sale screen opens "Making a sale")
 
+### 6 Nov 2026: Feedback & enhancement requests (ships with **v0.3.6**, DB migration 14)
+- [x] **DB migration 14**: `feedback` table (kind idea/problem/question, subject, message, name, reply email, till, version, screen, status pending/sent/failed, error, sent_to, sent_at). Setting `feedback_email` (default **gbarnes27@gmail.com**, `DEFAULT_FEEDBACK_EMAIL` in `src/shared/feedback.ts`; change it in Settings; blank = default).
+- [x] Server `src/main/server/feedback.ts`: `POST /api/feedback` saves first, then emails via the store SMTP account (`sendEmail`, now with an optional reply-to = the sender's email). Subject `[DiamondPOS Idea|Problem|Question] title`; body has the message + store, till, screen, version. If email isn't set up / fails → saved as failed with the reason; retried automatically after the next successful send, or `POST /api/feedback/:id/resend`. `GET /api/feedback` lists the last 100.
+- [x] UI: **💬 Feedback** in the top bar (remembers the screen you came from), **Feedback & Requests** on Home, "Can't find it? Send feedback" on Help. Feedback screen: type chips, title, details, name, reply email, list with Sent / Not sent yet + **Send again**. Manual section added.
+- Verified: server test `feedback.ts` (validation, not set up → kept, sent + backlog retried, reply-to, HTML escaped, failure → Send again, address change + default); TypeScript checks; all suites pass
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.5** (estimate fees + paying for work orders). Next release: **v0.3.6** (returns / refunds, DB migration 13: update the Store Server PC first).
+**Latest release: v0.3.5** (estimate fees + paying for work orders). Next release: **v0.3.6** (returns / refunds, release notes, Help manual, feedback; DB migrations 13 + 14: update the Store Server PC first).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %

@@ -146,7 +146,7 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
 export async function sendEmail(
   db: DB,
   store: StoreSettings,
-  m: { to: string; subject: string; html: string; text: string }
+  m: { to: string; subject: string; html: string; text: string; replyTo?: string }
 ): Promise<string> {
   const s = getSmtp(db)
   const problems = smtpProblems(s)
@@ -154,7 +154,7 @@ export async function sendEmail(
   const info = await transport(s).sendMail({
     from: { name: s.fromName || store.storeName, address: s.fromEmail },
     to: m.to,
-    replyTo: s.replyTo || s.fromEmail,
+    replyTo: m.replyTo || s.replyTo || s.fromEmail,
     subject: m.subject,
     html: m.html,
     text: m.text

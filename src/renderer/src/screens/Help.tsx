@@ -26,7 +26,7 @@ export function helpSections(md: string): HelpSection[] {
 }
 
 /** Help: the user manual with a contents list and search. `topic` = section to open at. */
-export default function Help({ topic }: { topic?: string | null }) {
+export default function Help({ topic, onFeedback }: { topic?: string | null; onFeedback?: () => void }) {
   const sections = useMemo(() => helpSections(manual), [])
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(topic && sections.some((s) => s.id === topic) ? topic : sections[0]?.id)
@@ -69,6 +69,11 @@ export default function Help({ topic }: { topic?: string | null }) {
           {shown.length === 0 && <p className="muted small">Nothing found for "{query}".</p>}
         </nav>
         <p className="muted small">Tip: press F1 on any screen to open Help.</p>
+        {onFeedback && (
+          <button onClick={onFeedback} title="Ideas, enhancement requests, problems or questions">
+            💬 Can't find it? Send feedback
+          </button>
+        )}
       </aside>
       <div className="help-body" ref={bodyRef} onScroll={onScroll}>
         {shown.map((s) => (

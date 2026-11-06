@@ -1,4 +1,5 @@
 import type { CustomerReceipt, ReturnableSale } from '../../shared/returns'
+import type { Feedback, FeedbackInput } from '../../shared/feedback'
 // Small HTTP client the UI uses to talk to the store server.
 import type {
   DailyReport,
@@ -170,6 +171,9 @@ export const api = {
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
   listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
+  feedbackList: () => request<Feedback[]>('GET', '/api/feedback'),
+  sendFeedback: (f: FeedbackInput) => request<Feedback>('POST', '/api/feedback', f),
+  resendFeedback: (id: number) => request<Feedback>('POST', `/api/feedback/${id}/resend`),
   returnable: (saleId: number) => request<ReturnableSale>('GET', `/api/sales/${saleId}/returnable`),
   customerReceipts: (customerId: number) => request<CustomerReceipt[]>('GET', `/api/customers/${customerId}/receipts`),
   dailyReport: (date: string) => request<DailyReport>('GET', `/api/reports/daily?date=${date}`)

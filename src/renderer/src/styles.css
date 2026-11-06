@@ -618,6 +618,14 @@ button.primary.pay-btn { background: linear-gradient(#1a7f37, #146c2e); border-c
 .md-table th, .md-table td { border: 1px solid var(--border-soft); padding: 4px 10px; text-align: left; }
 .md-table th { background: #f6f7f9; }
 
+/* ---------- Feedback ---------- */
+.feedback-page { max-width: 900px; }
+.feedback-page .kind-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.kind-chip { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-soft); border-radius: 999px; padding: 6px 14px; cursor: pointer; background: #fff; flex-direction: row !important; }
+.kind-chip input { width: auto; margin: 0; }
+.kind-chip.active { border-color: var(--red-darker); background: #fdf2f3; color: var(--red-darker); font-weight: 700; }
+.feedback-page .grow { flex: 1; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

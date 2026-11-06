@@ -43,6 +43,8 @@ import {
   type PreparedWoSale
 } from './workorders'
 import { priceWithFeeCredit } from '../../shared/workorders'
+import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
+import { registerFeedbackRoutes } from './feedback'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
@@ -149,6 +151,11 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       if (s.receiptFooter !== undefined) put.run('receipt_footer', String(s.receiptFooter))
       if (s.kioskWelcome !== undefined) put.run('kiosk_welcome', String(s.kioskWelcome).slice(0, 200))
       if (s.storeAddress !== undefined) put.run('store_address', String(s.storeAddress).trim().slice(0, 300))
+      if (s.feedbackEmail !== undefined) {
+        const e = String(s.feedbackEmail).trim()
+        if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new HttpError(400, 'Feedback email address is not valid')
+        put.run('feedback_email', e)
+      }
     })()
     res.json(readSettings(db))
   })
@@ -240,6 +247,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Work orders (repairs) + customer units -----------------------------
   registerWorkOrderRoutes(app, db, readSettings)
+
+  // ----- Feedback / enhancement requests (emailed to the developer) ------------
+  registerFeedbackRoutes(app, db, readSettings)
 
   // ----- Returns / refunds (look up a receipt, a customer's receipts) -----------
   registerReturnRoutes(app, db)
@@ -386,7 +396,8 @@ export function readSettings(db: DB): StoreSettings {
     receiptFooter: map.receipt_footer ?? '',
     storeAddress: map.store_address ?? '',
     kioskWelcome: map.kiosk_welcome ?? '',
-    hasLogo: !!map.store_logo
+    hasLogo: !!map.store_logo,
+    feedbackEmail: map.feedback_email || DEFAULT_FEEDBACK_EMAIL
   }
 }
 

@@ -275,6 +275,8 @@ export interface StoreSettings {
   kioskWelcome: string
   /** True when a store logo has been uploaded (served at /kiosk/logo) */
   hasLogo: boolean
+  /** Where staff feedback / enhancement requests are emailed */
+  feedbackEmail?: string
 }
 
 // ----- Customer kiosk (iPad) -------------------------------------------------

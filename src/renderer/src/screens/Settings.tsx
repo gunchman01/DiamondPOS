@@ -108,6 +108,14 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
             />
           </label>
           <label>
+            Email feedback &amp; requests to
+            <input
+              type="email"
+              value={store.feedbackEmail ?? ''}
+              onChange={(e) => setStore({ ...store, feedbackEmail: e.target.value })}
+            />
+          </label>
+          <label>
             Receipt footer
             <input value={store.receiptFooter} onChange={(e) => setStore({ ...store, receiptFooter: e.target.value })} />
           </label>

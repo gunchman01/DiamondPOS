@@ -15,6 +15,7 @@ import Reports from './screens/Reports'
 import Settings from './screens/Settings'
 import Updates from './screens/Updates'
 import Help from './screens/Help'
+import Feedback from './screens/Feedback'
 import { Icons } from './icons'
 
 type Tab =
@@ -29,6 +30,7 @@ type Tab =
   | 'marketing'
   | 'workorders'
   | 'help'
+  | 'feedback'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
@@ -41,7 +43,8 @@ const TITLES: Record<Tab, string> = {
   reports: 'Reports',
   settings: 'Settings',
   updates: 'Updates',
-  help: 'Help'
+  help: 'Help',
+  feedback: 'Feedback & Requests'
 }
 
 /** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
@@ -56,7 +59,8 @@ const HELP_TOPIC: Record<Tab, string> = {
   reports: 'sales-history-and-reports',
   settings: 'settings',
   updates: 'updates',
-  help: 'getting-started'
+  help: 'getting-started',
+  feedback: 'feedback-and-requests'
 }
 
 export default function App() {
@@ -67,6 +71,13 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [online, setOnline] = useState(true)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
+  /** Screen the user was on when they opened Feedback (included in the email) */
+  const [feedbackFrom, setFeedbackFrom] = useState<string | null>(null)
+  const openFeedback = () => {
+    if (tab === 'feedback') return
+    setFeedbackFrom(tab === 'home' || tab === 'help' ? null : TITLES[tab])
+    setTab('feedback')
+  }
   const openHelp = () => {
     if (tab === 'help') return
     setHelpTopic(HELP_TOPIC[tab])
@@ -140,6 +151,9 @@ export default function App() {
           </span>
           <Clock />
           <span>v{boot.appVersion}</span>
+          <button className="help-btn" onClick={openFeedback} title="Send an idea, request or problem">
+            💬 Feedback
+          </button>
           <button className="help-btn" onClick={openHelp} title="Help (F1)">
             ? Help
           </button>
@@ -159,7 +173,7 @@ export default function App() {
       )}
 
       <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
-        {tab === 'home' && <Home onNavigate={setTab} />}
+        {tab === 'home' && <Home onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />}
         {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} />}
         {tab === 'products' && <Products />}
         {tab === 'customers' && <Customers />}
@@ -177,7 +191,8 @@ export default function App() {
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
-        {tab === 'help' && <Help topic={helpTopic} />}
+        {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} />}
+        {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
       </main>
     </div>
   )

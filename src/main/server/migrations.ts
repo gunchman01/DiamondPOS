@@ -380,6 +380,28 @@ export const migrations: Migration[] = [
       -- A return made without the original receipt (manager to check later)
       ALTER TABLE sales ADD COLUMN no_receipt_return INTEGER NOT NULL DEFAULT 0;
     `
+  },
+  {
+    version: 14,
+    name: 'feedback (enhancement requests and problems)',
+    up: `
+      CREATE TABLE feedback (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind        TEXT NOT NULL DEFAULT 'idea',     -- idea | problem | question
+        subject     TEXT NOT NULL,
+        message     TEXT NOT NULL,
+        name        TEXT NOT NULL DEFAULT '',
+        reply_email TEXT NOT NULL DEFAULT '',
+        till_name   TEXT NOT NULL DEFAULT '',
+        app_version TEXT NOT NULL DEFAULT '',
+        screen      TEXT NOT NULL DEFAULT '',
+        status      TEXT NOT NULL DEFAULT 'pending',  -- pending | sent | failed
+        error       TEXT,
+        sent_to     TEXT,
+        sent_at     TEXT,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `
   }
 ]
 

@@ -143,6 +143,12 @@ export const Icons = {
       <path d="M24 14v17M16.5 23.5L24 31l7.5-7.5" />
     </Svg>
   ),
+  feedback: (
+    <Svg>
+      <path d="M8 10h32v21H22l-9 8v-8H8z" />
+      <path d="M15 18h18M15 24h12" />
+    </Svg>
+  ),
   help: (
     <Svg>
       <circle cx="24" cy="24" r="17" />

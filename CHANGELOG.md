@@ -28,6 +28,7 @@ How to write a section (newest at the top):
 - Daily report shows returns; QuickBooks daily summaries net out refunds. A day with more refunds than sales is flagged on the QuickBooks screen to enter by hand.
 - **Help / user manual** in the app: **? Help** at the top of every screen (or press **F1**) opens the manual at the part for the screen you're on. Searchable.
 - The Updates screen now shows **what's new** in each version before you install it.
+- **💬 Feedback** button at the top of every screen: send an idea, enhancement request, problem or question. It's emailed to the developer.
 
 ## v0.3.5 - 5 Nov 2026
 > Update the Store Server PC first.

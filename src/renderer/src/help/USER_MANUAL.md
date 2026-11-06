@@ -173,6 +173,17 @@ Open **Updates** to see the installed version and any newer ones.
 - **Revert** installs an older version if something isn't working.
 > When a version changes the database, a yellow note says so. **Update the Store Server PC first, then the tills.** When reverting, do the tills first, then the server.
 
+## Feedback and requests
+Have an idea that would make DiamondPOS better, something that isn't working right, or a question? Click **💬 Feedback** at the top of any screen (or **Feedback & Requests** on Home).
+1. Choose **Idea / enhancement request**, **Something isn't working** or **Question**.
+2. Give it a short title and describe it. For a problem, say what you did, what happened and what you expected.
+3. Add your name, and your email if you'd like a reply.
+4. Click **Send feedback**. It's emailed to the developer along with the till name, the version and the screen you were on.
+
+> Feedback is sent from the store's email account (set up on the Marketing screen). If email isn't working, the feedback is saved and shows **Not sent yet**. It's sent automatically the next time someone sends feedback, or click **Send again**.
+
+The address it goes to can be changed under **Settings → Email feedback & requests to**.
+
 ## Troubleshooting
 - **"Server offline"**: the till can't reach the Store Server. Check the server PC is on, DiamondPOS is open on it, and both are on the store network.
 - **An item won't scan**: check the barcode is on the item (Item List → UPC), or press F2 to search for it.
