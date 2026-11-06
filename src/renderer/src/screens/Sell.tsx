@@ -17,6 +17,8 @@ import {
 import WoPayPicker from './WoPayPicker'
 import ReturnDialog, { type ReturnLine } from './ReturnDialog'
 import { ColumnMenu, visibleColumns, type GridRow } from '../saleColumns'
+import { HeldPicker, HoldDialog } from './HeldReceipts'
+import { heldNumber } from '../../../shared/held'
 import { returnAmount } from '../../../shared/returns'
 
 interface CartLine {
@@ -43,9 +45,14 @@ export default function Sell({
   boot,
   workOrder,
   onWorkOrderDone,
-  onBootChange
+  onBootChange,
+  heldToLoad,
+  onHeldLoaded
 }: {
   boot: BootInfo
+  /** Open this held receipt on the sale (from the Held Receipts screen) */
+  heldToLoad?: number | null
+  onHeldLoaded?: () => void
   /** Saves this computer's settings (used for the receipt grid columns) */
   onBootChange?: (b: BootInfo) => void
   /** Opened from a work order ticket: load it onto this sale */
@@ -78,6 +85,14 @@ export default function Sell({
   /** Original receipts on this return: most that can still be refunded on each, and how it was paid */
   const [receipts, setReceipts] = useState<Record<number, { refundableCents: number; method: PaymentMethod | null }>>({})
   const [returning, setReturning] = useState(false)
+  /** Held receipt this sale came from (ringing it up closes it; holding again updates it) */
+  const [held, setHeld] = useState<{ id: number; note: string } | null>(null)
+  const [holding, setHolding] = useState(false)
+  const [recalling, setRecalling] = useState(false)
+  const [heldCount, setHeldCount] = useState(0)
+  /** Type-ahead matches for the Item # / Barcode box */
+  const [sugs, setSugs] = useState<Product[]>([])
+  const [sugIdx, setSugIdx] = useState(-1)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -89,6 +104,104 @@ export default function Sell({
       .catch((e) => setMessage({ kind: 'error', text: e.message }))
   }
   useEffect(load, [])
+  const refreshHeldCount = () => api.heldCount().then(setHeldCount).catch(() => {})
+  useEffect(() => {
+    refreshHeldCount()
+  }, [])
+
+  // Type-ahead: show matching items while typing (scanners type fast and press Enter, so this never gets in their way)
+  useEffect(() => {
+    const q = code.trim()
+    if (q.length < 2) {
+      setSugs([])
+      setSugIdx(-1)
+      return
+    }
+    let live = true
+    const t = setTimeout(() => {
+      api
+        .listProducts(q)
+        .then((r) => {
+          if (!live) return
+          setSugs(r.slice(0, 8))
+          setSugIdx(-1)
+        })
+        .catch(() => {})
+    }, 180)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [code])
+
+  async function loadHeld(id: number) {
+    try {
+      const h = await api.held(id)
+      if ((cart.length || returns.length) && !confirm(`Put held receipt ${heldNumber(id)} onto the current sale? Items already on it stay.`)) return
+      setCart((c) => {
+        const next = [...c]
+        for (const it of h.items) {
+          const key = it.serial ? `${it.product.id}:${it.serial}` : String(it.product.id)
+          const same = next.findIndex((l) => l.key === key)
+          if (same >= 0 && !it.serial) next[same] = { ...next[same], qty: next[same].qty + it.qty }
+          else if (same < 0) next.push({ key, product: it.product, qty: it.qty, serial: it.serial })
+        }
+        return next
+      })
+      if (h.customerId) {
+        const d = await api.getCustomer(h.customerId)
+        attachCustomer(d.customer, `Held receipt ${heldNumber(id)}`)
+        if (!h.taxExempt) setExempt(false)
+      }
+      setHeld({ id, note: h.note })
+      setLastSale(null)
+      setMessage({
+        kind: h.missing ? 'error' : 'info',
+        text: `Held receipt ${heldNumber(id)} loaded${h.note ? `: ${h.note}` : ''}${h.missing ? ` (${h.missing} item(s) no longer for sale were left off)` : ''}`
+      })
+      focusScan()
+    } catch (e) {
+      setMessage({ kind: 'error', text: (e as Error).message })
+    }
+  }
+  useEffect(() => {
+    if (heldToLoad) {
+      loadHeld(heldToLoad)
+      onHeldLoaded?.()
+    }
+  }, [heldToLoad])
+
+  function startHold() {
+    if (wo || returns.length) {
+      setMessage({ kind: 'error', text: 'Work order payments and returns can\'t be held. Finish them first.' })
+      return
+    }
+    if (cart.length === 0) {
+      setRecalling(true)
+      return
+    }
+    setHolding(true)
+  }
+
+  async function holdSale(note: string) {
+    const body = {
+      customerId: customer?.id ?? null,
+      note,
+      taxExempt: applyExempt,
+      tillName: boot.config.tillName,
+      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial }))
+    }
+    const h = held ? await api.updateHeld(held.id, body) : await api.holdSale(body)
+    setHolding(false)
+    setCart([])
+    setSelectedId(null)
+    setCustomer(null)
+    setExempt(false)
+    setHeld(null)
+    setMessage({ kind: 'info', text: `Sale put on hold as ${heldNumber(h.id)}${h.customerName ? ` for ${h.customerName}` : ''}` })
+    refreshHeldCount()
+    focusScan()
+  }
 
   async function loadWorkOrder(id: number, mode: WoSaleMode) {
     try {
@@ -264,6 +377,8 @@ export default function Sell({
     serialFor !== null ||
     pickingWo ||
     returning ||
+    holding ||
+    recalling ||
     colMenu !== null
 
   const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
@@ -324,21 +439,6 @@ export default function Sell({
     setReturning(true)
   }
 
-  function clearSale() {
-    if ((cart.length || returns.length || customer) && !confirm('Clear this sale (items and customer)?')) return
-    setCart([])
-    setReturns([])
-    setReceipts({})
-    setSelectedId(null)
-    setCustomer(null)
-    setExempt(false)
-    if (wo) {
-      setWo(null)
-      onWorkOrderDone?.()
-    }
-    focusScan()
-  }
-
   /** Attach a customer to the sale and warn if their tax-exempt ID has expired */
   function attachCustomer(c: Customer, how: string) {
     setCustomer(c)
@@ -386,8 +486,14 @@ export default function Sell({
   // Exact barcode / item # adds straight away; anything else opens Find Item.
   async function onScan(e: React.FormEvent) {
     e.preventDefault()
+    // A suggestion picked with the arrow keys
+    if (sugIdx >= 0 && sugs[sugIdx]) {
+      pickSuggestion(sugs[sugIdx])
+      return
+    }
     const value = code.trim()
     if (!value) return
+    setSugs([])
     try {
       addToCart(await api.lookupProduct(value))
     } catch {
@@ -404,6 +510,12 @@ export default function Sell({
     }
   }
 
+  function pickSuggestion(p: Product) {
+    setSugs([])
+    setSugIdx(-1)
+    addToCart(p)
+  }
+
   async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string) {
     const sale = await api.createSale({
       tillName: boot.config.tillName,
@@ -416,8 +528,13 @@ export default function Sell({
           : { productId: l.productId!, qty: l.qty, reason: l.reason, restock: l.restock }
       ),
       payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
-      workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined
+      workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
+      heldId: held?.id ?? null
     })
+    if (held) {
+      setHeld(null)
+      refreshHeldCount()
+    }
     if (wo) {
       setWo(null)
       onWorkOrderDone?.()
@@ -458,7 +575,7 @@ export default function Sell({
       F4: removeSelected,
       F5: () => setPickingCustomer(true),
       F9: () => setKioskOpen(true),
-      F6: clearSale,
+      F6: startHold,
       F7: () => startPayment('cash'),
       F8: () => startPayment('card')
     }
@@ -479,7 +596,14 @@ export default function Sell({
     <div className={hasQuickPicks ? 'register' : 'register no-quick'}>
       {/* ---------- Header strip ---------- */}
       <div className="reg-head">
-        <h2>{returns.length ? (isRefund ? 'Return in progress' : 'Exchange in progress') : cart.length ? 'Sale in progress' : 'New Sale'}</h2>
+        <h2>
+          {returns.length ? (isRefund ? 'Return in progress' : 'Exchange in progress') : cart.length ? 'Sale in progress' : 'New Sale'}
+          {held && (
+            <span className="held-chip" title={held.note}>
+              {heldNumber(held.id)}
+            </span>
+          )}
+        </h2>
         <div className="field">
           Store<b>{settings?.storeName ?? '—'}</b>
         </div>
@@ -557,6 +681,7 @@ export default function Sell({
           <table className="grid">
             <thead onContextMenu={(e) => openColMenu(e, (e.target as HTMLElement).closest('th')?.dataset.col ?? null)}>
               <tr title="Right-click to choose columns">
+                <th className="x-col" />
                 {cols.map((c) => (
                   <th key={c.id} data-col={c.id} className={c.num ? 'num' : ''} style={c.width ? { width: c.width } : undefined}>
                     {c.label}
@@ -590,6 +715,22 @@ export default function Sell({
                         : undefined
                     }
                   >
+                    <td className="x-col">
+                      {selectable && (
+                        <button
+                          className="line-x"
+                          title={r.kind === 'return' ? 'Take this return off the sale' : 'Remove this item'}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (r.kind === 'return') removeReturn(r.key)
+                            else setQty(r.key, 0)
+                            focusScan()
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </td>
                     {cols.map((c) => (
                       <td key={c.id} className={[c.num ? 'num' : '', c.dim ? 'dim' : ''].filter(Boolean).join(' ')}>
                         {c.cell(r)}
@@ -637,15 +778,53 @@ export default function Sell({
         )}
         <form className="scanbar" onSubmit={onScan}>
           <label htmlFor="scan">Item # / Barcode</label>
-          <input
-            id="scan"
-            ref={scanRef}
-            autoFocus
-            autoComplete="off"
-            placeholder="Scan or type, then press Enter"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
+          <div className="scan-wrap">
+            <input
+              id="scan"
+              ref={scanRef}
+              autoFocus
+              autoComplete="off"
+              placeholder="Scan, or type an item # or description"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onBlur={() => setTimeout(() => setSugs([]), 150)}
+              onKeyDown={(e) => {
+                if (!sugs.length) return
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setSugIdx((i) => Math.min(i + 1, sugs.length - 1))
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setSugIdx((i) => Math.max(i - 1, -1))
+                } else if (e.key === 'Escape') {
+                  setSugs([])
+                  setSugIdx(-1)
+                }
+              }}
+            />
+            {sugs.length > 0 && code.trim().length >= 2 && (
+              <div className="scan-sugs">
+                {sugs.map((p, i) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    className={i === sugIdx ? 'active' : ''}
+                    onMouseEnter={() => setSugIdx(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      pickSuggestion(p)
+                    }}
+                  >
+                    <span className="dim">{p.sku ?? ''}</span>
+                    <span className="sug-name">{p.name}</span>
+                    {p.type === 'inventory' && <span className="dim small">{p.onHand} on hand</span>}
+                    <b>{money(p.priceCents)}</b>
+                  </button>
+                ))}
+                <div className="sug-hint">↑ ↓ to choose · Enter to add · Esc to close</div>
+              </div>
+            )}
+          </div>
           <button type="submit" className="primary">
             Add
           </button>
@@ -814,13 +993,46 @@ export default function Sell({
         <button className="fkey" onClick={() => setKioskOpen(true)}>
           <kbd>F9</kbd> Kiosk
         </button>
-        <button className="fkey" disabled={!cart.length && !returns.length && !customer && !wo} onClick={clearSale}>
-          <kbd>F6</kbd> Clear sale
+        <button className="fkey" onClick={startHold} title="Put this sale on hold until the customer comes back to pay (or open a held one)">
+          <kbd>F6</kbd> {cart.length ? 'Hold receipt' : 'Held receipts'}
+          {heldCount > 0 && <span className="fkey-badge">{heldCount}</span>}
         </button>
         <button className="fkey spacer" disabled={!lastSale} onClick={() => lastSale && printReceipt(lastSale)}>
           Reprint last receipt
         </button>
       </div>
+
+      {holding && (
+        <HoldDialog
+          heldNo={held ? heldNumber(held.id) : null}
+          note={held?.note ?? ''}
+          customerName={customer ? customerDisplayName(customer) : null}
+          itemCount={itemCount}
+          onCancel={() => {
+            setHolding(false)
+            focusScan()
+          }}
+          onHold={holdSale}
+          onShowHeld={() => {
+            setHolding(false)
+            setRecalling(true)
+          }}
+        />
+      )}
+
+      {recalling && (
+        <HeldPicker
+          onCancel={() => {
+            setRecalling(false)
+            refreshHeldCount()
+            focusScan()
+          }}
+          onPick={(id) => {
+            setRecalling(false)
+            loadHeld(id)
+          }}
+        />
+      )}
 
       {colMenu && (
         <ColumnMenu

@@ -113,6 +113,8 @@ export interface SaleRequest {
   workOrder?: { id: number; mode: 'fee' | 'repair' | 'credit' }
   /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
   items: { productId: number; qty: number; serial?: string }[]
+  /** Ringing up a held receipt: it's marked done when the sale is saved */
+  heldId?: number | null
   /** Items coming back (returns / exchanges). A negative total = refund; then payments are negative (money given back). */
   returns?: ReturnRequestLine[]
   payments: PaymentInput[]

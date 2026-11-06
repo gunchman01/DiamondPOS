@@ -46,6 +46,7 @@ import { priceWithFeeCredit } from '../../shared/workorders'
 import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
 import { normaliseDesigns } from '../../shared/printDesigns'
 import { registerFeedbackRoutes } from './feedback'
+import { completeHeld, registerHeldRoutes } from './held'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
@@ -114,7 +115,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key')
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     if (req.method === 'OPTIONS') return res.sendStatus(204)
     next()
   })
@@ -270,6 +271,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Feedback / enhancement requests (emailed to the developer) ------------
   registerFeedbackRoutes(app, db, readSettings)
+
+  // ----- Held receipts (sales on hold until the customer comes to pay) ---------
+  registerHeldRoutes(app, db)
 
   // ----- Returns / refunds (look up a receipt, a customer's receipts) -----------
   registerReturnRoutes(app, db)
@@ -607,6 +611,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
     if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
+    if (req.heldId) completeHeld(db, Number(req.heldId), saleId)
     return saleId
   })()
 

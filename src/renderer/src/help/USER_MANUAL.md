@@ -21,9 +21,9 @@ Home is where every area of the app starts. Click **Home** at the top of any scr
 
 ## Making a sale
 Open **Make a Sale**.
-1. **Scan** the barcode, or type the item number and press Enter. If more than one item matches, a search window opens.
+1. **Scan** the barcode, or start typing an item number or description: matching items pop up as you type. Click one, or use **↑ ↓** and **Enter** to add it. Typing a full item number and pressing Enter adds it straight away.
 2. Tap a **Quick Pick** button for items that are often sold (if any are set up).
-3. Click a line to select it, then use **+1 / −1**, **Change qty** or **Remove line**.
+3. Click a line to select it, then use **+1 / −1**, **Change qty** or **Remove line**. The red **✕** at the left of each line removes that item.
 4. Add a **customer** if needed (F5), see below.
 5. Take payment with **Cash (F7)**, **Card (F8)** or **Check**.
 
@@ -39,15 +39,29 @@ After the sale, click **Print receipt** or **Reprint last receipt** (or set the 
 | F3 | Change the quantity of the selected line |
 | F4 | Remove the selected line |
 | F5 | Add or change the customer |
-| F6 | Clear the sale |
+| F6 | Hold the receipt (or open held receipts when the sale is empty) |
 | F7 | Cash |
 | F8 | Card |
 | F9 | Send the sign-up form to the customer kiosk (iPad) |
 | Delete | Remove the selected line |
 
-**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty and Ext. Price are always shown.
+**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty and Ext. Price are always shown.
 
 **Serial-numbered items** (items with "Use Serial #" ticked) ask for the serial number when scanned. Type it or scan the barcode on the unit. A customer must be on the sale, and the unit is saved under that customer for repairs later.
+
+## Held receipts
+Use a held receipt when a sale is built ahead of time, for example when a customer orders a part: ring up the items now, put it on hold, and when the part comes in and the customer arrives, it's ready to pay.
+
+**Holding a sale**
+1. Add the customer (F5) and the items.
+2. Press **F6 Hold receipt**. Type a note (what it's waiting for, who to call) and click **Hold receipt**.
+3. The screen clears. The sale is kept on the Store Server, so any till can open it. Stock isn't taken until it's paid.
+
+**When the customer comes in**
+- On the Sale screen with nothing on it, press **F6 Held receipts** (the red number shows how many are waiting), find it and click **Open**. Or open **Held Receipts** from Home and click **Ring up at till**.
+- The items load at today's prices. Add or remove anything, then take payment as usual. The held receipt is closed when the sale is saved.
+- Not ready yet? Press **F6** again to put it back on hold (the note can be updated).
+- To get rid of a held receipt without selling it, click **Delete** on the Held Receipts screen.
 
 ## Customers on a sale
 - Press **F5** (or **Add customer**) to search by name, phone, company or customer ID. You can also add a new customer from there.

@@ -17,6 +17,7 @@ export type NavTarget =
   | 'workorders'
   | 'help'
   | 'feedback'
+  | 'held'
 
 interface Tile {
   icon: IconName
@@ -47,7 +48,7 @@ const POS: Section = {
     { kind: 'arrow', col: 8, row: 1, dir: 'right' },
     { kind: 'tile', col: 9, row: 1, icon: 'endOfDay', label: 'End of Day' },
     { kind: 'arrow', col: 5, row: 2, dir: 'both' },
-    { kind: 'tile', col: 5, row: 3, icon: 'heldReceipts', label: 'Held Receipts' }
+    { kind: 'tile', col: 5, row: 3, icon: 'heldReceipts', label: 'Held Receipts', go: 'held' }
   ]
 }
 

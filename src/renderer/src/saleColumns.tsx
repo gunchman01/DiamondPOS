@@ -52,6 +52,7 @@ export const SALE_COLUMNS: SaleColumn[] = [
   { id: 'serial', label: 'Serial #', width: 120, dim: true, cell: (r) => r.serial ?? '' },
   { id: 'onHand', label: 'On Hand', width: 75, num: true, cell: (r) => p(r, (x) => (x.type === 'inventory' ? x.onHand : '')) },
   { id: 'taxable', label: 'Tax', width: 50, cell: (r) => p(r, (x) => (x.taxable ? 'Tax' : 'Non')) },
+  { id: 'cost', label: 'Cost', width: 85, num: true, dim: true, cell: (r) => p(r, (x) => (x.costCents !== null && x.costCents !== undefined ? money(x.costCents) : '')) },
   { id: 'regPrice', label: 'Reg Price', width: 90, num: true, cell: (r) => p(r, (x) => money(x.priceCents)) },
   { id: 'qty', label: 'Qty', required: true, width: 60, num: true, cell: (r) => (r.kind === 'return' ? `−${r.qty}` : r.qty) },
   {

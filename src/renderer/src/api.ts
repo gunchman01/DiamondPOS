@@ -1,3 +1,4 @@
+import type { HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
 import type { PrintDesigns } from '../../shared/printDesigns'
 import type { CustomerReceipt, ReturnableSale } from '../../shared/returns'
 import type { Feedback, FeedbackInput } from '../../shared/feedback'
@@ -172,6 +173,12 @@ export const api = {
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
   listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
+  heldList: () => request<HeldSummary[]>('GET', '/api/held'),
+  heldCount: () => request<number>('GET', '/api/held/count'),
+  held: (id: number) => request<HeldReceipt>('GET', `/api/held/${id}`),
+  holdSale: (h: HeldReceiptInput) => request<HeldReceipt>('POST', '/api/held', h),
+  updateHeld: (id: number, h: HeldReceiptInput) => request<HeldReceipt>('PUT', `/api/held/${id}`, h),
+  deleteHeld: (id: number) => request<{ ok: boolean }>('DELETE', `/api/held/${id}`),
   printDesigns: () => request<PrintDesigns>('GET', '/api/print-designs'),
   savePrintDesigns: (d: PrintDesigns) => request<PrintDesigns>('PUT', '/api/print-designs', d),
   feedbackList: () => request<Feedback[]>('GET', '/api/feedback'),

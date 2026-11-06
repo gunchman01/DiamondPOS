@@ -17,6 +17,7 @@ import Updates from './screens/Updates'
 import Help from './screens/Help'
 import Feedback from './screens/Feedback'
 import Logo from './Logo'
+import HeldReceipts from './screens/HeldReceipts'
 import { Icons } from './icons'
 
 type Tab =
@@ -32,6 +33,7 @@ type Tab =
   | 'workorders'
   | 'help'
   | 'feedback'
+  | 'held'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
@@ -45,7 +47,8 @@ const TITLES: Record<Tab, string> = {
   settings: 'Settings',
   updates: 'Updates',
   help: 'Help',
-  feedback: 'Feedback & Requests'
+  feedback: 'Feedback & Requests',
+  held: 'Held Receipts'
 }
 
 /** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
@@ -61,7 +64,8 @@ const HELP_TOPIC: Record<Tab, string> = {
   settings: 'settings',
   updates: 'updates',
   help: 'getting-started',
-  feedback: 'feedback-and-requests'
+  feedback: 'feedback-and-requests',
+  held: 'held-receipts'
 }
 
 export default function App() {
@@ -72,6 +76,8 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [online, setOnline] = useState(true)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
+  /** A held receipt to open on the Sale screen */
+  const [saleHeld, setSaleHeld] = useState<number | null>(null)
   /** Screen the user was on when they opened Feedback (included in the email) */
   const [feedbackFrom, setFeedbackFrom] = useState<string | null>(null)
   const openFeedback = () => {
@@ -175,7 +181,14 @@ export default function App() {
 
       <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
         {tab === 'home' && <Home onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />}
-        {tab === 'sell' && <Sell boot={boot} workOrder={saleWo} onWorkOrderDone={() => setSaleWo(null)} onBootChange={setBoot} />}
+        {tab === 'sell' && <Sell
+            boot={boot}
+            workOrder={saleWo}
+            onWorkOrderDone={() => setSaleWo(null)}
+            onBootChange={setBoot}
+            heldToLoad={saleHeld}
+            onHeldLoaded={() => setSaleHeld(null)}
+          />}
         {tab === 'products' && <Products />}
         {tab === 'customers' && <Customers />}
         {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
@@ -194,6 +207,14 @@ export default function App() {
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
         {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} />}
         {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
+        {tab === 'held' && (
+          <HeldReceipts
+            onOpenAtTill={(id) => {
+              setSaleHeld(id)
+              setTab('sell')
+            }}
+          />
+        )}
       </main>
     </div>
   )

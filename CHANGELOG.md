@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.14 - 6 Nov 2026
+> Update the Store Server PC first.
+- **Held receipts**: build a sale ahead of time (e.g. a part was ordered) and press **F6 Hold receipt** with a note. When the customer comes in, open it from **F6 Held receipts** on the Sale screen or **Held Receipts** on Home and take payment. Any till can open it; items load at today's price.
+- **Type-ahead**: start typing an item # or description on the Sale screen and matching items pop up. Pick one with the mouse or ↑ ↓ and Enter.
+- A red **✕** at the left of each line removes that item. The **Clear sale** button is gone (F6 is now Hold receipt).
+- **Cost** can be shown as a column on the Sale screen (right-click the column headings).
+
 ## v0.3.13 - 6 Nov 2026
 > Update the Store Server PC first.
 - **Label Designer** (Settings → Label Designer): build your own tags. Add the item name, price, item #, UPC, department, barcode, your own text and more, then **drag them where you want** and resize them on the label. Make as many label designs as you need.

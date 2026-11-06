@@ -422,6 +422,26 @@ export const migrations: Migration[] = [
       ALTER TABLE payments_new RENAME TO payments;
       CREATE INDEX idx_payments_sale ON payments(sale_id);
     `
+  },
+  {
+    version: 16,
+    name: 'held receipts',
+    up: `
+      -- A sale built ahead of time and put on hold (e.g. a part was ordered) until the customer comes to pay
+      CREATE TABLE held_sales (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER REFERENCES customers(id),
+        note        TEXT NOT NULL DEFAULT '',
+        items_json  TEXT NOT NULL,            -- [{ productId, qty, serial }]
+        tax_exempt  INTEGER NOT NULL DEFAULT 0,
+        till_name   TEXT NOT NULL DEFAULT '',
+        status      TEXT NOT NULL DEFAULT 'held',   -- held | completed | deleted
+        sale_id     INTEGER REFERENCES sales(id),
+        created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_held_status ON held_sales(status);
+    `
   }
 ]
 

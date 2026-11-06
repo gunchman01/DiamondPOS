@@ -337,13 +337,20 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] Settings menu gains **Label Designer** and **Receipt Layout** tiles; Printing page now picks the two label designs (old fixed label options removed).
 - Verified: new server test `designs.ts` (defaults, save + clean bad values, new template id, receipt blocks, tag HTML per qty, receipt only shows chosen blocks, 58 mm); TypeScript; all suites; previews of both designers. Not tested on real printers.
 
+### 6 Nov 2026: Held receipts, type-ahead, line ✕, Cost column (next release **v0.3.14**, DB migration 16)
+- [x] **DB migration 16**: `held_sales` (customer, note, items_json `[{productId, qty, serial}]`, tax_exempt, till, status held/completed/deleted, sale_id). Server `src/main/server/held.ts`: `GET /api/held`, `/api/held/count`, `GET/PUT/DELETE /api/held/:id`, `POST /api/held`; items come back with current product details (inactive ones counted as `missing`), totals at today's price. `SaleRequest.heldId` closes the hold in the sale transaction (`completeHeld`). Stock is not touched while held. CORS now allows DELETE.
+- [x] Sale screen: **F6 Hold receipt** (HoldDialog with note; holding a recalled receipt updates it) / **F6 Held receipts** when empty (HeldPicker), red count badge, held chip (H-00012) in the header. Clear sale button removed. **Held Receipts** screen from Home (search, Ring up at till, Delete). Shared `src/shared/held.ts`.
+- [x] **Type-ahead** on the Item # / Barcode box: 2+ characters → top 8 matches (debounced), ↑ ↓ Enter / click to add; plain Enter (scanners) still does the exact lookup first.
+- [x] **✕** column at the left of each item/return row (not part of the custom columns). **Cost** added to the column options.
+- Verified: new server test `held.ts` (validation, hold, list/count, today's price, update, no stock taken, ring up closes it, inactive item left off, delete); TypeScript; all suites; preview of type-ahead + ✕ + Hold badge.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.11/v0.3.12** (check payments, printing setup, Settings menu). Next release: **v0.3.13** (Label Designer, Receipt Layout; update the Store Server PC first for the new print-designs API).
+**Latest release: v0.3.13** (Label Designer, Receipt Layout). Next release: **v0.3.14** (held receipts, type-ahead, line ✕, Cost column; DB migration 16: update the Store Server PC first).
 
-0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
+0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
