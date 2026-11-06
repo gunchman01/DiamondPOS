@@ -74,7 +74,8 @@ kbd {
   border-bottom: 3px solid var(--red-darker); min-height: 48px;
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; letter-spacing: 0.3px; }
-.brand-mark { font-size: 20px; }
+.brand .logo { display: block; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)); }
+.setup-logo { display: flex; justify-content: center; margin-bottom: 6px; }
 .header-nav { display: flex; align-items: center; gap: 14px; flex: 1; }
 .home-btn {
   display: flex; align-items: center; gap: 6px; padding: 5px 12px; font-weight: 600;

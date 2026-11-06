@@ -309,11 +309,19 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] UI: **💬 Feedback** in the top bar (remembers the screen you came from), **Feedback & Requests** on Home, "Can't find it? Send feedback" on Help. Feedback screen: type chips, title, details, name, reply email, list with Sent / Not sent yet + **Send again**. Manual section added.
 - Verified: server test `feedback.ts` (validation, not set up → kept, sent + backlog retried, reply-to, HTML escaped, failure → Send again, address change + default); TypeScript checks; all suites pass
 
+### 6 Nov 2026: Logo, app icon, "Diamond POS" name (next release **v0.3.10**, no DB change)
+- Released so far: **v0.3.6** returns, **v0.3.7** release notes on Updates, **v0.3.8** Help manual, **v0.3.9** feedback (CHANGELOG split into those versions; check they match what was actually tagged).
+- [x] Logo redrawn as a vector from Greg's "P" diamond image: **`build/logo.svg`** (source). Generated **`build/icon.ico`** (16–256 px) + `build/icon.png` (512). electron-builder picks up `build/icon.ico` automatically (buildResources = build) for the exe, installer, desktop shortcut and taskbar.
+- [x] In-app logo: `src/renderer/src/Logo.tsx` (same drawing, inline SVG) at the top left and on the first-run Setup screen.
+- [x] Display name **"Diamond POS"** (window title, top bar, Setup, manual, feedback subject, QuickBooks screen text, test email, Excel file names). **Not changed on purpose:** `productName: DiamondPOS` (install folder and `%APPDATA%\DiamondPOS` data folder, renaming would lose the data), the repo name, `DiamondPOS.qwc` and the QuickBooks customer "DiamondPOS Daily Sales" (renaming would create a new QuickBooks customer).
+- [x] Updater: a release whose body is the workflow placeholder ("No release notes were written…") now falls back to CHANGELOG.md, so v0.3.7–v0.3.9 show notes once v0.3.10 is installed.
+- To regenerate the icon after changing `build/logo.svg`: render each size (16, 24, 32, 48, 64, 128, 256) to PNG and pack them into `build/icon.ico` (ImageMagick + Pillow were used).
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.5** (estimate fees + paying for work orders). Next release: **v0.3.6** (returns / refunds, release notes, Help manual, feedback; DB migrations 13 + 14: update the Store Server PC first).
+**Latest release: v0.3.9** (feedback). Next release: **v0.3.10** (logo + app icon + "Diamond POS" name; no DB change).
 
 0. Build out the "coming soon" tiles as needed: Work Orders, Held Receipts, End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
@@ -323,7 +331,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 3. Receipt printer (ESC/POS) and cash drawer kick
 4. Automatic daily database backups
 5. Windows code-signing certificate (removes the SmartScreen warning)
-6. App icon (`build/icon.ico`, 256×256)
+6. ~~App icon~~ (done in v0.3.10)
 7. Later: offline mode for tills, multi-store / cloud reporting
 
 ---

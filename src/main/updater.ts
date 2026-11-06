@@ -78,7 +78,7 @@ async function listReleases(): Promise<ReleaseInfo[]> {
       tag: r.tag_name,
       version: r.tag_name.replace(/^v/, ''),
       name: r.name || r.tag_name,
-      notes: (r.body ?? '').trim() || changelog[r.tag_name.replace(/^v/, '')] || '',
+      notes: realNotes(r.body) || changelog[r.tag_name.replace(/^v/, '')] || '',
       publishedAt: r.published_at,
       prerelease: r.prerelease
     }))
@@ -95,4 +95,10 @@ async function fetchChangelog(): Promise<Record<string, string>> {
   } catch {
     return {}
   }
+}
+
+/** Release body, ignoring the placeholder the release workflow writes when CHANGELOG.md had no section */
+function realNotes(body: string | null): string {
+  const b = (body ?? '').trim()
+  return /^No release notes were written/i.test(b) ? '' : b
 }

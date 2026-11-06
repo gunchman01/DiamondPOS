@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d4202a"/>
+      <stop offset="0.55" stop-color="#a50f18"/>
+      <stop offset="1" stop-color="#6e070d"/>
+    </linearGradient>
+    <linearGradient id="pface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e4"/>
+    </linearGradient>
+  </defs>
+  <!-- diamond: bevel edges (light top-left, dark bottom-right) then the face -->
+  <polygon points="128,4 252,128 128,252 4,128" fill="#5c050b"/>
+  <polygon points="128,4 252,128 240,128 128,16 16,128 4,128" fill="#e8434a"/>
+  <polygon points="128,16 240,128 128,240 16,128" fill="url(#face)"/>
+  <!-- P: shadow, side (3D), face -->
+  <g fill-rule="evenodd" transform="translate(-7,0)">
+    <path transform="translate(9,9)" fill="#3a0306" opacity="0.55"
+      d="M92 66 H146 A38 38 0 0 1 146 142 H128 V190 H92 Z M128 94 H143 A10 10 0 0 1 143 114 H128 Z"/>
+    <path transform="translate(5,5)" fill="#9a9a9a"
+      d="M92 66 H146 A38 38 0 0 1 146 142 H128 V190 H92 Z M128 94 H143 A10 10 0 0 1 143 114 H128 Z"/>
+    <path fill="url(#pface)" stroke="#bdbdbd" stroke-width="1.5"
+      d="M92 66 H146 A38 38 0 0 1 146 142 H128 V190 H92 Z M128 94 H143 A10 10 0 0 1 143 114 H128 Z"/>
+  </g>
+</svg>

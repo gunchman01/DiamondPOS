@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
+import Logo from '../Logo'
 import { api } from '../api'
 
 /** First-run screen: is this PC the Store Server, or a Till? */
@@ -44,7 +45,10 @@ export default function Setup({ boot, onDone }: { boot: BootInfo; onDone: (b: Bo
 
   return (
     <div className="setup">
-      <h1>Welcome to DiamondPOS</h1>
+      <div className="setup-logo">
+        <Logo size={96} />
+      </div>
+      <h1>Welcome to Diamond POS</h1>
       <p className="muted">Set up this computer. You only need to do this once.</p>
 
       <div className="choice-row">

@@ -89,7 +89,7 @@ export function feedbackEmail(f: Feedback, store: StoreSettings) {
     ['Feedback #', String(f.id)]
   ]
   return {
-    subject: `[DiamondPOS ${tag}] ${f.subject}`,
+    subject: `[Diamond POS ${tag}] ${f.subject}`,
     text: `${f.subject}\n\n${f.message}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n`,
     html: `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222">
       <h2 style="margin:0 0 8px;color:#8b0d1f">${esc(f.subject)}</h2>

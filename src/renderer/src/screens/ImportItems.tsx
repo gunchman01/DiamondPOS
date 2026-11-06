@@ -80,7 +80,7 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
   }
 
   function downloadTemplate() {
-    writeSpreadsheet('DiamondPOS item import template.xlsx', [
+    writeSpreadsheet('Diamond POS item import template.xlsx', [
       { name: 'Items', headers: COLUMNS.map((c) => c.header), rows: TEMPLATE_ROWS },
       {
         name: 'Instructions',

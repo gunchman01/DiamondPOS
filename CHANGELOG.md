@@ -1,4 +1,4 @@
-# What's new in DiamondPOS
+# What's new in Diamond POS
 
 Each release has a section below. The section for a version is shown on the **Updates** screen in the app,
 so staff can see what an update changes before installing it. Write it for the people using the tills.
@@ -14,6 +14,23 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.10 - 6 Nov 2026
+- New **Diamond POS logo**: the red diamond with the white "P" is now the app icon (desktop, taskbar and installer) and appears at the top left of every screen.
+- The name now shows as **Diamond POS** (two words) throughout the app.
+- Fixed: versions released without notes now show their notes on the Updates screen.
+
+## v0.3.9 - 6 Nov 2026
+> Update the Store Server PC first.
+- **💬 Feedback** button at the top of every screen (also on Home and in Help): send an idea, enhancement request, problem or question. It's emailed to the developer with the till, version and screen.
+- If email isn't working, feedback is saved and sent later. You can also click **Send again**.
+- The address feedback goes to can be changed in **Settings**.
+
+## v0.3.8 - 5 Nov 2026
+- **Help / user manual** in the app: click **? Help** at the top of every screen, or press **F1**. It opens at the part for the screen you're on and you can search it.
+
+## v0.3.7 - 5 Nov 2026
+- The **Updates** screen now shows **what's new** in each version before you install it, and warns when the Store Server PC must be updated first.
+
 ## v0.3.6 - 5 Nov 2026
 > Update the Store Server PC first.
 - **Returns, refunds and exchanges.** New **↩ Return** button on the Sale screen.
@@ -26,9 +43,6 @@ How to write a section (newest at the top):
   - **No receipt**: refunded at today's price and flagged.
 - Receipts print **REFUND** / **EXCHANGE** with the original receipt number.
 - Daily report shows returns; QuickBooks daily summaries net out refunds. A day with more refunds than sales is flagged on the QuickBooks screen to enter by hand.
-- **Help / user manual** in the app: **? Help** at the top of every screen (or press **F1**) opens the manual at the part for the screen you're on. Searchable.
-- The Updates screen now shows **what's new** in each version before you install it.
-- **💬 Feedback** button at the top of every screen: send an idea, enhancement request, problem or question. It's emailed to the developer.
 
 ## v0.3.5 - 5 Nov 2026
 > Update the Store Server PC first.

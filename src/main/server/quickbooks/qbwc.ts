@@ -65,7 +65,7 @@ export function qbMissing(db: DB, cfg: QbConfig = getQbConfig(db)): string[] {
   const lists = getQbLists(db)
   const out: string[] = []
   if (!cfg.enabled) out.push('Sync is switched off')
-  if (!lists.fetchedAt) out.push('Run the Web Connector once so DiamondPOS can read your QuickBooks lists')
+  if (!lists.fetchedAt) out.push('Run the Web Connector once so Diamond POS can read your QuickBooks lists')
   if (!cfg.customerName.trim()) out.push('Enter the QuickBooks customer name for daily sales')
   if (!cfg.salesTaxItem) out.push('Choose the QuickBooks sales tax item')
   if (!cfg.taxableCode || !cfg.nonTaxableCode) out.push('Choose the taxable and non-taxable sales tax codes')
@@ -401,7 +401,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
   // The Web Connector checks that the support link works
   app.get('/qbwc/support', (_req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.end('<h1>DiamondPOS</h1><p>QuickBooks daily sales sync. Settings are on the QuickBooks screen in DiamondPOS.</p>')
+    res.end('<h1>Diamond POS</h1><p>QuickBooks daily sales sync. Settings are on the QuickBooks screen in Diamond POS.</p>')
   })
 
   // ---------- Till-facing API (needs the store pairing code) ----------

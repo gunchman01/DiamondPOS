@@ -16,6 +16,7 @@ import Settings from './screens/Settings'
 import Updates from './screens/Updates'
 import Help from './screens/Help'
 import Feedback from './screens/Feedback'
+import Logo from './Logo'
 import { Icons } from './icons'
 
 type Tab =
@@ -132,7 +133,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">◆</span> DiamondPOS
+          <Logo size={30} /> Diamond POS
         </div>
         <div className="header-nav">
           {tab !== 'home' && (

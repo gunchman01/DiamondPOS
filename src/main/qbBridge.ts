@@ -24,7 +24,7 @@ export function startQbBridge(serverUrl: string): Promise<void> {
       const url = new URL(req.url || '/', target)
       if (!url.pathname.startsWith('/qbwc')) {
         res.statusCode = 404
-        return res.end('DiamondPOS QuickBooks bridge')
+        return res.end('Diamond POS QuickBooks bridge')
       }
       const upstream = http.request(
         url,
@@ -36,7 +36,7 @@ export function startQbBridge(serverUrl: string): Promise<void> {
       )
       upstream.on('error', (e) => {
         res.statusCode = 502
-        res.end(`The DiamondPOS store server could not be reached: ${e.message}`)
+        res.end(`The Diamond POS store server could not be reached: ${e.message}`)
       })
       req.pipe(upstream)
     })

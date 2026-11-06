@@ -72,7 +72,7 @@ export default function Feedback({ boot, fromScreen }: { boot: BootInfo; fromScr
     <div className="page feedback-page">
       <h2>Feedback & requests</h2>
       <p className="muted">
-        Have an idea that would make DiamondPOS better, something that isn't working right, or a question? Tell us here. It's
+        Have an idea that would make Diamond POS better, something that isn't working right, or a question? Tell us here. It's
         emailed straight to the developer.
       </p>
 

@@ -1,10 +1,10 @@
-# DiamondPOS User Manual
+# Diamond POS User Manual
 
 ## Getting started
-DiamondPOS runs on every computer in the store. One computer is the **Store Server**: it keeps the items, customers and sales for the whole store. Every other computer is a **Till** that connects to it. The Store Server can also be used as a till.
+Diamond POS runs on every computer in the store. One computer is the **Store Server**: it keeps the items, customers and sales for the whole store. Every other computer is a **Till** that connects to it. The Store Server can also be used as a till.
 
 **First time on a computer**
-1. Install DiamondPOS and open it.
+1. Install Diamond POS and open it.
 2. On the server PC choose **This is the Store Server**. On every other PC choose **This is a Till**.
 3. For a till, enter the server's address and the **pairing code**. Both are shown on the Store Server under **Settings**.
 4. Give the till a name (for example "Front Counter"). It is printed on receipts.
@@ -144,7 +144,7 @@ Open **Sales History** or **Reports** and pick a date.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
 
 ## QuickBooks
-DiamondPOS sends **one Sales Receipt per day per payment type** (cash and card) to QuickBooks Desktop, split by department. Items and prices stay in DiamondPOS; QuickBooks doesn't track inventory.
+Diamond POS sends **one Sales Receipt per day per payment type** (cash and card) to QuickBooks Desktop, split by department. Items and prices stay in Diamond POS; QuickBooks doesn't track inventory.
 
 Setting up (done once, on the **QuickBooks** screen):
 1. **Connect the QuickBooks Web Connector**: download the connector file and add it in QuickBooks' Web Connector with the password shown.
@@ -174,7 +174,7 @@ Open **Updates** to see the installed version and any newer ones.
 > When a version changes the database, a yellow note says so. **Update the Store Server PC first, then the tills.** When reverting, do the tills first, then the server.
 
 ## Feedback and requests
-Have an idea that would make DiamondPOS better, something that isn't working right, or a question? Click **💬 Feedback** at the top of any screen (or **Feedback & Requests** on Home).
+Have an idea that would make Diamond POS better, something that isn't working right, or a question? Click **💬 Feedback** at the top of any screen (or **Feedback & Requests** on Home).
 1. Choose **Idea / enhancement request**, **Something isn't working** or **Question**.
 2. Give it a short title and describe it. For a problem, say what you did, what happened and what you expected.
 3. Add your name, and your email if you'd like a reply.
@@ -185,7 +185,7 @@ Have an idea that would make DiamondPOS better, something that isn't working rig
 The address it goes to can be changed under **Settings → Email feedback & requests to**.
 
 ## Troubleshooting
-- **"Server offline"**: the till can't reach the Store Server. Check the server PC is on, DiamondPOS is open on it, and both are on the store network.
+- **"Server offline"**: the till can't reach the Store Server. Check the server PC is on, Diamond POS is open on it, and both are on the store network.
 - **An item won't scan**: check the barcode is on the item (Item List → UPC), or press F2 to search for it.
 - **"Farm Tax ID has EXPIRED"**: ask for the customer's new card and click **Update Tax ID**.
 - **Mailers aren't sending**: check the email account settings on the Marketing screen. The mailer shows the last error.

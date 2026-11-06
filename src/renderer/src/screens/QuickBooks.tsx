@@ -143,8 +143,8 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               <i>QuickBooks on the store server</i>.
             </p>
             <p className="small">
-              <b>On another PC</b> (e.g. the back office): install DiamondPOS on that PC as a <b>Till</b>, tick{' '}
-              <i>Run the QuickBooks bridge</i> there, and use the <i>QuickBooks on another PC</i> file. Keep DiamondPOS open
+              <b>On another PC</b> (e.g. the back office): install Diamond POS on that PC as a <b>Till</b>, tick{' '}
+              <i>Run the QuickBooks bridge</i> there, and use the <i>QuickBooks on another PC</i> file. Keep Diamond POS open
               on that PC.
             </p>
             {boot.config.mode === 'till' && (
@@ -275,7 +275,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
         <table className="table qb-table">
           <thead>
             <tr>
-              <th>DiamondPOS department</th>
+              <th>Diamond POS department</th>
               <th>QuickBooks item (created for you)</th>
               <th>Income account</th>
             </tr>

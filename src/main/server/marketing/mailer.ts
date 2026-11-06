@@ -168,7 +168,7 @@ export async function sendSmtpTest(db: DB, store: StoreSettings, to: string): Pr
     to,
     recipientName: '',
     subject: `Test email from ${store.storeName}`,
-    message: 'This is a test email from DiamondPOS. Your email settings are working.',
+    message: 'This is a test email from Diamond POS. Your email settings are working.',
     flyer: null
   })
 }

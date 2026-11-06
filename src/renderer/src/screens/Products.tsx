@@ -27,7 +27,7 @@ export default function Products() {
   async function exportItems() {
     try {
       const all = await api.listAllProducts()
-      writeSpreadsheet(`DiamondPOS items ${today()}.xlsx`, [
+      writeSpreadsheet(`Diamond POS items ${today()}.xlsx`, [
         { name: 'Items', headers: COLUMNS.map((c) => c.header), rows: all.map(itemToRow) }
       ])
     } catch (e) {
