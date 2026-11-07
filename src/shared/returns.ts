@@ -29,7 +29,7 @@ export interface ReturnableLine {
   serial: string | null
   qtySold: number
   qtyReturned: number
-  /** What the customer paid per unit (tax included, after any exemption) */
+  /** Price per unit on the receipt (before tax on 'added' receipts; tax included on older 'inclusive' ones) */
   unitPaidCents: number
   taxable: boolean
   /** Inventory item (can go back to stock) */
@@ -46,6 +46,9 @@ export interface ReturnableSale {
   customerId: number | null
   customerName: string | null
   taxExempt: boolean
+  /** How the receipt was taxed and at what rate (refunds use the same) */
+  taxMode: TaxMode
+  taxRate: number
   totalCents: number
   /** Already refunded against this receipt */
   refundedCents: number
@@ -63,11 +66,24 @@ export interface CustomerReceipt {
   itemsText: string
 }
 
-/** Refund for qty units of a line, plus the tax included in it (both positive) */
-export function returnAmount(unitPaidCents: number, qty: number, taxable: boolean, origExempt: boolean, taxRate: number) {
-  const amount = unitPaidCents * qty
-  const tax = taxable && !origExempt ? Math.round((amount * taxRate) / (1 + taxRate)) : 0
-  return { amountCents: amount, taxCents: tax }
+export type TaxMode = 'added' | 'inclusive'
+
+/**
+ * Refund for qty units of a line (all positive):
+ *  - netCents: the line before tax, taxCents: its tax, amountCents: net + tax = money given back
+ * mode = how the ORIGINAL sale was taxed: 'added' (v0.3.16+, tax on top) or 'inclusive' (older sales, tax inside the price).
+ * taxRate = the rate used on the original sale.
+ */
+export function returnAmount(unitPaidCents: number, qty: number, taxable: boolean, origExempt: boolean, taxRate: number, mode: TaxMode = 'added') {
+  const charged = taxable && !origExempt
+  if (mode === 'inclusive') {
+    const amount = unitPaidCents * qty
+    const tax = charged ? Math.round((amount * taxRate) / (1 + taxRate)) : 0
+    return { amountCents: amount, taxCents: tax, netCents: amount - tax }
+  }
+  const net = unitPaidCents * qty
+  const tax = charged ? Math.round(net * taxRate) : 0
+  return { amountCents: net + tax, taxCents: tax, netCents: net }
 }
 
 /**

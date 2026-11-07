@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { customerDisplayName, taxExemptState, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
+import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
 import { currentPrintSettings } from '../printing'
@@ -48,8 +48,13 @@ export default function Sell({
   onWorkOrderDone,
   onBootChange,
   heldToLoad,
-  onHeldLoaded
+  onHeldLoaded,
+  startReturn,
+  onIntentDone
 }: {
+  /** Opened from "I want to… Return items" */
+  startReturn?: boolean
+  onIntentDone?: () => void
   boot: BootInfo
   /** Open this held receipt on the sale (from the Held Receipts screen) */
   heldToLoad?: number | null
@@ -77,6 +82,8 @@ export default function Sell({
   const [kioskOpen, setKioskOpen] = useState(false)
   /** Apply the customer's tax exemption to this sale */
   const [exempt, setExempt] = useState(false)
+  /** Tax rate picked for this sale (null = the store's default) */
+  const [taxRateId, setTaxRateId] = useState<string | null>(null)
   const [editingCustomer, setEditingCustomer] = useState(false)
   /** Work order being paid on this sale (estimate fee, repair pick-up, or fee credit) */
   const [wo, setWo] = useState<{ order: WorkOrder; mode: WoSaleMode; fee: EstimateFeeSettings } | null>(null)
@@ -168,6 +175,12 @@ export default function Sell({
     }
   }
   useEffect(() => {
+    if (startReturn) {
+      setReturning(true)
+      onIntentDone?.()
+    }
+  }, [startReturn])
+  useEffect(() => {
     if (heldToLoad) {
       loadHeld(heldToLoad)
       onHeldLoaded?.()
@@ -232,7 +245,10 @@ export default function Sell({
 
   // ----- derived values -----
   const itemCount = cart.reduce((s, l) => s + l.qty, 0)
-  const rate = settings?.taxRate ?? 0.15
+  // Tax rate for this sale (Settings → Taxes); the store's default unless changed on the Sale screen
+  const taxRates = settings?.taxRates ?? []
+  const taxChoice = taxRates.find((t) => t.id === taxRateId) ?? taxRates.find((t) => t.id === settings?.defaultTaxRateId) ?? null
+  const rate = taxChoice?.rate ?? settings?.taxRate ?? 0
   // Tax-exempt status of the attached customer
   const exemptState = customer ? taxExemptState(customer, today()) : ({ kind: 'none' } as const)
   const canExempt = !!customer?.taxExempt && !!customer.taxExemptId && exemptState.kind !== 'expired'
@@ -251,15 +267,16 @@ export default function Sell({
     creditAvailable
   )
   // Returned items: refunded at the price paid on the original receipt (same maths as the server)
-  const retPriced = returns.map((l) => returnAmount(l.unitCents, l.qty, l.taxable, l.origExempt, rate))
-  const refundItems = retPriced.reduce((s, r) => s + r.amountCents, 0)
+  const retPriced = returns.map((l) => returnAmount(l.unitCents, l.qty, l.taxable, l.origExempt, l.origTaxRate ?? rate, l.origTaxMode ?? 'added'))
+  /** Returned items before tax, and the tax refunded on them */
+  const refundNet = retPriced.reduce((s, r) => s + r.netCents, 0)
   const refundTax = retPriced.reduce((s, r) => s + r.taxCents, 0)
   // A receipt that had an estimate fee credit can't refund more than was paid on it
   const feeKept = Object.entries(receipts).reduce((s, [id, r]) => {
     const amount = returns.reduce((n, l, i) => (l.saleId === Number(id) ? n + retPriced[i].amountCents : n), 0)
     return s + Math.max(0, amount - r.refundableCents)
   }, 0)
-  const total = priced.totalCents - refundItems + feeKept
+  const total = priced.totalCents - refundNet - refundTax + feeKept
   const isRefund = total < 0
   const shelfTotal =
     cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
@@ -350,7 +367,7 @@ export default function Sell({
       serial: l.serial,
       qty: l.qty,
       unitCents: l.unitCents,
-      extCents: retPriced[k].amountCents
+      extCents: retPriced[k].netCents
     })),
     ...(feeKept > 0
       ? [
@@ -533,7 +550,8 @@ export default function Sell({
       ),
       payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
       workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
-      heldId: held?.id ?? null
+      heldId: held?.id ?? null,
+      taxRateId: taxChoice?.id ?? null
     })
     if (held) {
       setHeld(null)
@@ -550,6 +568,7 @@ export default function Sell({
     setSelectedId(null)
     setCustomer(null)
     setExempt(false)
+    setTaxRateId(null)
     setLastSale(sale)
     setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
     // Print straight away if this till is set to (Settings → Printing)
@@ -868,17 +887,35 @@ export default function Sell({
           {returns.length > 0 && (
             <div className="tline return-line">
               <span>Returned items</span>
-              <span>−{money(refundItems - feeKept)}</span>
+              <span>−{money(refundNet)}</span>
             </div>
           )}
           {applyExempt ? (
             <div className="tline exempt-line">
-              <span>Tax exempt ({customer?.taxExemptId})</span>
-              <span>−{money(priced.taxExemptCents)}</span>
+              <span>Tax exempt ({customer?.taxExemptId}): {money(priced.taxExemptCents)} not charged</span>
+              <span>{money(0)}</span>
             </div>
           ) : (
-            <div className="tline muted">
-              <span>Tax included ({Math.round(rate * 1000) / 10}%)</span>
+            <div className="tline tax-line">
+              {taxRates.length > 1 ? (
+                <select
+                  className="tax-pick"
+                  value={taxChoice?.id ?? ''}
+                  title="Tax rate for this sale"
+                  onChange={(e) => {
+                    setTaxRateId(e.target.value)
+                    focusScan()
+                  }}
+                >
+                  {taxRates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {taxRateLabel(t)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>{taxChoice ? taxRateLabel(taxChoice) : `Sales tax ${Math.round(rate * 100000) / 1000}%`}</span>
+              )}
               <span>{money(gst)}</span>
             </div>
           )}

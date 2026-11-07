@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { STAGES, stage, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
-import { printWorkOrder } from '../printing'
+import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
@@ -95,6 +95,13 @@ export default function WorkOrderTicket(props: {
             onClick={() => run(() => printWorkOrder(wo).then(() => api.wo(wo.id)), 'Work order sent to the printer')}
           >
             🖨 Print
+          </button>
+          <button
+            disabled={busy}
+            title="Print the label for the unit (customer, work order #, date, barcode) on the label printer"
+            onClick={() => run(() => printWorkOrderLabel(wo).then(() => api.wo(wo.id)), 'Work order label sent to the label printer')}
+          >
+            🏷 Label
           </button>
           {st.canEmail && (
             <button
@@ -275,7 +282,7 @@ export default function WorkOrderTicket(props: {
               </>
             ) : (
               <>
-                <span className="muted">Tax included</span>
+                <span className="muted">Sales tax</span>
                 <span className="muted">{money(wo.totals.taxCents)}</span>
               </>
             )}

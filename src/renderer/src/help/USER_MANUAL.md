@@ -13,8 +13,10 @@ Diamond POS runs on every computer in the store. One computer is the **Store Ser
 > If it says **Server offline**, sales can't be saved. Check that the Store Server PC is on and connected to the network.
 
 ## The Home screen
-Home is where every area of the app starts. Click **Home** at the top of any screen to come back.
-- The buttons on the left open the most-used screens. **Today** shows the number of sales and the takings so far.
+Home is where every area of the app starts.
+
+**"I want to…"**: the drop-down at the top left of every screen takes you straight to what you want to do: make a sale, return items, open held receipts, check in a repair, find a customer, look up an item, print price tags, see today's sales, go to the Home screen and more. Each computer can choose what's in it (Settings → Menus).
+- The buttons on the left open the most-used screens (each computer can choose them in **Settings → Menus**). **Today** shows the number of sales and the takings so far.
 - The tiles on the right are grouped like the store: Point of Sale, Purchasing, Inventory and Operations.
 - Tiles marked "coming soon" (for example Held Receipts, End of Day and Purchase Orders) are not built yet.
 - Press **F1** on any screen, or click **? Help** at the top, to open this manual.
@@ -45,6 +47,8 @@ After the sale, click **Print receipt** or **Reprint last receipt** (or set the 
 | F9 | Send the sign-up form to the customer kiosk (iPad) |
 | Delete | Remove the selected line |
 
+**Sales tax:** shelf prices are before tax. The totals show the **Subtotal**, the **sales tax** at the sale's rate, and the **Total** the customer pays. If the store has more than one tax rate (Settings → Taxes), pick the rate for this sale from the drop-down on the tax line; the next sale goes back to the default rate. Items marked non-taxable never get tax.
+
 **Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty and Ext. Price are always shown.
 
 **Serial-numbered items** (items with "Use Serial #" ticked) ask for the serial number when scanned. Type it or scan the barcode on the unit. A customer must be on the sale, and the unit is saved under that customer for repairs later.
@@ -69,7 +73,7 @@ Use a held receipt when a sale is built ahead of time, for example when a custom
 - Click **✕** to take the customer off the sale.
 
 **Tax-exempt customers**
-- If the customer has a current **Farm Tax ID**, the sale is tax exempt automatically. Untick **Tax exempt sale** to charge tax this time.
+- If the customer has a current **Farm Tax ID**, the sale is tax exempt automatically: no tax is added and the totals show how much tax was not charged. Untick **Tax exempt sale** to charge tax this time.
 - If their Farm Tax ID has **expired**, the sale screen warns you and tax is charged. Click **Update Tax ID** to enter the details from their new card.
 - Receipts for tax-exempt sales print the Farm Tax ID.
 
@@ -112,6 +116,8 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - **Ready for Review**: for a manager to check the ticket. No email is sent at this stage.
 - **Ready for Customer Pick Up**: the customer can collect it and pay.
 - **Picked up / Closed**: the ticket is finished and locked.
+
+**Work order label:** when a unit is checked in, a label prints on the Zebra label printer with the **customer's name, the work order number, the date checked in and a barcode**. Stick it on the unit. Click **🏷 Label** on the ticket to print it again. Scanning the barcode into the search box on the Work Orders screen finds the ticket. (Settings → Printing chooses the label design and whether it prints automatically; the Label Designer can change what's on it.)
 
 **Printing:** click **🖨 Print** on a ticket to print the work order on a full page (customer, unit, problem, diagnosis, parts and labor, totals and a signature line), for example as the claim ticket at drop-off or the estimate for approval.
 
@@ -189,7 +195,9 @@ Open **Marketing** to email a flyer to a group of customers.
 
 ## Settings
 Open **Settings** and click the area you want to change. Click **← Settings** to go back to the menu.
-- **Store** (shared by all tills): store name, sales tax rate, store address (printed on full-page receipts, work orders and marketing emails), where feedback is emailed, and the receipt footer.
+- **Store** (shared by all tills): store name, store address (printed on full-page receipts, work orders and marketing emails), where feedback is emailed, and the receipt footer.
+- **Taxes** (shared by all tills): the sales tax rates. Add as many as you need (for example each county you deliver to), give each a name and a rate such as 7.975, and choose the **default**. The Sale screen uses the default unless the cashier picks another rate.
+- **Menus** (this computer): what's in the **"I want to…"** drop-down and the **Home screen buttons**, and in what order. Use ▲ ▼ to reorder, ✕ to remove and **+ Add** for more.
 - **This Computer**: the till name. On the Store Server it also shows the address and **pairing code** that tills need to connect.
 - **Printing**: which printers this computer uses (see below).
 - **Label Designer**: build price tags and part labels (see below).
@@ -204,13 +212,14 @@ Each computer has its own printers, so set this up on every till (**Settings →
   - sales with a **serial-numbered unit** (mowers, saws, blowers…), with the customer's details, serial numbers and a signature line
   - **work order** receipts (estimate fee, repair pick-up)
   - Work order tickets (🖨 Print on a ticket) always print here.
-- **Label printer (Zebra)**: choose the printer, then which label design to use for items **with a price** (price tag) and for items with **no price** (parts, bin labels). Design the labels under **Label Designer**.
+- **Label printer (Zebra)**: choose the printer, then which label design to use for items **with a price** (price tag) and for items with **no price** (parts, bin labels), and the **work order label** stuck on a unit at check-in (copies, and whether it prints automatically). Design the labels under **Label Designer**.
 - Use the **Print test** buttons to check each printer before saving, then click **Save printing settings**.
 > For a Zebra printer, install the ZDesigner driver and set the same label size in the driver's printing preferences.
 
 ## Label Designer
 **Settings → Label Designer** builds the tags printed on the Zebra printer. Every till uses the same designs.
-- The list on the left has your labels. **Price tag** and **Part / bin label (no price)** come ready-made. Click **+ New** or **Copy** to make more, and set the name and label size.
+- The list on the left has your labels. **Price tag**, **Part / bin label (no price)** and **Work order label** come ready-made. Click **+ New tag**, **+ Work order label** or **Copy** to make more, and set the name and label size.
+- Work order labels have their own fields: customer name, work order #, date checked in, unit, unit serial #, customer phone and what's wrong. Their barcode is the work order number.
 - To add something, pick it in the toolbar (Item name, Price, Item details, Item #, UPC, Department, Manufacturer, Vendor, Size, Store name, Your own text…) and click **+ Add field**. Click **+ Barcode** for a barcode or **+ Line** for a line.
 - **Drag** an element to move it. Drag the **red corner square** to make it bigger or smaller. Arrow keys nudge it, **Delete** removes it, and holding **Shift** gives finer steps.
 - On the right, change the font size, bold, alignment, or the exact position in inches. For a barcode, choose UPC, Item # or ALU.

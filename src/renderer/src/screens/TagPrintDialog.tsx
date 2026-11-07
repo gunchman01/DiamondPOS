@@ -18,7 +18,7 @@ export default function TagPrintDialog(props: { initial?: Product[]; onClose: ()
   const [labels, setLabels] = useState<LabelTemplate[]>([])
   const [ps, setPs] = useState<PrintSettings | null>(null)
   useEffect(() => {
-    printDesigns().then((d) => setLabels(d.labels))
+    printDesigns().then((d) => setLabels(d.labels.filter((t) => t.kind !== 'workorder')))
     currentPrintSettings().then(setPs)
   }, [])
   const auto = (p: Product) => (ps && labels.length ? templateFor(p, ps, labels).name : '')

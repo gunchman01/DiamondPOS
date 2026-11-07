@@ -352,14 +352,26 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - Small: "GST included" → "Tax included" on the Sale screen and Reports.
 - Verified: `designs.ts` updated (v1 → v2 conversion, zone clamping, signature/barcode in zones); TypeScript; all suites; previews of the printer chooser, receipt designer and kiosk help.
 
+### 7 Nov 2026: Tax added at checkout + tax rates, work order label, "I want to" menus (next release **v0.3.16**, DB migration 17)
+- [x] **Tax model switched (Greg chose this): prices are BEFORE tax, tax added at checkout** (US). `shared/pricing.ts` `priceSale` → `{lines (unit = shelf), subtotalCents, taxCents = round(taxable × rate), totalCents, taxExemptCents (tax not charged)}`. `MIN_CLIENT_VERSION` = 0.3.16 (old tills would show different totals).
+- [x] **DB migration 17**: `sales.tax_mode` ('inclusive' for older rows, 'added' for new), `tax_rate`, `tax_rate_id`, `tax_rate_name` (older rows get the store rate). Nothing old is re-priced.
+- [x] **Tax rates**: settings `tax_rates` (JSON `[{id,name,rate}]`) + `tax_rate_default`; `tax_rate` kept = default rate for older tills (a single-rate PUT updates the default). `StoreSettings.taxRates/defaultTaxRateId`, `TaxRate`, `taxRateLabel`. `SaleRequest.taxRateId` (unknown id → 400). Settings → **Taxes** (`TaxSettings.tsx`); Sale screen tax-line drop-down (resets to default after each sale). Work orders use the default rate.
+- [x] **Returns** follow the ORIGINAL sale's mode and rate: `returnAmount(..., rate, mode)` → `{netCents, taxCents, amountCents}`; return lines are stored before tax (`line_total` = −net, `tax_cents` = −tax); refunded totals / daily refunds add `tax_cents` only for 'added' sales. `ReturnableSale.taxMode/taxRate`.
+- [x] **QuickBooks summary** works per sale: 'added' sales' lines are already net; 'inclusive' sales have their tax taken out of their own taxable lines. Still one QuickBooks sales tax item: if a day mixes rates, the difference goes on the POS Tax Rounding line (a per-rate mapping could be added).
+- [x] Receipts / full page / receipt viewer: Subtotal, "<rate name> x%", Total for 'added' sales; "Includes tax" for older ones. Work order bill/email/ticket: Subtotal + Sales tax (`WoTotals.subtotalCents`). Labels: "Taxable" (no GST), import note "before sales tax".
+- [x] **Work order label**: label templates have `kind: 'item' | 'workorder'`; WO fields woCustomer/woNumber/woDate/woUnit/woSerial/woPhone/woProblem, barcode source `wo` (`WoLabelData`). Default "Work order label" (`tag-wo`, auto-added to older saved designs). `printWorkOrderLabel` (label printer, `woLabelTemplate`, `woLabelCopies`, `woLabelAuto` = print at check-in). Ticket **🏷 Label** button. Label Designer: + Work order label, WO field list, sample WO preview. WO search already accepts "WO-000412" (scan).
+- [x] **Menus**: `renderer/src/menus.ts` (`MENU_ENTRIES` with screen + intent return/checkin/tags, `DEFAULT_MENUS`, `menuEntries`). Top bar **"I want to…"** drop-down (replaces the Home button); Home screen left buttons from `AppConfig.menus.home`. Settings → **Menus** (`MenuSettings.tsx`, per computer). Intents open the Return dialog / New work order / Print tags.
+- ⚠️ Lost and restored `Sell.tsx` during this session (a script truncated it); restored from git HEAD (v0.3.15) and the tax changes re-applied. Everything verified afterwards.
+- Verified: new `taxes.ts` (rates CRUD + validation, default/older-till PUT, per-sale rate, unknown rate, refund at original rate after a rate change, old inclusive sale refunded the old way); all suites updated to tax-added amounts and passing; `designs.ts` (WO label render + auto-added); TypeScript; previews of "I want to" and the Sale screen tax line.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.14** (held receipts, type-ahead, line ✕, Cost column). Next release: **v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help; no DB change).
+**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till).
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
-   - Decide **tax-inclusive vs tax-added-at-checkout** pricing (US sales tax); apply customer Discount %
+   - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount %; QuickBooks tax item per tax rate
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. ~~Refunds~~ (done). Still to do: **void** a sale the same day (the `sales.status` column already exists); manager PIN to approve no-receipt returns; print a barcode on receipts so scanning finds them instantly; a "no-receipt returns" report

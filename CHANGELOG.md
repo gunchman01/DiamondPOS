@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.16 - 7 Nov 2026
+> Update the Store Server PC first, then **update every till** (sales tax now works differently).
+- **Sales tax is now added at checkout**: shelf prices are before tax, and the Sale screen shows Subtotal, Sales tax and Total. Receipts, reports, returns and QuickBooks all follow. Sales made before this update keep their old (tax-included) amounts and are refunded the old way.
+- **Several tax rates** (Settings → Taxes): add rates such as each county, choose the default, and pick a different rate for a sale from the tax line on the Sale screen.
+- **Work order label**: when a unit is checked in, a label prints on the Zebra with the customer's name, work order #, date checked in and a barcode (🏷 Label on the ticket prints it again). Its design can be changed in the Label Designer.
+- **"I want to…" menu** at the top left replaces the Home button: jump straight to making a sale, a return, held receipts, checking in a repair and more. Choose what's in it, and the Home screen buttons, in **Settings → Menus** (per computer).
+
 ## v0.3.15 - 6 Nov 2026
 - **Choose the printer every time**: when a receipt prints, a window asks **Receipt** or **Full page**, and which printer. The usual choice is already picked (Enter prints it). Can be switched off in Settings → Printing.
 - **Drag-and-drop Receipt Layout**: the top and bottom of the receipt are now drag-and-drop areas like the Label Designer (store name, address, logo, receipt #, customer, your own text, barcode, signature…). The middle (items, totals, payments) is a list you tick and reorder. Receipt layouts from v0.3.13 keep their middle settings and get the standard top and bottom.

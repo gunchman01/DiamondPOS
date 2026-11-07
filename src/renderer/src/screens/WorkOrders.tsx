@@ -4,6 +4,7 @@ import { STAGES, stage, type WoSaleMode, type WoStatus, type WoSummary } from '.
 import { api } from '../api'
 import { money } from '../format'
 import NewWorkOrder from './NewWorkOrder'
+import { currentPrintSettings, printWorkOrderLabel } from '../printing'
 import WorkOrderTicket from './WorkOrderTicket'
 import WorkOrderSettings from './WorkOrderSettings'
 
@@ -17,9 +18,14 @@ const age = (iso: string) => {
 /** Work orders: tickets by stage, check in a unit, open a ticket, settings. */
 export default function WorkOrders({
   boot,
-  onPayAtTill
+  onPayAtTill,
+  startCheckIn,
+  onIntentDone
 }: {
   boot: BootInfo
+  /** Opened from "I want to… Check in a repair" */
+  startCheckIn?: boolean
+  onIntentDone?: () => void
   /** Open the Sale screen with this work order loaded */
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
@@ -29,6 +35,12 @@ export default function WorkOrders({
   const [list, setList] = useState<WoSummary[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [creating, setCreating] = useState(false)
+  useEffect(() => {
+    if (startCheckIn) {
+      setCreating(true)
+      onIntentDone?.()
+    }
+  }, [startCheckIn])
   const [error, setError] = useState('')
   const by = boot.config.tillName
 
@@ -139,6 +151,10 @@ export default function WorkOrders({
           onCancel={() => setCreating(false)}
           onCreated={(wo, collectFee) => {
             setCreating(false)
+            // Label for the unit, printed straight away if this till is set to (Settings → Printing)
+            currentPrintSettings()
+              .then((ps) => (ps.woLabelAuto ? printWorkOrderLabel(wo) : undefined))
+              .catch((e) => setError(`${wo.number} was checked in, but the label didn't print: ${(e as Error).message}`))
             if (collectFee) onPayAtTill(wo.id, 'fee')
             else setView({ kind: 'ticket', id: wo.id })
           }}

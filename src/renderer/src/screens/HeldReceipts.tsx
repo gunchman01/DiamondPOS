@@ -35,7 +35,7 @@ function HeldTable(props: { rows: HeldSummary[]; onOpen: (id: number) => void; o
           <th>Customer</th>
           <th>Note</th>
           <th>Items</th>
-          <th className="r">Total now</th>
+          <th className="r">Before tax</th>
           <th>Held</th>
           <th />
         </tr>

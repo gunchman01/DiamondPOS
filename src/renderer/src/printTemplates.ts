@@ -3,13 +3,16 @@
  * The 80 mm receipt is in receipt.ts.
  */
 import type { Customer, Product, Sale, StoreSettings } from '../../shared/types'
-import { barcodeValue, labelFieldValue, type LabelElement, type LabelTemplate } from '../../shared/printDesigns'
+import { barcodeValue, labelFieldValue, type LabelElement, type LabelTemplate, type WoLabelData } from '../../shared/printDesigns'
 import type { WorkOrder } from '../../shared/workorders'
 import { stage, unitLabel } from '../../shared/workorders'
 import { code128Svg } from './code128'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
+/** "Sales tax 7.975%" style label for a sale's tax line */
+export const taxName = (sale: Pick<Sale, 'taxRateName' | 'taxRate'>) =>
+  `${sale.taxRateName || 'Sales tax'}${sale.taxRate !== null && sale.taxRate !== undefined ? ` ${Math.round(sale.taxRate * 100000) / 1000}%` : ''}`
 const PAGE_CSS = `
   @page { size: Letter; margin: 0.5in; }
   * { box-sizing: border-box; }
@@ -95,8 +98,14 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
     }</div>
     <table class="lines"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
     <table class="totals">
+      ${
+        sale.taxMode === 'added'
+          ? `<tr><td class="muted">Subtotal</td><td class="r muted">${money(sale.totalCents - sale.taxCents)}</td></tr>
+             <tr><td class="muted">${sale.taxExempt ? 'Tax exempt' : esc(taxName(sale))}</td><td class="r muted">${money(sale.taxCents)}</td></tr>`
+          : ''
+      }
       <tr class="grand"><td>${refund ? 'Refund' : 'Total'}</td><td class="r">${money(Math.abs(sale.totalCents))}</td></tr>
-      ${sale.taxExempt ? '' : `<tr><td class="muted">Includes tax</td><td class="r muted">${money(sale.taxCents)}</td></tr>`}
+      ${sale.taxMode !== 'added' && !sale.taxExempt ? `<tr><td class="muted">Includes tax</td><td class="r muted">${money(sale.taxCents)}</td></tr>` : ''}
       ${pays}
       ${sale.changeCents ? `<tr><td>Change</td><td class="r">${money(sale.changeCents)}</td></tr>` : ''}
     </table>
@@ -129,8 +138,9 @@ export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Cus
       rows || '<tr><td colspan="5" class="muted">No parts or labor yet</td></tr>'
     }</tbody></table>
     <table class="totals">
+      <tr><td class="muted">Subtotal</td><td class="r muted">${money(t.subtotalCents ?? t.totalCents - t.taxCents)}</td></tr>
+      ${t.taxExempt ? `<tr><td class="muted">Tax exempt (not charged)</td><td class="r muted">${money(t.taxExemptCents)}</td></tr>` : `<tr><td class="muted">Sales tax</td><td class="r muted">${money(t.taxCents)}</td></tr>`}
       <tr class="grand"><td>Total</td><td class="r">${money(t.totalCents)}</td></tr>
-      ${t.taxExempt ? `<tr><td class="muted">Tax exempt</td><td class="r muted">-${money(t.taxExemptCents)}</td></tr>` : `<tr><td class="muted">Includes tax</td><td class="r muted">${money(t.taxCents)}</td></tr>`}
       ${wo.feeStatus === 'paid' ? `<tr><td>Estimate fee paid</td><td class="r">-${money(wo.feeCents)}</td></tr><tr><td><b>Balance due</b></td><td class="r"><b>${money(wo.balanceDueCents)}</b></td></tr>` : ''}
     </table>
     <div class="sig"><div>Customer signature (authorizes the work above)</div><div>Date</div></div>
@@ -139,17 +149,17 @@ export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Cus
 }
 
 /** Inside of one label element (text, barcode or line), as HTML. Used for printing and by the label designer. */
-export function labelElementInner(e: LabelElement, p: Partial<Product>, store: Pick<StoreSettings, 'storeName'>): string {
+export function labelElementInner(e: LabelElement, p: Partial<Product>, store: Pick<StoreSettings, 'storeName'>, wo?: WoLabelData | null): string {
   if (e.kind === 'line') return ''
   if (e.kind === 'barcode') {
-    const code = barcodeValue(e.barcodeOf, p)
+    const code = barcodeValue(e.barcodeOf, p, wo)
     if (!code) return ''
     const codePt = Math.max(5, Math.min(9, e.h * 14))
     return `<div style="display:flex;flex-direction:column;width:100%;height:100%"><div style="flex:1;min-height:0">${code128Svg(code)}</div>${
       e.showCode ? `<div style="font:${codePt}pt Consolas,monospace;text-align:center;line-height:1.1">${esc(code)}</div>` : ''
     }</div>`
   }
-  return esc(labelFieldValue(e, p, store, money))
+  return esc(labelFieldValue(e, p, store, money, wo))
 }
 
 /** CSS for what's inside an element box (font, alignment); no position */
@@ -168,13 +178,17 @@ export function labelElementStyle(e: LabelElement): string {
 }
 
 /** Tags printed with one label template: one label per page, sized to the template */
-export function tagsHtml(items: { product: Partial<Product>; qty: number }[], store: Pick<StoreSettings, 'storeName'>, t: LabelTemplate): string {
-  const one = (p: Partial<Product>) =>
+export function tagsHtml(
+  items: { product: Partial<Product>; qty: number; wo?: WoLabelData | null }[],
+  store: Pick<StoreSettings, 'storeName'>,
+  t: LabelTemplate
+): string {
+  const one = (p: Partial<Product>, wo?: WoLabelData | null) =>
     `<div class="label">${t.elements
-      .map((e) => `<div style="${labelElementStyle(e)}"><div style="${labelContentCss(e)}">${labelElementInner(e, p, store)}</div></div>`)
+      .map((e) => `<div style="${labelElementStyle(e)}"><div style="${labelContentCss(e)}">${labelElementInner(e, p, store, wo)}</div></div>`)
       .join('')}</div>`
   const labels: string[] = []
-  for (const { product, qty } of items) for (let k = 0; k < qty; k++) labels.push(one(product))
+  for (const { product, qty, wo } of items) for (let k = 0; k < qty; k++) labels.push(one(product, wo))
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { size: ${t.widthIn}in ${t.heightIn}in; margin: 0; }
     * { box-sizing: border-box; }

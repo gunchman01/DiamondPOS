@@ -3,6 +3,7 @@ import type { Sale } from '../../../shared/types'
 import { api } from '../api'
 import { dateTime, money } from '../format'
 import PrintChooser from '../PrintChooser'
+import { taxName } from '../printTemplates'
 
 /** Shows one receipt / transaction (from a customer's history or Sales History) with Reprint. */
 export default function SaleDialog({ saleId, onClose }: { saleId: number; onClose: () => void }) {
@@ -95,14 +96,20 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
                 <span>{refund ? 'Refunded' : 'Total'}</span>
                 <b>{money(Math.abs(sale.totalCents))}</b>
               </div>
+              {sale.taxMode === 'added' && (
+                <div className="tline muted">
+                  <span>Subtotal</span>
+                  <span>{money(sale.totalCents - sale.taxCents)}</span>
+                </div>
+              )}
               {sale.taxExempt ? (
                 <div className="tline muted">
-                  <span>Tax exempt (tax removed)</span>
-                  <span>−{money(sale.taxExemptCents)}</span>
+                  <span>Tax exempt (not charged)</span>
+                  <span>{money(sale.taxExemptCents)}</span>
                 </div>
               ) : (
                 <div className="tline muted">
-                  <span>Tax included</span>
+                  <span>{sale.taxMode === 'added' ? taxName(sale) : 'Tax included'}</span>
                   <span>{money(sale.taxCents)}</span>
                 </div>
               )}

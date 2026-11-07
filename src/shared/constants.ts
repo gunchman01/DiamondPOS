@@ -15,7 +15,7 @@ export const QB_BRIDGE_PORT = 4581
  * change that older tills genuinely cannot work with (e.g. you finally remove
  * an old column). Keeping it low is what makes rollback safe.
  */
-export const MIN_CLIENT_VERSION = '0.1.0'
+export const MIN_CLIENT_VERSION = '0.3.16'
 
 /** >>> CHANGE THESE to match the "publish" section of electron-builder.yml <<< */
 export const GITHUB_OWNER = 'gunchman01'

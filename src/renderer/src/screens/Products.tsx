@@ -16,13 +16,20 @@ const TYPE_LABEL: Record<Product['type'], string> = {
 }
 
 /** Item List: every item, with Add / Edit opening the full item window. */
-export default function Products() {
+export default function Products({ startTags, onIntentDone }: { startTags?: boolean; onIntentDone?: () => void } = {}) {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   /** Print price tags dialog (with these items pre-filled) */
   const [tagging, setTagging] = useState<Product[] | null>(null)
+  // Opened from "I want to… Print price tags"
+  useEffect(() => {
+    if (startTags) {
+      setTagging([])
+      onIntentDone?.()
+    }
+  }, [startTags])
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
 

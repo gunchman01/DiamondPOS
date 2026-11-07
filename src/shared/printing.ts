@@ -32,6 +32,10 @@ export interface PrintSettings {
   /** Label template for items with a price, and for items with no price (parts / bin labels) */
   priceTagTemplate: string
   noPriceTagTemplate: string
+  /** Work order label (stuck on the unit): design, copies, print automatically at check-in */
+  woLabelTemplate: string
+  woLabelCopies: number
+  woLabelAuto: boolean
 }
 
 export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
@@ -46,7 +50,10 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   labelPrinter: '',
   label: { widthIn: 2.25, heightIn: 1.25, showStore: true, showPrice: true, showSku: true, showBarcode: true },
   priceTagTemplate: 'tag-price',
-  noPriceTagTemplate: 'tag-noprice'
+  noPriceTagTemplate: 'tag-noprice',
+  woLabelTemplate: 'tag-wo',
+  woLabelCopies: 1,
+  woLabelAuto: true
 }
 
 /** Common Zebra label sizes (inches) */

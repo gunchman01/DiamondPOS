@@ -90,7 +90,7 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
           'Fill in one item per row on the "Items" sheet. Only "Item Name" and "Reg Price" are required for new items.',
           'Existing items are matched by Item No. (or UPC if there is no Item No.) and updated.',
           'When updating, leave a cell blank to keep the current value.',
-          'Prices and costs are GST-inclusive dollar amounts, e.g. 5.50',
+          'Prices and costs are dollar amounts before sales tax, e.g. 5.50',
           'Type: Inventory, Non-inventory or Service.   Tax: Tax or Non-taxable.   Yes/No columns: Yes or No.',
           'Format the UPC column as Text in Excel so leading zeros are kept.',
           'You can delete columns you do not need. Extra columns are ignored.'

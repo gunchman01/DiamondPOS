@@ -56,7 +56,8 @@ function returnedQty(db: DB, saleItemIds: number[]): Map<number, number> {
 function refundedAgainst(db: DB, saleId: number): number {
   const r = db
     .prepare(
-      `SELECT COALESCE(SUM(-r.line_total_cents), 0) AS n FROM sale_items r JOIN sale_items o ON o.id = r.return_of_item_id
+      `SELECT COALESCE(SUM(-(r.line_total_cents + CASE WHEN rs.tax_mode = 'added' THEN COALESCE(r.tax_cents, 0) ELSE 0 END)), 0) AS n
+       FROM sale_items r JOIN sale_items o ON o.id = r.return_of_item_id JOIN sales rs ON rs.id = r.sale_id
        WHERE r.kind = 'return' AND o.sale_id = ?`
     )
     .get(saleId) as { n: number }
@@ -67,7 +68,7 @@ function refundedAgainst(db: DB, saleId: number): number {
   return r.n - kept.n
 }
 
-export function returnableSale(db: DB, saleId: number): ReturnableSale | null {
+export function returnableSale(db: DB, saleId: number, fallbackRate = 0): ReturnableSale | null {
   const s = db
     .prepare(
       `SELECT s.*, c.id AS cid, c.first_name, c.last_name, c.company, c.track_as_company
@@ -127,6 +128,8 @@ export function returnableSale(db: DB, saleId: number): ReturnableSale | null {
             trackAsCompany: s.track_as_company === 1
           }),
     taxExempt: s.tax_exempt === 1,
+    taxMode: s.tax_mode === 'added' ? 'added' : 'inclusive',
+    taxRate: Number(s.tax_rate ?? fallbackRate),
     totalCents: total,
     refundedCents: refunded,
     refundableCents: Math.max(0, total - refunded),
@@ -184,7 +187,7 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
       if (!row) throw new ReturnError(400, 'That receipt line was not found')
       let entry = bySale.get(row.sale_id)
       if (!entry) {
-        const info = returnableSale(db, row.sale_id)
+        const info = returnableSale(db, row.sale_id, taxRate)
         if (!info) throw new ReturnError(400, `Receipt #${row.sale_id} was not found`)
         entry = { info, amount: 0 }
         bySale.set(row.sale_id, entry)
@@ -205,16 +208,17 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
           throw new ReturnError(400, 'These receipts are for different customers. Do one return per customer.')
         customerId = info.customerId
       }
-      const { amountCents, taxCents } = returnAmount(line.unitPaidCents, qty, line.taxable, info.taxExempt, taxRate)
+      // Refund at what was paid: the original receipt's price, tax way and rate
+      const { amountCents, taxCents, netCents } = returnAmount(line.unitPaidCents, qty, line.taxable, info.taxExempt, info.taxRate, info.taxMode)
       entry.amount += amountCents
       const dept = db.prepare('SELECT department FROM sale_items WHERE id = ?').get(line.saleItemId) as { department: string | null }
       out.push({
         productId: line.productId,
         serial: line.serial ?? '',
         name: line.name,
-        unitPriceCents: -line.unitPaidCents,
+        unitPriceCents: -Math.round(netCents / qty),
         qty: -qty,
-        lineTotalCents: -amountCents,
+        lineTotalCents: -netCents,
         taxCents: -taxCents,
         taxable: line.taxable && !info.taxExempt,
         department: dept.department,
@@ -232,14 +236,14 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
         | undefined
       if (!p) throw new ReturnError(400, 'Returned item not found')
       noReceipt = true
-      const { amountCents, taxCents } = returnAmount(p.price_cents, qty, p.taxable === 1, false, taxRate)
+      const { taxCents, netCents } = returnAmount(p.price_cents, qty, p.taxable === 1, false, taxRate, 'added')
       out.push({
         productId: p.id,
         serial: '',
         name: p.name,
         unitPriceCents: -p.price_cents,
         qty: -qty,
-        lineTotalCents: -amountCents,
+        lineTotalCents: -netCents,
         taxCents: -taxCents,
         taxable: p.taxable === 1,
         department: p.department,
@@ -293,8 +297,9 @@ export function finishReturns(db: DB, lines: PreparedReturnLine[]) {
 
 export function registerReturnRoutes(app: express.Express, db: DB) {
   app.get('/api/sales/:id/returnable', (req, res) => {
+    const fallback = (db.prepare("SELECT value FROM settings WHERE key = 'tax_rate'").get() as { value: string } | undefined)?.value
     const id = Number(String(req.params.id).replace(/^#/, ''))
-    const info = Number.isInteger(id) ? returnableSale(db, id) : null
+    const info = Number.isInteger(id) ? returnableSale(db, id, Number(fallback ?? 0)) : null
     if (!info) return res.status(404).json({ error: `Receipt #${req.params.id} was not found` })
     res.json(info)
   })

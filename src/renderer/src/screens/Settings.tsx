@@ -6,15 +6,19 @@ import { api } from '../api'
 import { Icons, type IconName } from '../icons'
 import KioskSettings from './KioskSettings'
 import PrintSettings from './PrintSettings'
+import TaxSettings from './TaxSettings'
+import MenuSettings from './MenuSettings'
 import LabelDesigner from './LabelDesigner'
 import ReceiptDesigner from './ReceiptDesigner'
 import { EmailSettings } from './Marketing'
 
-type Section = 'store' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
+type Section = 'store' | 'taxes' | 'menus' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
 
 /** The Settings menu: one tile per area. Add a tile here (and a section below) for each new kind of setting. */
 const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
-  { id: 'store', icon: 'store', label: 'Store', text: 'Name, tax rate, address, receipt footer' },
+  { id: 'store', icon: 'store', label: 'Store', text: 'Name, address, receipt footer, feedback email' },
+  { id: 'taxes', icon: 'tax', label: 'Taxes', text: 'Sales tax rates (add several, pick one on a sale)' },
+  { id: 'menus', icon: 'home', label: 'Menus', text: '"I want to…" menu and Home screen buttons for this computer' },
   { id: 'computer', icon: 'computer', label: 'This Computer', text: 'Till name, server connection, pairing code' },
   { id: 'printing', icon: 'printer', label: 'Printing', text: 'Receipt, full-page and Zebra label printers' },
   { id: 'labels', icon: 'itemList', label: 'Label Designer', text: 'Build price tags and part labels: drag fields where you want them' },
@@ -26,7 +30,6 @@ const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
 export default function Settings({ boot, onChange }: { boot: BootInfo; onChange: (b: BootInfo) => void }) {
   const { config } = boot
   const [store, setStore] = useState<StoreSettings | null>(null)
-  const [taxText, setTaxText] = useState('')
   const [tillName, setTillName] = useState(config.tillName)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
@@ -38,7 +41,6 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       .getSettings()
       .then((s) => {
         setStore(s)
-        setTaxText(String(Math.round(s.taxRate * 10000) / 100))
       })
       .catch((e) => setError(e.message))
   }, [])
@@ -52,7 +54,12 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
     if (!store) return
     setError('')
     try {
-      const saved = await api.saveSettings({ ...store, taxRate: Number(taxText) / 100 })
+      // Tax rates are saved on the Taxes page
+      const { taxRates: _r, defaultTaxRateId: _d, taxRate: _t, ...rest } = store
+      void _r
+      void _d
+      void _t
+      const saved = await api.saveSettings(rest)
       setStore(saved)
       setMsg('Store settings saved')
     } catch (e) {
@@ -150,10 +157,6 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
             <input value={store.storeName} onChange={(e) => setStore({ ...store, storeName: e.target.value })} />
           </label>
           <label>
-            Sales tax rate (%)
-            <input value={taxText} onChange={(e) => setTaxText(e.target.value)} />
-          </label>
-          <label>
             Store address (printed on full-page receipts, work orders and marketing emails)
             <textarea
               className="comments"
@@ -183,6 +186,8 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
           <p className="muted">Loading…</p>
         ))}
 
+      {section === 'menus' && <MenuSettings boot={boot} onChange={onChange} />}
+      {section === 'taxes' && store && <TaxSettings store={store} onSaved={setStore} />}
       {section === 'kiosk' && store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
       {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
       {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}

@@ -752,6 +752,26 @@ button.history-row:hover { background: #fdf2f3; color: var(--red-darker); }
 .rz-middle { background: #fafbfc; border: 1px dashed #c9ced6; padding: 6px; border-radius: 4px; margin: 4px 0; }
 .rz-middle select { width: 100%; }
 
+/* ---------- Taxes ---------- */
+.tax-settings { max-width: 760px; }
+.tax-settings td input[type=radio] { width: auto; }
+.tax-line { align-items: center; }
+.tax-pick { font-size: 12px; padding: 1px 4px; max-width: 230px; }
+
+/* ---------- "I want to" menu + menu settings ---------- */
+.iwant { position: relative; }
+.iwant .caret { font-size: 10px; margin-left: 2px; }
+.iwant-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 260px; background: #fff; color: #222; border-radius: 8px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.3); padding: 6px; display: flex; flex-direction: column; }
+.iwant-menu button { display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; font-size: 14px; color: #222; }
+.iwant-menu button:hover { background: #fdf2f3; color: var(--red-darker); }
+.iw-icon svg { width: 22px; height: 22px; color: var(--red-darker); display: block; }
+.menu-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 980px; }
+.menu-list { gap: 4px; }
+.menu-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid var(--border-soft); border-radius: 6px; background: #fafafa; }
+.mr-icon svg { width: 20px; height: 20px; color: var(--red-darker); display: block; }
+.mr-label { flex: 1; font-size: 13px; }
+.menu-settings { display: flex; flex-direction: column; gap: 12px; }
+
 /* ---------- Import items ---------- */
 .import-dialog { width: min(860px, 96vw); height: min(640px, 92vh); }
 .import-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow: hidden; }

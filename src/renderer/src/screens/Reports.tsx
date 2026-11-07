@@ -46,7 +46,7 @@ export default function Reports() {
         <div className="stats">
           <Stat label="Sales" value={String(report.saleCount)} />
           <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
-          <Stat label="Tax included" value={money(report.taxCents)} />
+          <Stat label="Sales tax" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />
           <Stat label="Checks" value={money(report.checkCents ?? 0)} />

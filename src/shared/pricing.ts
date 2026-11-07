@@ -3,46 +3,53 @@
  * the one that actually decides). Using the same function on both sides means
  * the total the cashier sees is exactly what the server charges.
  *
- * Shelf prices INCLUDE tax. For a tax-exempt sale, the tax portion is taken
- * off each taxable item:  exempt unit price = round(price / (1 + rate)).
+ * Shelf prices are BEFORE tax (US style). Sales tax is added at checkout on the
+ * taxable items, at the rate chosen on the sale:  tax = round(taxable subtotal × rate).
+ * A tax-exempt sale charges no tax; taxExemptCents is the tax that was not charged.
+ *
+ * (Sales made before v0.3.16 used tax-inclusive prices; they are stored with
+ * tax_mode = 'inclusive' and are never re-priced.)
  */
 export interface PriceInput {
-  unitPriceCents: number // shelf price, tax inclusive
+  unitPriceCents: number // shelf price, before tax
   qty: number
   taxable: boolean
 }
 
 export interface PricedLine {
-  unitPriceCents: number // what is charged per unit on this sale
+  unitPriceCents: number // what is charged per unit on this sale (before tax)
   lineTotalCents: number
 }
 
 export interface PricedSale {
   lines: PricedLine[]
+  /** Total of the lines, before tax */
+  subtotalCents: number
+  /** Subtotal + tax */
   totalCents: number
-  /** Tax included in the total (0 when exempt) */
+  /** Tax added (0 when exempt) */
   taxCents: number
-  /** Tax removed because the sale is tax exempt */
+  /** Tax not charged because the sale is tax exempt */
   taxExemptCents: number
 }
 
+/** Tax on an amount (whole cents, rounded half up) */
+export const taxOn = (cents: number, rate: number) => Math.round(cents * rate)
+
 export function priceSale(items: PriceInput[], taxRate: number, taxExempt: boolean): PricedSale {
-  let shelfTaxable = 0
-  let chargedTaxable = 0
+  let taxable = 0
   const lines = items.map((it) => {
-    const unit = taxExempt && it.taxable ? Math.round(it.unitPriceCents / (1 + taxRate)) : it.unitPriceCents
-    const line = unit * it.qty
-    if (it.taxable) {
-      shelfTaxable += it.unitPriceCents * it.qty
-      chargedTaxable += line
-    }
-    return { unitPriceCents: unit, lineTotalCents: line }
+    const line = it.unitPriceCents * it.qty
+    if (it.taxable) taxable += line
+    return { unitPriceCents: it.unitPriceCents, lineTotalCents: line }
   })
-  const totalCents = lines.reduce((s, l) => s + l.lineTotalCents, 0)
+  const subtotalCents = lines.reduce((s, l) => s + l.lineTotalCents, 0)
+  const tax = taxOn(taxable, taxRate)
   return {
     lines,
-    totalCents,
-    taxCents: taxExempt ? 0 : Math.round((shelfTaxable * taxRate) / (1 + taxRate)),
-    taxExemptCents: taxExempt ? shelfTaxable - chargedTaxable : 0
+    subtotalCents,
+    taxCents: taxExempt ? 0 : tax,
+    totalCents: subtotalCents + (taxExempt ? 0 : tax),
+    taxExemptCents: taxExempt ? tax : 0
   }
 }

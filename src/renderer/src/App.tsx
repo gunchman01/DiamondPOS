@@ -19,6 +19,7 @@ import Feedback from './screens/Feedback'
 import Logo from './Logo'
 import HeldReceipts from './screens/HeldReceipts'
 import { Icons } from './icons'
+import { menuEntries, type Intent, type MenuEntry } from './menus'
 
 type Tab =
   | 'home'
@@ -78,6 +79,15 @@ export default function App() {
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
   /** A held receipt to open on the Sale screen */
   const [saleHeld, setSaleHeld] = useState<number | null>(null)
+  /** Something to do when a screen opens from the "I want to…" menu (e.g. start a return) */
+  const [intent, setIntent] = useState<Intent>(null)
+  /** Open a menu entry: its screen, plus what to do there */
+  function go(e: MenuEntry) {
+    if (e.screen === 'help') return openHelp()
+    if (e.screen === 'feedback') return openFeedback()
+    setIntent(e.intent ?? null)
+    setTab(e.screen)
+  }
   /** Screen the user was on when they opened Feedback (included in the email) */
   const [feedbackFrom, setFeedbackFrom] = useState<string | null>(null)
   const openFeedback = () => {
@@ -142,11 +152,7 @@ export default function App() {
           <Logo size={30} /> Diamond POS
         </div>
         <div className="header-nav">
-          {tab !== 'home' && (
-            <button className="home-btn" onClick={() => setTab('home')} title="Back to Home">
-              <span className="hb-icon">{Icons.home}</span> Home
-            </button>
-          )}
+          <IWantTo entries={menuEntries(boot.config.menus?.top, 'top')} onGo={go} />
           <span className="screen-title">{TITLES[tab]}</span>
         </div>
         <div className="status">
@@ -180,7 +186,9 @@ export default function App() {
       )}
 
       <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
-        {tab === 'home' && <Home onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />}
+        {tab === 'home' && (
+          <Home buttons={menuEntries(boot.config.menus?.home, 'home')} onGo={go} onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />
+        )}
         {tab === 'sell' && <Sell
             boot={boot}
             workOrder={saleWo}
@@ -188,14 +196,18 @@ export default function App() {
             onBootChange={setBoot}
             heldToLoad={saleHeld}
             onHeldLoaded={() => setSaleHeld(null)}
+            startReturn={intent === 'return'}
+            onIntentDone={() => setIntent(null)}
           />}
-        {tab === 'products' && <Products />}
+        {tab === 'products' && <Products startTags={intent === 'tags'} onIntentDone={() => setIntent(null)} />}
         {tab === 'customers' && <Customers />}
         {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
         {tab === 'marketing' && <Marketing />}
         {tab === 'workorders' && (
           <WorkOrders
             boot={boot}
+            startCheckIn={intent === 'checkin'}
+            onIntentDone={() => setIntent(null)}
             onPayAtTill={(id, mode) => {
               setSaleWo({ id, mode })
               setTab('sell')
@@ -216,6 +228,47 @@ export default function App() {
           />
         )}
       </main>
+    </div>
+  )
+}
+
+/** "I want to…" dropdown in the top bar */
+function IWantTo({ entries, onGo }: { entries: MenuEntry[]; onGo: (e: MenuEntry) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  return (
+    <div className="iwant" ref={ref}>
+      <button className="home-btn" onClick={() => setOpen(!open)} title="Choose what to do">
+        <span className="hb-icon">{Icons.home}</span> I want to… <span className="caret">▾</span>
+      </button>
+      {open && (
+        <div className="iwant-menu">
+          {entries.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => {
+                setOpen(false)
+                onGo(e)
+              }}
+            >
+              <span className="iw-icon">{Icons[e.icon]}</span>
+              {e.label}
+            </button>
+          ))}
+          {entries.length === 0 && <div className="muted small">No entries. Choose them in Settings → Menus.</div>}
+        </div>
+      )}
     </div>
   )
 }

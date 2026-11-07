@@ -11,7 +11,8 @@ import type { WorkOrder } from '../../shared/workorders'
 import { api } from './api'
 import { receiptHtml } from './receipt'
 import { fullPageSaleHtml, tagsHtml, workOrderHtml } from './printTemplates'
-import { normaliseDesigns, type LabelTemplate, type PrintDesigns } from '../../shared/printDesigns'
+import { normaliseDesigns, type LabelTemplate, type PrintDesigns, type WoLabelData } from '../../shared/printDesigns'
+import { unitLabel } from '../../shared/workorders'
 
 /** Label templates + receipt layout (shared by all tills, kept on the Store Server) */
 export async function printDesigns(): Promise<PrintDesigns> {
@@ -68,10 +69,36 @@ export async function printWorkOrder(wo: WorkOrder): Promise<void> {
   await window.pos.print({ html: workOrderHtml(wo, store, customer, logo), printer: s.fullPagePrinter, letter: true })
 }
 
+/** What a work order label shows */
+export function woLabelData(wo: WorkOrder): WoLabelData {
+  return {
+    number: wo.number,
+    customerName: wo.customerName,
+    phone: wo.customerPhone ?? '',
+    checkedIn: new Date(wo.createdAt).toLocaleDateString(),
+    unit: unitLabel(wo.unit),
+    serial: wo.unit.serial ?? '',
+    problem: wo.problem ?? ''
+  }
+}
+
+/** Print the label stuck on a unit at check-in (customer, WO #, date in, barcode) on the label printer */
+export async function printWorkOrderLabel(wo: WorkOrder, copies?: number): Promise<void> {
+  const [s, designs, { store }] = await Promise.all([currentPrintSettings(), printDesigns(), storeAndLogo()])
+  const t =
+    designs.labels.find((x) => x.id === s.woLabelTemplate && x.kind === 'workorder') ?? designs.labels.find((x) => x.kind === 'workorder') ?? designs.labels[0]
+  await window.pos.print({
+    html: tagsHtml([{ product: {}, qty: Math.max(1, copies ?? s.woLabelCopies), wo: woLabelData(wo) }], store, t),
+    printer: s.labelPrinter,
+    pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
+  })
+}
+
 /** Which label template an item uses: the "no price" one for items without a price (parts, bin labels) */
 export function templateFor(p: Partial<Product>, s: PrintSettings, labels: LabelTemplate[], override?: string | null): LabelTemplate {
   const want = override || ((p.priceCents ?? 0) > 0 ? s.priceTagTemplate : s.noPriceTagTemplate)
-  return labels.find((t) => t.id === want) ?? labels[0]
+  const items = labels.filter((t) => t.kind !== 'workorder')
+  return items.find((t) => t.id === want) ?? labels.find((t) => t.id === want) ?? items[0] ?? labels[0]
 }
 
 /** Print tags on the label printer. override = use this template for every item. One print job per template. */

@@ -141,7 +141,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
               Tag for items <b>with</b> a price
             </span>
             <select value={s.priceTagTemplate} onChange={(e) => set({ priceTagTemplate: e.target.value })}>
-              {(labels ?? []).map((t) => (
+              {(labels ?? []).filter((t) => t.kind !== 'workorder').map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.widthIn}" × {t.heightIn}")
                 </option>
@@ -153,7 +153,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
               Tag for items with <b>no</b> price (parts, bins)
             </span>
             <select value={s.noPriceTagTemplate} onChange={(e) => set({ noPriceTagTemplate: e.target.value })}>
-              {(labels ?? []).map((t) => (
+              {(labels ?? []).filter((t) => t.kind !== 'workorder').map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.widthIn}" × {t.heightIn}")
                 </option>
@@ -161,6 +161,28 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
             </select>
           </label>
         </div>
+        <div className="pset-grid">
+          <label>
+            <span>Work order label (stuck on the unit at check-in)</span>
+            <select value={s.woLabelTemplate} onChange={(e) => set({ woLabelTemplate: e.target.value })}>
+              {(labels ?? [])
+                .filter((t) => t.kind === 'workorder')
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.widthIn}" × {t.heightIn}")
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Copies
+            <input type="number" min={1} max={5} value={s.woLabelCopies} onChange={(e) => set({ woLabelCopies: Math.max(1, Math.min(5, Number(e.target.value) || 1)) })} />
+          </label>
+        </div>
+        <label className="check">
+          <input type="checkbox" checked={s.woLabelAuto} onChange={(e) => set({ woLabelAuto: e.target.checked })} />
+          Print the work order label automatically when a unit is checked in (🏷 Label on a ticket prints it again)
+        </label>
         <p className="muted small">
           Design the labels (what's on them and where) under <b>Settings → Label Designer</b>. Uses the Zebra Windows driver
           (ZDesigner): set the same label size in the driver's printing preferences. Tags are printed from the Item List (🏷 Print

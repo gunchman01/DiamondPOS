@@ -52,6 +52,7 @@ import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { priceSale } from '../../shared/pricing'
 import type {
+  TaxRate,
   DailyReport,
   Health,
   PaymentInput,
@@ -145,9 +146,31 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const put = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     db.transaction(() => {
       if (s.storeName !== undefined) put.run('store_name', String(s.storeName))
-      if (s.taxRate !== undefined) {
+      if (s.taxRates !== undefined) {
+        // The list of tax rates (Settings → Taxes)
+        if (!Array.isArray(s.taxRates) || s.taxRates.length === 0) throw new HttpError(400, 'Add at least one tax rate')
+        const seen = new Set<string>()
+        const list: TaxRate[] = s.taxRates.slice(0, 30).map((t, i) => {
+          const rate = Number(t?.rate)
+          const name = String(t?.name ?? '').trim().slice(0, 40)
+          if (!name) throw new HttpError(400, 'Give each tax rate a name')
+          if (!(rate >= 0 && rate < 1)) throw new HttpError(400, `${name}: the rate must be between 0% and 100%`)
+          let id = String(t?.id ?? '').trim().slice(0, 40) || `tax${i + 1}`
+          while (seen.has(id)) id += 'x'
+          seen.add(id)
+          return { id, name, rate: Math.round(rate * 1e6) / 1e6 }
+        })
+        const def = list.find((t) => t.id === s.defaultTaxRateId) ?? list[0]
+        put.run('tax_rates', JSON.stringify(list))
+        put.run('tax_rate_default', def.id)
+        put.run('tax_rate', String(def.rate))
+      } else if (s.taxRate !== undefined) {
+        // Older tills only know one rate: it changes the default rate
         const rate = Number(s.taxRate)
-        if (!(rate >= 0 && rate < 1)) throw new HttpError(400, 'Tax rate must be between 0 and 1 (e.g. 0.15)')
+        if (!(rate >= 0 && rate < 1)) throw new HttpError(400, 'Tax rate must be between 0 and 1 (e.g. 0.0725)')
+        const cur = readSettings(db)
+        const list = (cur.taxRates ?? []).map((t) => (t.id === cur.defaultTaxRateId ? { ...t, rate } : t))
+        put.run('tax_rates', JSON.stringify(list))
         put.run('tax_rate', String(rate))
       }
       if (s.receiptFooter !== undefined) put.run('receipt_footer', String(s.receiptFooter))
@@ -336,7 +359,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const amt = (m: string) => byMethod.find((r) => r.method === m)?.amount ?? 0
     const refunds = db
       .prepare(
-        `SELECT COUNT(DISTINCT si.sale_id) AS n, COALESCE(SUM(-si.line_total_cents),0) AS cents
+        `SELECT COUNT(DISTINCT si.sale_id) AS n,
+                COALESCE(SUM(-(si.line_total_cents + CASE WHEN s.tax_mode = 'added' THEN COALESCE(si.tax_cents, 0) ELSE 0 END)),0) AS cents
          FROM sale_items si JOIN sales s ON s.id = si.sale_id
          WHERE si.kind = 'return' AND s.status = 'completed' AND date(s.created_at, 'localtime') = ?`
       )
@@ -415,9 +439,19 @@ function sqliteToIso(s: string): string {
 export function readSettings(db: DB): StoreSettings {
   const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  let taxRates: TaxRate[] = []
+  try {
+    taxRates = map.tax_rates ? (JSON.parse(map.tax_rates) as TaxRate[]) : []
+  } catch {
+    /* rebuilt below */
+  }
+  if (!Array.isArray(taxRates) || taxRates.length === 0) taxRates = [{ id: 'tax1', name: 'Sales tax', rate: Number(map.tax_rate ?? 0.0725) }]
+  const def = taxRates.find((t) => t.id === map.tax_rate_default) ?? taxRates[0]
   return {
     storeName: map.store_name ?? 'My Store',
-    taxRate: Number(map.tax_rate ?? 0.15),
+    taxRate: def.rate,
+    taxRates,
+    defaultTaxRateId: def.id,
     receiptFooter: map.receipt_footer ?? '',
     storeAddress: map.store_address ?? '',
     kioskWelcome: map.kiosk_welcome ?? '',
@@ -429,13 +463,18 @@ export function readSettings(db: DB): StoreSettings {
 /**
  * Create a sale. Prices and totals are always worked out HERE on the server
  * (never trusted from the till) so every till charges the same price.
- * Prices are tax-inclusive (e.g. NZ GST); tax is the GST portion of the taxable items.
+ * Shelf prices are before tax; sales tax is added at checkout at the sale's tax rate (Settings → Taxes).
  */
 function createSale(db: DB, req: SaleRequest): Sale {
   if (!req || !Array.isArray(req.items)) throw new HttpError(400, 'Sale has no items')
   if (!Array.isArray(req.payments)) throw new HttpError(400, 'Sale has no payment')
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)
-  const { taxRate } = readSettings(db)
+  // The tax rate for this sale: the one picked on the Sale screen, or the store's default
+  const store = readSettings(db)
+  const chosen = req.taxRateId ? store.taxRates?.find((t) => t.id === req.taxRateId) : undefined
+  if (req.taxRateId && !chosen) throw new HttpError(400, 'That tax rate no longer exists. Pick another one.')
+  const taxInfo = chosen ?? store.taxRates?.find((t) => t.id === store.defaultTaxRateId) ?? { id: 'tax1', name: 'Sales tax', rate: store.taxRate }
+  const taxRate = taxInfo.rate
 
   // Paying for a work order (estimate fee, repair pick-up, or fee credited on a new purchase)
   let woSale: PreparedWoSale | null = null
@@ -520,7 +559,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
         kind: 'wo'
       })
 
-  // Prices are tax inclusive; tax applies to taxable items only, and is removed for exempt sales.
+  // Tax is added on the taxable items at the sale's rate; none on exempt sales.
   // A paid estimate fee is credited last (never more than the sale total).
   const priced = priceWithFeeCredit(lines, taxRate, taxExempt, woSale?.creditAvailableCents ?? 0)
   const creditCents = priced.creditCents
@@ -545,8 +584,9 @@ function createSale(db: DB, req: SaleRequest): Sale {
     l.lineTotalCents = priced.lines[i].lineTotalCents
   })
   // Returned items (negative) are added on top of what's being bought
+  // Returned lines are stored before tax (negative) with their tax alongside; fee-kept lines have no tax
   const retLines = returns?.lines ?? []
-  const totalCents = priced.totalCents + retLines.reduce((s, l) => s + l.lineTotalCents, 0)
+  const totalCents = priced.totalCents + retLines.reduce((s, l) => s + l.lineTotalCents + l.taxCents, 0)
   const taxCents = priced.taxCents + retLines.reduce((s, l) => s + l.taxCents, 0)
   const { taxExemptCents } = priced
   if (totalCents !== 0 && req.payments.length === 0) throw new HttpError(400, totalCents < 0 ? 'Choose how the refund is given' : 'Sale has no payment')
@@ -574,8 +614,9 @@ function createSale(db: DB, req: SaleRequest): Sale {
   const id = db.transaction(() => {
     const info = db
       .prepare(
-        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id, no_receipt_return)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id, no_receipt_return,
+                            tax_mode, tax_rate, tax_rate_id, tax_rate_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'added', ?, ?, ?)`
       )
       .run(
         tillName,
@@ -587,7 +628,10 @@ function createSale(db: DB, req: SaleRequest): Sale {
         taxExempt ? customer!.taxExemptId : null,
         taxExemptCents,
         woSale ? woSale.wo.id : null,
-        returns?.noReceipt ? 1 : 0
+        returns?.noReceipt ? 1 : 0,
+        taxRate,
+        taxInfo.id,
+        taxInfo.name
       )
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
@@ -637,6 +681,9 @@ function getSale(db: DB, id: number): Sale | null {
         tax_exempt_cents: number
         work_order_id: number | null
         no_receipt_return: number
+        tax_mode: 'added' | 'inclusive' | null
+        tax_rate: number | null
+        tax_rate_name: string | null
       } & Pick<
         SaleListRow,
         'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
@@ -648,6 +695,7 @@ function getSale(db: DB, id: number): Sale | null {
     .all(id) as {
     product_sku: string | null
     id: number
+    tax_cents: number | null
     kind: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
     return_of_sale_id: number | null
     return_reason: string | null
@@ -677,7 +725,12 @@ function getSale(db: DB, id: number): Sale | null {
     taxExemptId: s.tax_exempt_id,
     taxExemptCents: s.tax_exempt_cents,
     workOrderId: s.work_order_id ?? null,
-    refundCents: -items.filter((i) => i.kind === 'return').reduce((n, i) => n + i.line_total_cents, 0),
+    taxMode: s.tax_mode ?? 'inclusive',
+    taxRate: s.tax_rate,
+    taxRateName: s.tax_rate_name,
+    refundCents: -items
+      .filter((i) => i.kind === 'return')
+      .reduce((n, i) => n + i.line_total_cents + (s.tax_mode === 'added' ? i.tax_cents ?? 0 : 0), 0),
     noReceiptReturn: s.no_receipt_return === 1,
     items: items.map((i) => ({
       id: i.id,

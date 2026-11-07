@@ -23,6 +23,38 @@ export type LabelField =
   | 'unit'
   | 'store'
   | 'text'
+  // work order labels
+  | 'woNumber'
+  | 'woCustomer'
+  | 'woPhone'
+  | 'woDate'
+  | 'woUnit'
+  | 'woSerial'
+  | 'woProblem'
+
+/** Fields for work order labels (stuck on a unit at check-in) */
+export const WO_LABEL_FIELDS: { field: LabelField; label: string }[] = [
+  { field: 'woCustomer', label: 'Customer name' },
+  { field: 'woNumber', label: 'Work order #' },
+  { field: 'woDate', label: 'Date checked in' },
+  { field: 'woUnit', label: 'Unit (brand, model, type)' },
+  { field: 'woSerial', label: 'Unit serial #' },
+  { field: 'woPhone', label: 'Customer phone' },
+  { field: 'woProblem', label: "What's wrong" },
+  { field: 'store', label: 'Store name' },
+  { field: 'text', label: 'Your own text' }
+]
+
+/** What a work order label prints */
+export interface WoLabelData {
+  number: string
+  customerName: string
+  phone: string
+  checkedIn: string
+  unit: string
+  serial: string
+  problem: string
+}
 
 export const LABEL_FIELDS: { field: LabelField; label: string }[] = [
   { field: 'name', label: 'Item name' },
@@ -42,7 +74,7 @@ export const LABEL_FIELDS: { field: LabelField; label: string }[] = [
 ]
 
 /** Which code a barcode element encodes */
-export type BarcodeSource = 'upc' | 'sku' | 'alu'
+export type BarcodeSource = 'upc' | 'sku' | 'alu' | 'wo'
 
 export interface LabelElement {
   id: string
@@ -68,6 +100,8 @@ export interface LabelElement {
 export interface LabelTemplate {
   id: string
   name: string
+  /** item = price tags / part labels; workorder = label stuck on a unit at check-in */
+  kind: 'item' | 'workorder'
   widthIn: number
   heightIn: number
   elements: LabelElement[]
@@ -283,6 +317,24 @@ export function defaultReceiptZones(): { header: ReceiptZone; footer: ReceiptZon
 }
 
 export const DEFAULT_PRICE_TAG_ID = 'tag-price'
+export const DEFAULT_WO_LABEL_ID = 'tag-wo'
+
+export function defaultWoLabel(): LabelTemplate {
+  return {
+    id: DEFAULT_WO_LABEL_ID,
+    name: 'Work order label',
+    kind: 'workorder',
+    widthIn: 2.25,
+    heightIn: 1.25,
+    elements: [
+      labelElement('text', { field: 'woCustomer', x: 0.05, y: 0.03, w: 2.15, h: 0.24, fontPt: 11, bold: true }),
+      labelElement('text', { field: 'woNumber', x: 0.05, y: 0.27, w: 1.2, h: 0.22, fontPt: 12, bold: true, align: 'left' }),
+      labelElement('text', { field: 'woDate', x: 1.25, y: 0.27, w: 0.95, h: 0.22, fontPt: 8, align: 'right' }),
+      labelElement('text', { field: 'woUnit', x: 0.05, y: 0.49, w: 2.15, h: 0.18, fontPt: 7 }),
+      labelElement('barcode', { barcodeOf: 'wo', x: 0.2, y: 0.69, w: 1.85, h: 0.52 })
+    ]
+  }
+}
 export const DEFAULT_NO_PRICE_TAG_ID = 'tag-noprice'
 
 function defaultMiddle(): ReceiptBlock[] {
@@ -303,6 +355,7 @@ export function defaultDesigns(): PrintDesigns {
       {
         id: DEFAULT_PRICE_TAG_ID,
         name: 'Price tag',
+        kind: 'item',
         widthIn: 2.25,
         heightIn: 1.25,
         elements: [
@@ -315,6 +368,7 @@ export function defaultDesigns(): PrintDesigns {
       {
         id: DEFAULT_NO_PRICE_TAG_ID,
         name: 'Part / bin label (no price)',
+        kind: 'item',
         widthIn: 2.25,
         heightIn: 1.25,
         elements: [
@@ -322,7 +376,8 @@ export function defaultDesigns(): PrintDesigns {
           labelElement('text', { field: 'name', x: 0.05, y: 0.33, w: 2.15, h: 0.36, fontPt: 8 }),
           labelElement('barcode', { barcodeOf: 'sku', x: 0.2, y: 0.72, w: 1.85, h: 0.48 })
         ]
-      }
+      },
+      defaultWoLabel()
     ],
     receipt: {
       version: 2,
@@ -342,7 +397,7 @@ const num = (v: unknown, d: number, min: number, max: number) => {
 const str = (v: unknown, max: number) => String(v ?? '').slice(0, max)
 const pick = <T extends string>(v: unknown, allowed: readonly T[], d: T): T => (allowed.includes(v as T) ? (v as T) : d)
 const ALIGN = ['left', 'center', 'right'] as const
-const FIELDS = LABEL_FIELDS.map((f) => f.field)
+const FIELDS = [...LABEL_FIELDS, ...WO_LABEL_FIELDS].map((f) => f.field)
 const BLOCKS = RECEIPT_BLOCKS.map((b) => b.type)
 
 /** Clean up designs sent by a till (or read from the database) so bad values can't break printing */
@@ -356,6 +411,7 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
         return {
           id: str(t?.id, 40) || newId('t'),
           name: str(t?.name, 60) || `Label ${i + 1}`,
+          kind: pick(t?.kind, ['item', 'workorder'] as const, 'item'),
           widthIn: w,
           heightIn: h,
           elements: (Array.isArray(t?.elements) ? t.elements : []).slice(0, 40).map((e) => {
@@ -365,7 +421,7 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
               id: str(e?.id, 40) || base.id,
               field: pick(e?.field, FIELDS, 'name'),
               text: str(e?.text, 200),
-              barcodeOf: pick(e?.barcodeOf, ['upc', 'sku', 'alu'] as const, 'upc'),
+              barcodeOf: pick(e?.barcodeOf, ['upc', 'sku', 'alu', 'wo'] as const, 'upc'),
               showCode: e?.showCode !== false,
               x: num(e?.x, 0, 0, w),
               y: num(e?.y, 0, 0, h),
@@ -440,7 +496,10 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
     const old = Array.isArray(r.blocks) ? r.blocks.map(cleanBlock).filter((b) => MIDDLE_BLOCKS.includes(b.type)) : []
     receipt = { version: 2, font: pick(r.font, ['mono', 'sans'] as const, 'mono'), ...zones, blocks: old.length ? old : defaultMiddle() }
   }
-  return { labels: labels.length ? labels : d.labels, receipt }
+  const finalLabels = labels.length ? labels : d.labels
+  // Older saved designs have no work order label yet: add the standard one
+  if (!finalLabels.some((t) => t.kind === 'workorder')) finalLabels.push(defaultWoLabel())
+  return { labels: finalLabels, receipt }
 }
 
 /** The text a label field shows for an item */
@@ -448,9 +507,24 @@ export function labelFieldValue(
   e: Pick<LabelElement, 'field' | 'text'>,
   p: Partial<Product>,
   store: Pick<StoreSettings, 'storeName'>,
-  money: (c: number) => string
+  money: (c: number) => string,
+  wo?: WoLabelData | null
 ): string {
   switch (e.field) {
+    case 'woNumber':
+      return wo?.number ?? ''
+    case 'woCustomer':
+      return wo?.customerName ?? ''
+    case 'woPhone':
+      return wo?.phone ?? ''
+    case 'woDate':
+      return wo?.checkedIn ?? ''
+    case 'woUnit':
+      return wo?.unit ?? ''
+    case 'woSerial':
+      return wo?.serial ? `S/N ${wo.serial}` : ''
+    case 'woProblem':
+      return wo?.problem ?? ''
     case 'name':
       return p.name ?? ''
     case 'description':
@@ -483,7 +557,8 @@ export function labelFieldValue(
 }
 
 /** Code a barcode element encodes (falls back to Item # / UPC when the chosen one is empty) */
-export function barcodeValue(src: BarcodeSource, p: Partial<Product>): string {
+export function barcodeValue(src: BarcodeSource, p: Partial<Product>, wo?: WoLabelData | null): string {
+  if (src === 'wo' || wo) return wo?.number ?? ''
   const v = src === 'upc' ? p.barcode : src === 'alu' ? p.alu : p.sku
   return (v || p.barcode || p.sku || '').trim()
 }

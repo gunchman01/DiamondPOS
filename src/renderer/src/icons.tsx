@@ -143,6 +143,14 @@ export const Icons = {
       <path d="M24 14v17M16.5 23.5L24 31l7.5-7.5" />
     </Svg>
   ),
+  tax: (
+    <Svg>
+      <rect x="9" y="5" width="30" height="38" rx="3" />
+      <path d="M17 31l14-14" />
+      <circle cx="18" cy="18" r="2.5" />
+      <circle cx="30" cy="30" r="2.5" />
+    </Svg>
+  ),
   printer: (
     <Svg>
       <path d="M14 18V6h20v12" />

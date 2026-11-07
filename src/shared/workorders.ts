@@ -108,7 +108,7 @@ export interface WoLine {
   description: string
   sku: string | null
   qty: number // hours for labor
-  unitPriceCents: number // tax inclusive, like shelf prices
+  unitPriceCents: number // before tax, like shelf prices
   taxable: boolean
   /** Parts: how many have been taken out of stock for this ticket */
   stockTaken: number
@@ -184,6 +184,8 @@ export interface WoTotals {
   laborHours: number
   shopCents: number
   miscCents: number
+  /** Before tax */
+  subtotalCents: number
   totalCents: number
   taxCents: number
   taxExempt: boolean
@@ -210,6 +212,7 @@ export function woTotals(lines: Pick<WoLine, 'kind' | 'qty' | 'unitPriceCents' |
     laborHours: lines.filter((l) => l.kind === 'labor').reduce((s, l) => s + l.qty, 0),
     shopCents: sum('shop'),
     miscCents: sum('misc'),
+    subtotalCents: priced.subtotalCents,
     totalCents: priced.totalCents,
     taxCents: priced.taxCents,
     taxExempt,
@@ -240,7 +243,7 @@ export interface EstimateFeeSettings {
 
 export interface WoSettings {
   estimateFee: EstimateFeeSettings
-  laborRateCents: number // per hour, tax inclusive
+  laborRateCents: number // per hour, before tax
   laborTaxable: boolean
   shopTaxable: boolean
   shopSupplies: Record<UnitCategory, ShopSupply>
@@ -329,7 +332,7 @@ export interface WoSaleLine {
   description: string
   productId: number | null
   department: string | null
-  unitPriceCents: number // per unit, tax inclusive (negative for the fee credit)
+  unitPriceCents: number // per unit, before tax (negative for the fee credit)
   qty: number // whole number
   taxable: boolean
   credit?: boolean

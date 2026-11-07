@@ -273,7 +273,7 @@ export default function ItemEditor(props: ItemEditorProps) {
               </Row>
               <Row label="Tax">
                 <select value={form.taxable ? 'tax' : 'none'} onChange={(e) => set('taxable', e.target.value === 'tax')}>
-                  <option value="tax">Taxable (GST)</option>
+                  <option value="tax">Taxable</option>
                   <option value="none">Non-taxable</option>
                 </select>
               </Row>

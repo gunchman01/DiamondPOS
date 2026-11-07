@@ -24,6 +24,8 @@ interface SaleRow {
   total_cents: number
   tax_cents: number
   tax_exempt: number
+  /** 'added' (tax on top, v0.3.16+) or 'inclusive' (older sales: tax inside the line amounts) */
+  tax_mode: string | null
 }
 
 /** Dates (YYYY-MM-DD, store local time) that have completed sales, from `from` up to but not including `before` */
@@ -69,7 +71,7 @@ export function dailySummaries(
 ): QbDailySummary[] {
   const sales = db
     .prepare(
-      `SELECT id, total_cents, tax_cents, tax_exempt FROM sales
+      `SELECT id, total_cents, tax_cents, tax_exempt, tax_mode FROM sales
        WHERE status = 'completed' AND date(created_at, 'localtime') = ? ORDER BY id`
     )
     .all(saleDate) as SaleRow[]
@@ -111,8 +113,9 @@ export function dailySummaries(
     const group = sales.filter((s) => (methodOf.get(s.id) ?? 'cash') === method)
     if (group.length === 0) continue
 
-    const taxableGross = new Map<string, number>()
+    const taxableNet = new Map<string, number>()
     const nonTaxable = new Map<string, number>()
+    const add = (m: Map<string, number>, d: string, v: number) => m.set(d, (m.get(d) ?? 0) + v)
     let tax = 0
     let total = 0
     let exemptCount = 0
@@ -120,17 +123,18 @@ export function dailySummaries(
       total += s.total_cents
       tax += s.tax_cents
       if (s.tax_exempt) exemptCount++
-      for (const it of itemsBySale.get(s.id) ?? []) {
-        const dept = it.dept ?? ''
-        if (it.taxable && !s.tax_exempt) taxableGross.set(dept, (taxableGross.get(dept) ?? 0) + it.amount)
-        else nonTaxable.set(dept, (nonTaxable.get(dept) ?? 0) + it.amount)
+      const its = itemsBySale.get(s.id) ?? []
+      const taxed = its.filter((it) => it.taxable && !s.tax_exempt)
+      for (const it of its) if (!(it.taxable && !s.tax_exempt)) add(nonTaxable, it.dept ?? '', it.amount)
+      if (s.tax_mode === 'added') {
+        // Line amounts are already before tax
+        for (const it of taxed) add(taxableNet, it.dept ?? '', it.amount)
+      } else {
+        // Older tax-inclusive sale: take this sale's tax out of its taxable lines
+        const share = allocate(s.tax_cents, taxed.map((it) => it.amount))
+        taxed.forEach((it, i) => add(taxableNet, it.dept ?? '', it.amount - share[i]))
       }
     }
-
-    // Take the tax out of the taxable gross, department by department
-    const depts = [...taxableGross.keys()]
-    const taxShare = allocate(tax, depts.map((d) => taxableGross.get(d)!))
-    const taxableNet = new Map(depts.map((d, i) => [d, taxableGross.get(d)! - taxShare[i]]))
     const taxableNetTotal = [...taxableNet.values()].reduce((a, b) => a + b, 0)
     const qbTax = Math.round(taxableNetTotal * (qbTaxRate ?? storeTaxRate))
 

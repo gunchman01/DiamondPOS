@@ -3,6 +3,7 @@ import type { DailyReport } from '../../../shared/types'
 import { api } from '../api'
 import { money, today } from '../format'
 import { IconName, Icons } from '../icons'
+import type { MenuEntry } from '../menus'
 
 /** Tabs that already exist; tiles for these open the real page. */
 export type NavTarget =
@@ -84,19 +85,18 @@ const OPERATIONS: Section = {
   ]
 }
 
-const QUICK_BUTTONS: Tile[] = [
-  { icon: 'makeSale', label: 'Make a Sale', go: 'sell' },
-  { icon: 'workOrders', label: 'Work Orders', go: 'workorders' },
-  { icon: 'itemList', label: 'Item List', go: 'products' },
-  { icon: 'customers', label: 'Customer List', go: 'customers' },
-  { icon: 'salesHistory', label: 'Sales History', go: 'reports' },
-  { icon: 'endOfDay', label: 'End of Day' },
-  { icon: 'help', label: 'Help / Manual', go: 'help' },
-  { icon: 'feedback', label: 'Feedback & Requests', go: 'feedback' }
-]
 
 /** Home screen: quick-launch buttons + today's totals on the left, the Navigator filling the rest. */
-export default function Home({ onNavigate }: { onNavigate: (t: NavTarget) => void }) {
+export default function Home({
+  onNavigate,
+  buttons,
+  onGo
+}: {
+  onNavigate: (t: NavTarget) => void
+  /** Buttons down the left (Settings → Menus) */
+  buttons: MenuEntry[]
+  onGo: (e: MenuEntry) => void
+}) {
   const [report, setReport] = useState<DailyReport | null>(null)
   const [toast, setToast] = useState('')
 
@@ -116,8 +116,8 @@ export default function Home({ onNavigate }: { onNavigate: (t: NavTarget) => voi
     <div className="home">
       {/* ---------- Left: quick-launch buttons + today ---------- */}
       <aside className="home-left">
-        {QUICK_BUTTONS.map((b) => (
-          <button key={b.label} className="home-quick-btn" onClick={() => open(b)}>
+        {buttons.map((b) => (
+          <button key={b.id} className="home-quick-btn" onClick={() => onGo(b)}>
             <span className="hq-icon">{Icons[b.icon]}</span>
             {b.label}
           </button>

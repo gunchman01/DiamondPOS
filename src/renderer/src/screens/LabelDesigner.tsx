@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Product, StoreSettings } from '../../../shared/types'
 import { LABEL_SIZES } from '../../../shared/printing'
 import {
+  WO_LABEL_FIELDS,
+  type WoLabelData,
   LABEL_FIELDS,
   labelElement,
   newId,
@@ -11,8 +13,18 @@ import {
   type PrintDesigns
 } from '../../../shared/printDesigns'
 import { api } from '../api'
-import { labelContentCss, labelElementInner } from '../printTemplates'
-import { SAMPLE_ITEM, printTags } from '../printing'
+import { labelContentCss, labelElementInner, tagsHtml } from '../printTemplates'
+import { SAMPLE_ITEM, currentPrintSettings, printTags } from '../printing'
+
+const SAMPLE_WO: WoLabelData = {
+  number: 'WO-000412',
+  customerName: 'Kristy Abercrombie',
+  phone: '021 543 4321',
+  checkedIn: new Date().toLocaleDateString(),
+  unit: 'Exmark Radius S Zero-Turn Mower',
+  serial: 'EX-406551',
+  problem: "Won't start after winter"
+}
 
 const SNAP = 0.05
 const snap = (v: number, fine: boolean) => Math.round(v / (fine ? 0.01 : SNAP)) * (fine ? 0.01 : SNAP)
@@ -59,6 +71,8 @@ export default function LabelDesigner() {
   }, [])
 
   const t = designs?.labels.find((x) => x.id === tid) ?? null
+  const isWo = t?.kind === 'workorder'
+  const fields = isWo ? WO_LABEL_FIELDS : LABEL_FIELDS
   const el = t?.elements.find((e) => e.id === sel) ?? null
   // Show the label about 520 px wide (or 300 px tall)
   const scale = t ? Math.min(520 / (t.widthIn * 96), 300 / (t.heightIn * 96), 4) : 1
@@ -126,11 +140,11 @@ export default function LabelDesigner() {
     setTemplate({ elements: [...t.elements, e] })
     setSel(e.id)
   }
-  function newTemplate(copy?: LabelTemplate) {
+  function newTemplate(copy?: LabelTemplate, kind: LabelTemplate['kind'] = 'item') {
     if (!designs) return
     const nt: LabelTemplate = copy
       ? { ...copy, id: newId('t'), name: `${copy.name} (copy)`, elements: copy.elements.map((e) => ({ ...e, id: newId('e') })) }
-      : { id: newId('t'), name: 'New label', widthIn: 2.25, heightIn: 1.25, elements: [] }
+      : { id: newId('t'), name: kind === 'workorder' ? 'New work order label' : 'New label', kind, widthIn: 2.25, heightIn: 1.25, elements: [] }
     setDesigns({ ...designs, labels: [...designs.labels, nt] })
     setTid(nt.id)
     setSel(null)
@@ -138,6 +152,8 @@ export default function LabelDesigner() {
   }
   function deleteTemplate() {
     if (!designs || !t || designs.labels.length <= 1) return
+    if (t.kind === 'workorder' && designs.labels.filter((x) => x.kind === 'workorder').length <= 1)
+      return setMsg({ ok: false, text: 'Keep at least one work order label' })
     if (!confirm(`Delete the label "${t.name}"?`)) return
     const rest = designs.labels.filter((x) => x.id !== t.id)
     setDesigns({ ...designs, labels: rest })
@@ -158,7 +174,14 @@ export default function LabelDesigner() {
     if (!t) return
     if (dirty) await save()
     try {
-      await printTags([{ product: preview as Product, qty: 1 }], t.id)
+      if (isWo) {
+        const ps = await currentPrintSettings()
+        await window.pos.print({
+          html: tagsHtml([{ product: {}, qty: 1, wo: SAMPLE_WO }], store!, t),
+          printer: ps.labelPrinter,
+          pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
+        })
+      } else await printTags([{ product: preview as Product, qty: 1 }], t.id)
       setMsg({ ok: true, text: 'Test label sent to the label printer' })
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message })
@@ -203,13 +226,17 @@ export default function LabelDesigner() {
             >
               <b>{x.name}</b>
               <span className="muted small">
+                {x.kind === 'workorder' ? '🔧 Work order · ' : ''}
                 {x.widthIn}" × {x.heightIn}"
               </span>
             </button>
           ))}
         </div>
         <div className="row gap wrap">
-          <button onClick={() => newTemplate()}>+ New</button>
+          <button onClick={() => newTemplate()}>+ New tag</button>
+          <button onClick={() => newTemplate(undefined, 'workorder')} title="Label stuck on a unit at check-in">
+            + Work order label
+          </button>
           <button disabled={!t} onClick={() => t && newTemplate(t)}>
             Copy
           </button>
@@ -260,32 +287,37 @@ export default function LabelDesigner() {
       {/* ---------- Canvas ---------- */}
       <section className="ds-main">
         <div className="ds-toolbar">
-          <select value={addField} onChange={(e) => setAddField(e.target.value as LabelField)}>
-            {LABEL_FIELDS.map((f) => (
+          <select value={fields.some((f) => f.field === addField) ? addField : fields[0].field} onChange={(e) => setAddField(e.target.value as LabelField)}>
+            {fields.map((f) => (
               <option key={f.field} value={f.field}>
                 {f.label}
               </option>
             ))}
           </select>
           <button
-            onClick={() =>
+            onClick={() => {
+              const f = fields.some((x) => x.field === addField) ? addField : fields[0].field
               addEl('text', {
-                field: addField,
-                text: addField === 'text' ? 'Your text' : '',
-                fontPt: addField === 'price' ? 16 : 9,
-                bold: addField === 'price' || addField === 'name'
+                field: f,
+                text: f === 'text' ? 'Your text' : '',
+                fontPt: f === 'price' || f === 'woNumber' ? 16 : 9,
+                bold: ['price', 'name', 'woNumber', 'woCustomer'].includes(f)
               })
-            }
+            }}
           >
             + Add field
           </button>
-          <button onClick={() => addEl('barcode')}>+ Barcode</button>
+          <button onClick={() => addEl('barcode', isWo ? { barcodeOf: 'wo' } : {})}>+ Barcode</button>
           <button onClick={() => addEl('line', { w: t ? t.widthIn - 0.2 : 2 })}>+ Line</button>
           <span className="spacer" />
+          {isWo ? (
+            <span className="muted small">Preview: sample work order {SAMPLE_WO.number}</span>
+          ) : (
           <form className="row gap" onSubmit={loadPreview}>
             <input placeholder="Preview with item # / UPC" value={itemQuery} onChange={(e) => setItemQuery(e.target.value)} style={{ width: 190 }} />
             <button type="submit">Preview</button>
           </form>
+          )}
         </div>
 
         {t && (
@@ -307,7 +339,7 @@ export default function LabelDesigner() {
                       drag.current = { id: e.id, mode: 'move', sx: ev.clientX, sy: ev.clientY, orig: e }
                     }}
                   >
-                    <div style={cssToStyle(labelContentCss(e))} dangerouslySetInnerHTML={{ __html: labelElementInner(e, preview, store) }} />
+                    <div style={cssToStyle(labelContentCss(e))} dangerouslySetInnerHTML={{ __html: labelElementInner(e, preview, store, isWo ? SAMPLE_WO : null) }} />
                     {e.id === sel && (
                       <span
                         className="ds-handle"
@@ -351,7 +383,7 @@ export default function LabelDesigner() {
                 <label>
                   Shows
                   <select value={el.field} onChange={(e) => setEl(el.id, { field: e.target.value as LabelField })}>
-                    {LABEL_FIELDS.map((f) => (
+                    {fields.map((f) => (
                       <option key={f.field} value={f.field}>
                         {f.label}
                       </option>
@@ -388,9 +420,15 @@ export default function LabelDesigner() {
                 <label>
                   Code
                   <select value={el.barcodeOf} onChange={(e) => setEl(el.id, { barcodeOf: e.target.value as LabelElement['barcodeOf'] })}>
-                    <option value="upc">UPC (or Item # if no UPC)</option>
-                    <option value="sku">Item #</option>
-                    <option value="alu">ALU</option>
+                    {isWo ? (
+                      <option value="wo">Work order # (scan it in Work Orders)</option>
+                    ) : (
+                      <>
+                        <option value="upc">UPC (or Item # if no UPC)</option>
+                        <option value="sku">Item #</option>
+                        <option value="alu">ALU</option>
+                      </>
+                    )}
                   </select>
                 </label>
                 <label className="check">

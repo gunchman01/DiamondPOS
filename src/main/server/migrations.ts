@@ -442,6 +442,19 @@ export const migrations: Migration[] = [
       );
       CREATE INDEX idx_held_status ON held_sales(status);
     `
+  },
+  {
+    version: 17,
+    name: 'sales tax added at checkout, multiple tax rates',
+    up: `
+      -- How each sale was taxed: older sales had tax-inclusive prices; from v0.3.16 tax is added at checkout
+      ALTER TABLE sales ADD COLUMN tax_mode TEXT NOT NULL DEFAULT 'inclusive';
+      ALTER TABLE sales ADD COLUMN tax_rate REAL;
+      ALTER TABLE sales ADD COLUMN tax_rate_id TEXT;
+      ALTER TABLE sales ADD COLUMN tax_rate_name TEXT;
+      -- Older sales: remember the store rate they were taxed at
+      UPDATE sales SET tax_rate = (SELECT CAST(value AS REAL) FROM settings WHERE key = 'tax_rate') WHERE tax_rate IS NULL;
+    `
   }
 ]
 

@@ -19,6 +19,8 @@ export interface AppConfig {
   saleColumns?: string[]
   /** Printers and what prints where (Settings → Printing) */
   printing?: Partial<PrintSettings>
+  /** "I want to…" menu and Home screen buttons for this computer (Settings → Menus); ids from renderer menus.ts */
+  menus?: { top?: string[]; home?: string[] }
 }
 
 export interface BootInfo {
@@ -39,12 +41,12 @@ export interface Product {
   description: string | null
   size: string | null
   attribute: string | null
-  /** Regular selling price, GST inclusive */
+  /** Regular selling price, before sales tax */
   priceCents: number
   /** Average unit cost */
   costCents: number | null
   onHand: number
-  /** false = no GST on this item */
+  /** false = no sales tax on this item */
   taxable: boolean
   /** UPC / barcode */
   barcode: string | null
@@ -113,6 +115,8 @@ export interface SaleRequest {
   workOrder?: { id: number; mode: 'fee' | 'repair' | 'credit' }
   /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
   items: { productId: number; qty: number; serial?: string }[]
+  /** Tax rate picked on the Sale screen (Settings → Taxes); omitted = the store's default */
+  taxRateId?: string | null
   /** Ringing up a held receipt: it's marked done when the sale is saved */
   heldId?: number | null
   /** Items coming back (returns / exchanges). A negative total = refund; then payments are negative (money given back). */
@@ -153,6 +157,10 @@ export interface Sale {
   /** Tax removed because the sale was tax exempt */
   taxExemptCents: number
   workOrderId: number | null
+  /** 'added' = tax on top of the prices (v0.3.16+); 'inclusive' = older sale, tax inside the prices */
+  taxMode?: 'added' | 'inclusive'
+  taxRate?: number | null
+  taxRateName?: string | null
   /** Refunded on this sale (returned items, positive number) */
   refundCents?: number
   /** Return made without the original receipt */
@@ -278,9 +286,23 @@ export interface DailyReport {
   refundCents?: number
 }
 
+/** A sales tax rate the store can charge (Settings → Taxes) */
+export interface TaxRate {
+  id: string
+  name: string
+  /** Fraction, e.g. 0.07975 for 7.975% */
+  rate: number
+}
+
+export const taxRateLabel = (t: Pick<TaxRate, 'name' | 'rate'>) => `${t.name} ${Math.round(t.rate * 100000) / 1000}%`
+
 export interface StoreSettings {
   storeName: string
+  /** The default tax rate (same as the default entry in taxRates) */
   taxRate: number
+  /** All tax rates; the Sale screen can pick one per sale */
+  taxRates?: TaxRate[]
+  defaultTaxRateId?: string
   receiptFooter: string
   /** Postal address (required in marketing emails) */
   storeAddress: string

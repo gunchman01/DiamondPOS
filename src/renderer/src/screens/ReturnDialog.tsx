@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, type Customer, type Product } from '../../../shared/types'
-import { RETURN_REASONS, type CustomerReceipt, type ReturnableSale } from '../../../shared/returns'
+import { RETURN_REASONS, returnAmount, type CustomerReceipt, type ReturnableSale } from '../../../shared/returns'
 import { api } from '../api'
 import { dateTime, money } from '../format'
 import CustomerPicker from './CustomerPicker'
@@ -21,6 +21,9 @@ export interface ReturnLine {
   taxable: boolean
   /** The original receipt was tax exempt (no tax in the refund) */
   origExempt: boolean
+  /** How the original receipt was taxed and its rate (null = no receipt: today's price + this sale's rate) */
+  origTaxMode: 'added' | 'inclusive' | null
+  origTaxRate: number | null
   reason: string
   restock: boolean
   tracksStock: boolean
@@ -112,7 +115,7 @@ export default function ReturnDialog(props: {
       const left = l.qtySold - l.qtyReturned - onSale(l.saleItemId)
       if (!Number.isInteger(q) || q <= 0) problems.push(`${l.name}: enter how many are coming back`)
       else if (q > left) problems.push(`${l.name}: only ${left} can be returned`)
-      else refund += q * l.unitPaidCents
+      else refund += returnAmount(l.unitPaidCents, q, l.taxable, receipt.taxExempt, receipt.taxRate, receipt.taxMode).amountCents
       if (!p.reason) problems.push(`${l.name}: choose a reason`)
     }
     const kept = Math.max(0, refund - receipt.refundableCents)
@@ -132,6 +135,8 @@ export default function ReturnDialog(props: {
             unitCents: l.unitPaidCents,
             taxable: l.taxable,
             origExempt: receipt.taxExempt,
+            origTaxMode: receipt.taxMode,
+            origTaxRate: receipt.taxRate,
             reason: p.reason,
             restock: p.restock && l.tracksStock,
             tracksStock: l.tracksStock
@@ -235,7 +240,7 @@ export default function ReturnDialog(props: {
           {error && <div className="error-text">{error}</div>}
           <div className="row between">
             <span>
-              Refund for these items: <b>{money(refund - kept)}</b>
+              Refund for these items (with tax): <b>{money(refund - kept)}</b>
             </span>
             <div className="row gap">
               <button onClick={props.onCancel}>Cancel</button>
@@ -406,6 +411,8 @@ function NoReceiptReturn(props: { onBack: () => void; onCancel: () => void; onAd
                 unitCents: item.priceCents,
                 taxable: item.taxable !== false,
                 origExempt: false,
+                origTaxMode: null,
+                origTaxRate: null,
                 reason,
                 restock: restock && tracks,
                 tracksStock: tracks

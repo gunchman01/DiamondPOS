@@ -1,6 +1,7 @@
 import type { Sale, StoreSettings } from '../../shared/types'
 import { defaultDesigns, type ReceiptBlock, type ReceiptElement, type ReceiptLayout, type ReceiptZone } from '../../shared/printDesigns'
 import { code128Svg } from './code128'
+import { taxName } from './printTemplates'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
@@ -113,9 +114,13 @@ export function receiptHtml(
         return `<table style="${style(b)}">${rows}</table>`
       }
       case 'totals':
-        return `<table style="${style(b)}">${row(refund ? 'REFUND' : 'TOTAL', money(Math.abs(sale.totalCents)), 'big')}${
-          sale.taxExempt ? '' : row('Includes tax', money(sale.taxCents))
-        }</table>`
+        return sale.taxMode === 'added'
+          ? `<table style="${style(b)}">${row('Subtotal', money(sale.totalCents - sale.taxCents))}${
+              sale.taxExempt ? row('Tax exempt', money(0)) : row(esc(taxName(sale)), money(sale.taxCents))
+            }${row(refund ? 'REFUND' : 'TOTAL', money(Math.abs(sale.totalCents)), 'big')}</table>`
+          : `<table style="${style(b)}">${row(refund ? 'REFUND' : 'TOTAL', money(Math.abs(sale.totalCents)), 'big')}${
+              sale.taxExempt ? '' : row('Includes tax', money(sale.taxCents))
+            }</table>`
       case 'taxExempt':
         return sale.taxExempt
           ? `<table style="${style(b)}">${row('TAX EXEMPT', '-' + money(sale.taxExemptCents))}<tr><td colspan="2">Farm Tax ID: ${esc(sale.taxExemptId ?? '')}</td></tr></table>`

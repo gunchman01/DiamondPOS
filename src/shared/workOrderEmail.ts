@@ -46,7 +46,7 @@ ${c.bill.lines
       `<td align="right" style="padding:6px 8px;border-bottom:1px solid #e5e7eb">${money(Math.round(l.unitPriceCents * l.qty))}</td></tr>`
   )
   .join('')}
-${c.bill.totals.taxExempt ? `<tr><td colspan="3" align="right" style="padding:6px 8px">Tax exempt</td><td align="right" style="padding:6px 8px">-${money(c.bill.totals.taxExemptCents)}</td></tr>` : `<tr><td colspan="3" align="right" style="padding:6px 8px;color:#6b7280">Tax included</td><td align="right" style="padding:6px 8px;color:#6b7280">${money(c.bill.totals.taxCents)}</td></tr>`}
+${c.bill.totals.taxExempt ? `<tr><td colspan="3" align="right" style="padding:6px 8px">Tax exempt</td><td align="right" style="padding:6px 8px">-${money(c.bill.totals.taxExemptCents)}</td></tr>` : `<tr><td colspan="3" align="right" style="padding:6px 8px;color:#6b7280">Subtotal</td><td align="right" style="padding:6px 8px;color:#6b7280">${money(c.bill.totals.subtotalCents ?? c.bill.totals.totalCents - c.bill.totals.taxCents)}</td></tr><tr><td colspan="3" align="right" style="padding:6px 8px;color:#6b7280">Sales tax</td><td align="right" style="padding:6px 8px;color:#6b7280">${money(c.bill.totals.taxCents)}</td></tr>`}
 <tr><td colspan="3" align="right" style="padding:8px;font-size:16px"><b>Total</b></td><td align="right" style="padding:8px;font-size:16px"><b>${money(c.bill.totals.totalCents)}</b></td></tr>
 ${c.bill.feeCreditCents ? `<tr><td colspan="3" align="right" style="padding:6px 8px">Estimate fee already paid</td><td align="right" style="padding:6px 8px">-${money(c.bill.feeCreditCents)}</td></tr>
 <tr><td colspan="3" align="right" style="padding:8px;font-size:16px;color:#9b0c23"><b>Balance due</b></td><td align="right" style="padding:8px;font-size:16px;color:#9b0c23"><b>${money(c.bill.balanceDueCents)}</b></td></tr>` : ''}
@@ -71,7 +71,7 @@ export function woEmailText(c: WoEmailContent): string {
         ...c.bill.lines.map(
           (l) => `${l.description} - ${l.kind === 'labor' ? `${l.qty} hr` : `x${l.qty}`} - ${money(Math.round(l.unitPriceCents * l.qty))}`
         ),
-        c.bill.totals.taxExempt ? `Tax exempt: -${money(c.bill.totals.taxExemptCents)}` : `Tax included: ${money(c.bill.totals.taxCents)}`,
+        c.bill.totals.taxExempt ? `Tax exempt: -${money(c.bill.totals.taxExemptCents)}` : `Sales tax: ${money(c.bill.totals.taxCents)}`,
         `TOTAL: ${money(c.bill.totals.totalCents)}`,
         ...(c.bill.feeCreditCents
           ? [`Estimate fee already paid: -${money(c.bill.feeCreditCents)}`, `BALANCE DUE: ${money(c.bill.balanceDueCents)}`]
