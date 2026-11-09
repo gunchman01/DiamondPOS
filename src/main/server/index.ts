@@ -49,6 +49,7 @@ import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
 import { normaliseDesigns } from '../../shared/printDesigns'
 import { registerFeedbackRoutes } from './feedback'
 import { completeHeld, registerHeldRoutes } from './held'
+import { registerDeleteRoutes } from './deleting'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
@@ -243,6 +244,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   app.get('/api/customers', (req, res) => {
     res.json(searchCustomers(db, String(req.query.search ?? ''), req.query.includeInactive === '1'))
   })
+
+  // Delete items / customers (ones with history are made inactive instead)
+  registerDeleteRoutes(app, db)
 
   // Every customer, for Export to Excel
   app.get('/api/customers/all', (_req, res) => res.json(allCustomers(db)))

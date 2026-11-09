@@ -377,11 +377,16 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] Item window: MSRP, Custom Prices 1-4, Unit of Measure is now free text with suggestions (imported "EACH"/"EA" kept), on-hand decimals, **Other details (imported)** list.
 - Verified with Greg's real "QB POS Inventory Items Export.xls" (22,215 rows, 97 columns): 32 columns mapped to item fields, 18 more kept as other details (Order By Unit, Sell By Unit, Income/COGS/Asset Account, Department Code, Vendor Code, QB ListID, Unit of Measure 1 + its UPC/ALU/prices), 47 empty columns skipped; 22,214 items imported in < 1 s (dry run 1 s), 1 problem: Item Number 49113 is used twice (SUNGLASSES … and LEVER); re-import = 0 new; ALU lookup works; export → import round trip clean. TypeScript; items/import/customer import/designs suites pass.
 
+### 9 Nov 2026: Delete items and customers (next release **v0.3.19**, no DB change)
+- [x] `src/main/server/deleting.ts`: `POST /api/products/delete` and `/api/customers/delete` `{ ids }` → `DeleteResult` (`shared/deleting.ts`). No history → row erased (customers: their units without work orders, marketing send rows removed, held receipts unlinked). On sales / work orders (products: `sale_items`, `work_order_lines`; customers: `sales`, `work_orders`) → `active = 0` (products also leave Quick Picks), with the reason.
+- [x] UI: 🗑 Delete in the item and customer windows; tick boxes + "tick all shown" + **Delete selected (n)** on the Item List and Customer List; plain-words result (`renderer/src/deleteText.ts`).
+- Verified: new `deleting.ts` test (erase vs inactive for items and customers, not found, receipts unaffected, held receipt unlinked, hidden from search); TypeScript.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18), **v0.3.18**: QuickBooks POS inventory import (DB migration 19).
+**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18), **v0.3.18**: QuickBooks POS inventory import (DB migration 19), **v0.3.19**: delete items and customers.
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount % and Custom Price levels (from QB POS) by customer type; selling by case (Unit of Measure 1); QuickBooks tax item per tax rate

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
 import { api } from '../api'
+import { customerDisplayName } from '../../../shared/types'
 import SaleDialog from './SaleDialog'
+import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { dateTime, money } from '../format'
 import TaxExemptBadge from '../TaxExemptBadge'
 
@@ -87,6 +89,8 @@ export interface CustomerEditorProps {
   onClose: () => void
   /** Hide "Save & New" (used when adding a customer from a sale) */
   single?: boolean
+  /** Called after the customer was deleted (or made inactive), with a message. Shows the Delete button. */
+  onDeleted?: (message: string) => void
 }
 
 /** Add / edit customer window. */
@@ -155,6 +159,20 @@ export default function CustomerEditor(props: CustomerEditorProps) {
     } catch (e) {
       setError((e as Error).message)
     } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove() {
+    if (editingId === null) return
+    const name = detail ? customerDisplayName(detail.customer) : 'this customer'
+    if (!confirm(`Delete ${name}?\n\n${DELETE_EXPLAIN}`)) return
+    setBusy(true)
+    try {
+      const r = await api.deleteCustomers([editingId])
+      props.onDeleted?.(deleteSummary(r, 'customer'))
+    } catch (e) {
+      setError((e as Error).message)
       setBusy(false)
     }
   }
@@ -389,6 +407,11 @@ export default function CustomerEditor(props: CustomerEditorProps) {
           <div className="id-msg">
             {error ? <span className="error-text">{error}</span> : notice && <span className="ok-text">{notice}</span>}
           </div>
+          {editingId !== null && props.onDeleted && (
+            <button type="button" className="danger" disabled={busy} onClick={remove} title="Delete this customer">
+              🗑 Delete
+            </button>
+          )}
           <button type="submit" className="primary" disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
           </button>

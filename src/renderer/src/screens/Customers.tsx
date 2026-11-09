@@ -3,6 +3,7 @@ import { customerDisplayName, type Customer } from '../../../shared/types'
 import { api } from '../api'
 import CustomerEditor from './CustomerEditor'
 import ImportCustomers from './ImportCustomers'
+import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { CUSTOMER_COLUMNS, customerToRow } from '../../../shared/customerImport'
 import { writeSpreadsheet } from '../spreadsheet'
 import { today } from '../format'
@@ -16,6 +17,24 @@ export default function Customers() {
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
+  /** Customers ticked for Delete selected */
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [notice, setNotice] = useState('')
+
+  async function deleteSelected() {
+    const ids = customers.filter((c) => selected.has(c.id)).map((c) => c.id)
+    if (!ids.length) return
+    if (!confirm(`Delete ${ids.length} customer${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`)) return
+    setError('')
+    try {
+      const r = await api.deleteCustomers(ids)
+      setNotice(deleteSummary(r, 'customer'))
+      setSelected(new Set())
+      load()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
   const [exporting, setExporting] = useState(false)
 
   /** Every customer to Excel, in the QuickBooks POS column layout (+ Diamond POS columns) */
@@ -54,6 +73,11 @@ export default function Customers() {
           <button onClick={exportCustomers} disabled={exporting}>
             {exporting ? 'Exporting…' : 'Export to Excel'}
           </button>
+          {selected.size > 0 && (
+            <button className="danger" onClick={deleteSelected}>
+              🗑 Delete selected ({selected.size})
+            </button>
+          )}
           <button className="primary" onClick={() => setEditing('new')}>
             + New customer
           </button>
@@ -73,10 +97,19 @@ export default function Customers() {
         </label>
       </div>
       {error && <div className="error-text">{error}</div>}
+      {notice && <div className="ok-text">{notice}</div>}
 
       <table className="table">
         <thead>
           <tr>
+            <th className="sel-col">
+              <input
+                type="checkbox"
+                title="Tick all shown"
+                checked={customers.length > 0 && customers.every((c) => selected.has(c.id))}
+                onChange={(e) => setSelected(e.target.checked ? new Set(customers.map((c) => c.id)) : new Set())}
+              />
+            </th>
             <th>Customer ID</th>
             <th>Name</th>
             <th>Company / Contact</th>
@@ -89,6 +122,18 @@ export default function Customers() {
         <tbody>
           {customers.map((c) => (
             <tr key={c.id} onClick={() => setEditing(c.id)} className={c.active ? 'clickable' : 'clickable muted'}>
+              <td className="sel-col" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(c.id)}
+                  onChange={(e) => {
+                    const next = new Set(selected)
+                    if (e.target.checked) next.add(c.id)
+                    else next.delete(c.id)
+                    setSelected(next)
+                  }}
+                />
+              </td>
               <td>{c.customerNo}</td>
               <td>
                 <b>{customerDisplayName(c)}</b>
@@ -110,6 +155,11 @@ export default function Customers() {
         <CustomerEditor
           customerId={editing === 'new' ? null : editing}
           onSaved={load}
+          onDeleted={(msg) => {
+            setEditing(null)
+            setNotice(msg)
+            load()
+          }}
           onClose={() => setEditing(null)}
         />
       )}

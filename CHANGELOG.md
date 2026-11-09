@@ -14,6 +14,9 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.19 - 9 Nov 2026
+- **Delete items and customers**: 🗑 Delete in the item or customer window, or tick several in the list and click **Delete selected**. Ones that are on past sales or work orders are made inactive instead (hidden), so old receipts stay correct.
+
 ## v0.3.18 - 9 Nov 2026
 > Update the Store Server PC first.
 - **Import your QuickBooks Point of Sale inventory export** (Item List → Import from Excel). Every column with data comes in: item number, name, description, alternate lookup, size, attribute, costs, regular price, MSRP, custom prices 1-4, tax code, UPC, order cost, item type, unit of measure, reorder point, print tags, unorderable, serial tracking, commission, rewards, department, vendor, manufacturer and quantity on hand.

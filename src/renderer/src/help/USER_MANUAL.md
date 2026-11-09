@@ -153,6 +153,11 @@ Open **Item List**.
   - Stray characters at the end of QuickBooks item names (like `'/[;`) are removed. Tax codes other than "Non" (e.g. VER) mean taxable.
   - Items already in Diamond POS are matched by Item No. (or UPC) and updated, so importing again doesn't make doubles. If the same Item No. is in the file twice, the second one is listed as a problem: give it a new Item No. and import it again.
 
+
+**Deleting items**
+- Open one and click **🗑 Delete**, or tick several in the list (the box at the top ticks everything shown) and click **🗑 Delete selected**.
+- Items with no history are erased for good. Items that are on past sales or work orders can't be erased (old receipts and reports must stay correct), so they're made **inactive** instead: hidden from searches and the Sale screen. To bring one back, find it and tick **Active** again.
+
 ## Customer list
 Open **Customer List** to search, add and edit customers.
 - **Contact Info**: name, company, phone, email, address and "OK to e-mail" (needed for marketing mailers).
@@ -167,6 +172,11 @@ Open **Customer List** to search, add and edit customers.
   - EMail cells that aren't email addresses (fax numbers, web sites) are kept in the Notes.
   - Customers already in Diamond POS are matched by Customer ID, or the same name, company and Phone 1, and updated, so importing the same file twice doesn't create doubles.
 - **Export to Excel** saves every customer in the same QuickBooks POS column layout, plus Customer ID, Customer Type, Farm Tax ID, Tax ID Expires, Tax Card Copied and Active.
+
+
+**Deleting customers**
+- Open one and click **🗑 Delete**, or tick several in the list (the box at the top ticks everything shown) and click **🗑 Delete selected**.
+- Customers with no history are erased for good. Customers that are on past sales or work orders can't be erased (old receipts and reports must stay correct), so they're made **inactive** instead: hidden from searches and the Sale screen. Tick **Show inactive** to find them again and tick **Active** to bring one back.
 
 ## Customer kiosk (iPad)
 The iPad on the counter shows the store logo until a till sends it the sign-up form.

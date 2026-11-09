@@ -1,3 +1,4 @@
+import type { DeleteResult } from '../../shared/deleting'
 import type { ImportCustomer } from '../../shared/customerImport'
 import type { HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
 import type { PrintDesigns } from '../../shared/printDesigns'
@@ -94,6 +95,8 @@ export const api = {
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
   importCustomers: (rows: ImportCustomer[], opts: { dryRun: boolean; updateExisting: boolean }) =>
     request<ImportSummary>('POST', '/api/customers/import', { rows, ...opts }, undefined, undefined, 120000),
+  deleteProducts: (ids: number[]) => request<DeleteResult>('POST', '/api/products/delete', { ids }, undefined, undefined, 120000),
+  deleteCustomers: (ids: number[]) => request<DeleteResult>('POST', '/api/customers/delete', { ids }, undefined, undefined, 120000),
   allCustomers: () => request<Customer[]>('GET', '/api/customers/all', undefined, undefined, undefined, 60000),
   importProducts: (items: ImportItem[], opts: { dryRun: boolean; updateExisting: boolean }) =>
     request<ImportSummary>('POST', '/api/products/import', { items, ...opts }, undefined, undefined, 120000),

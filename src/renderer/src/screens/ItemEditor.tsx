@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ItemType, Product, ProductInput } from '../../../shared/types'
 import TagPrintDialog from './TagPrintDialog'
+import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { api } from '../api'
 import { parseMoney } from '../format'
 import { parseExtra } from '../../../shared/itemImport'
@@ -181,6 +182,8 @@ export interface ItemEditorProps {
   groups: string[]
   /** Called after each successful save (the list should reload) */
   onSaved: () => void
+  /** Called after the item was deleted (or made inactive), with a message */
+  onDeleted?: (message: string) => void
   onClose: () => void
 }
 
@@ -192,6 +195,19 @@ export default function ItemEditor(props: ItemEditorProps) {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [tagging, setTagging] = useState(false)
+
+  async function remove() {
+    if (!editing) return
+    if (!confirm(`Delete "${editing.name}"?\n\n${DELETE_EXPLAIN}`)) return
+    setBusy(true)
+    try {
+      const r = await api.deleteProducts([editing.id])
+      props.onDeleted?.(deleteSummary(r, 'item'))
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }))
   const text = (key: keyof Form) => ({
@@ -421,6 +437,11 @@ export default function ItemEditor(props: ItemEditorProps) {
           <div className="id-msg">
             {error ? <span className="error-text">{error}</span> : notice && <span className="ok-text">{notice}</span>}
           </div>
+          {editing && props.onDeleted && (
+            <button type="button" className="danger" disabled={busy} onClick={remove} title="Delete this item">
+              🗑 Delete
+            </button>
+          )}
           {editing && (
             <button type="button" disabled={busy} onClick={() => setTagging(true)} title="Print price tags for this item">
               🏷 Tags
