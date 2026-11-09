@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { customerDisplayName, type Customer } from '../../../shared/types'
 import { api } from '../api'
 import CustomerEditor from './CustomerEditor'
+import ImportCustomers from './ImportCustomers'
+import { CUSTOMER_COLUMNS, customerToRow } from '../../../shared/customerImport'
+import { writeSpreadsheet } from '../spreadsheet'
+import { today } from '../format'
 import TaxExemptBadge from '../TaxExemptBadge'
 
 /** Customer List: search, add and edit customers / businesses. */
@@ -11,6 +15,24 @@ export default function Customers() {
   const [showInactive, setShowInactive] = useState(false)
   const [editing, setEditing] = useState<number | 'new' | null>(null)
   const [error, setError] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  /** Every customer to Excel, in the QuickBooks POS column layout (+ Diamond POS columns) */
+  async function exportCustomers() {
+    setExporting(true)
+    setError('')
+    try {
+      const all = await api.allCustomers()
+      writeSpreadsheet(`Diamond POS customers ${today()}.xlsx`, [
+        { name: 'Customers', headers: CUSTOMER_COLUMNS.map((c) => c.header), rows: all.map(customerToRow) }
+      ])
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const load = () =>
     api
@@ -27,9 +49,15 @@ export default function Customers() {
     <div className="page wide">
       <div className="row between">
         <h2>Customer List</h2>
-        <button className="primary" onClick={() => setEditing('new')}>
-          + New customer
-        </button>
+        <div className="row gap">
+          <button onClick={() => setImporting(true)}>Import from Excel</button>
+          <button onClick={exportCustomers} disabled={exporting}>
+            {exporting ? 'Exporting…' : 'Export to Excel'}
+          </button>
+          <button className="primary" onClick={() => setEditing('new')}>
+            + New customer
+          </button>
+        </div>
       </div>
       <div className="row gap">
         <input
@@ -85,6 +113,7 @@ export default function Customers() {
           onClose={() => setEditing(null)}
         />
       )}
+      {importing && <ImportCustomers onClose={() => setImporting(false)} onImported={load} />}
     </div>
   )
 }

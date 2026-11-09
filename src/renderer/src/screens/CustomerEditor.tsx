@@ -42,6 +42,8 @@ const EMPTY: Form = {
   shipRegion: '',
   shipPostcode: '',
   notes: '',
+  pastDueCents: '',
+  customField1: '',
   active: true
 }
 
@@ -52,6 +54,8 @@ function toForm(c: Customer | null, prefill?: Partial<Form>): Form {
     const v = c[k]
     f[k] = typeof EMPTY[k] === 'boolean' ? !!v : v === null || v === undefined ? '' : String(v)
   }
+  // Past due is shown in dollars
+  f.pastDueCents = c.pastDueCents ? (c.pastDueCents / 100).toFixed(2) : ''
   return f as Form
 }
 
@@ -60,6 +64,11 @@ function fromForm(f: Form): CustomerInput | string {
   for (const k of Object.keys(EMPTY) as (keyof Form)[]) {
     const v = f[k]
     out[k] = typeof v === 'boolean' ? v : v.trim() === '' ? null : v.trim()
+  }
+  {
+    const pd = out.pastDueCents === null ? 0 : Number(String(out.pastDueCents).replace(/[$,]/g, ''))
+    if (!Number.isFinite(pd)) return 'Past due must be an amount, e.g. 25.00 (or -10.00 for a credit)'
+    out.pastDueCents = Math.round(pd * 100)
   }
   if (out.discountPct !== null) {
     const n = Number(out.discountPct)
@@ -279,6 +288,12 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               )}
               <Row label="Discount %">
                 <input className="num" placeholder="None" {...text('discountPct')} />
+              </Row>
+              <Row label="Past Due $">
+                <input className="num" placeholder="0.00" title="Balance owed (negative = credit), e.g. carried over from QuickBooks POS" {...text('pastDueCents')} />
+              </Row>
+              <Row label="Custom Field 1">
+                <input {...text('customField1')} />
               </Row>
               <Row label="Accept Cheques">
                 <input {...check('acceptCheques')} className="lone-check" />

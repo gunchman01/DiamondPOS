@@ -223,6 +223,10 @@ export interface Customer {
   shipRegion: string | null
   shipPostcode: string | null
   notes: string | null
+  /** Balance owed (negative = credit), carried over from QuickBooks POS "Past Due" */
+  pastDueCents: number
+  /** QuickBooks POS "Custom Field 1" (often the Farm Tax ID or e.g. DISABLED VET) */
+  customField1: string | null
   active: boolean
 }
 

@@ -6,9 +6,9 @@
 import type { DB } from './db'
 import { ValidationError } from './products'
 import { customerDisplayName } from '../../shared/types'
-import type { Customer, CustomerDetail, CustomerInput, SaleSummary } from '../../shared/types'
+import type { Customer, CustomerDetail, CustomerInput, ImportRowResult, ImportSummary, SaleSummary } from '../../shared/types'
 
-type Kind = 'text' | 'bool' | 'pct'
+type Kind = 'text' | 'bool' | 'pct' | 'cents'
 interface Field {
   key: keyof CustomerInput
   col: string
@@ -47,6 +47,8 @@ export const CUSTOMER_FIELDS: Field[] = [
   { key: 'shipRegion', col: 'ship_region', kind: 'text' },
   { key: 'shipPostcode', col: 'ship_postcode', kind: 'text' },
   { key: 'notes', col: 'notes', kind: 'text' },
+  { key: 'pastDueCents', col: 'past_due_cents', kind: 'cents' },
+  { key: 'customField1', col: 'custom_field1', kind: 'text' },
   { key: 'active', col: 'active', kind: 'bool' }
 ]
 
@@ -82,6 +84,8 @@ export const CUSTOMER_DEFAULTS: CustomerInput = {
   shipRegion: null,
   shipPostcode: null,
   notes: null,
+  pastDueCents: 0,
+  customField1: null,
   active: true
 }
 
@@ -105,7 +109,11 @@ export function validateCustomer(body: unknown, base: CustomerInput): CustomerIn
   for (const f of CUSTOMER_FIELDS) {
     const raw = b[f.key] === undefined ? base[f.key] : b[f.key]
     if (f.kind === 'bool') out[f.key] = raw === true || raw === 1
-    else if (f.kind === 'pct') {
+    else if (f.kind === 'cents') {
+      const n = Math.round(Number(raw ?? 0))
+      if (!Number.isFinite(n) || Math.abs(n) > 1e9) throw new ValidationError('Past due must be an amount')
+      out[f.key] = n
+    } else if (f.kind === 'pct') {
       if (raw === null || raw === undefined || raw === '') out[f.key] = null
       else {
         const n = Number(raw)
@@ -114,7 +122,7 @@ export function validateCustomer(body: unknown, base: CustomerInput): CustomerIn
       }
     } else {
       const s = String(raw ?? '').trim()
-      out[f.key] = s === '' ? null : s.slice(0, 500)
+      out[f.key] = s === '' ? null : s.slice(0, f.key === 'notes' ? 4000 : 500)
     }
   }
   const c = out as unknown as CustomerInput
@@ -133,7 +141,7 @@ export function isIsoDate(s: string): boolean {
   return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
 }
 
-const toDb = (f: Field, v: unknown) => (f.kind === 'bool' ? (v ? 1 : 0) : (v ?? null))
+const toDb = (f: Field, v: unknown) => (f.kind === 'bool' ? (v ? 1 : 0) : f.kind === 'cents' ? Number(v ?? 0) : (v ?? null))
 
 export function insertCustomer(db: DB, c: CustomerInput): number {
   const cols = CUSTOMER_FIELDS.map((f) => f.col)
@@ -211,4 +219,76 @@ export function customerDetail(db: DB, id: number): CustomerDetail | null {
       })
     )
   }
+}
+
+// ---------------------------------------------------------------- Import (Excel / QuickBooks POS)
+
+class Rollback extends Error {}
+const digitsOf = (s: unknown) => String(s ?? '').replace(/\D/g, '')
+const up = (s: unknown) => String(s ?? '').trim().toUpperCase()
+/** Same person = same name, company and phone number */
+const matchKey = (c: { lastName?: unknown; firstName?: unknown; company?: unknown; phone?: unknown }) =>
+  `${up(c.lastName)}|${up(c.firstName)}|${up(c.company)}|${digitsOf(c.phone)}`
+
+/**
+ * Add / update customers from spreadsheet rows (already converted by shared/customerImport).
+ * Existing customers are matched by Customer ID, or by name + company + phone. dryRun = preview only.
+ */
+export function importCustomers(
+  db: DB,
+  rows: Record<string, unknown>[],
+  opts: { dryRun: boolean; updateExisting: boolean }
+): ImportSummary {
+  const results: ImportRowResult[] = []
+  const byNo = new Map<string, number>()
+  const byKey = new Map<string, number>()
+  for (const r of db.prepare('SELECT id, customer_no, first_name, last_name, company, phone FROM customers').all() as Record<string, unknown>[]) {
+    if (r.customer_no) byNo.set(up(r.customer_no), r.id as number)
+    byKey.set(matchKey({ lastName: r.last_name, firstName: r.first_name, company: r.company, phone: r.phone }), r.id as number)
+  }
+  const name = (c: Record<string, unknown>) =>
+    [c.company, [c.firstName, c.lastName].filter(Boolean).join(' ')].filter(Boolean).join(' · ')
+  try {
+    db.transaction(() => {
+      rows.forEach((raw, i) => {
+        const row = Number(raw.__row) || i + 2
+        try {
+          const no = raw.customerNo ? up(raw.customerNo) : ''
+          const id = (no && byNo.get(no)) || byKey.get(matchKey(raw))
+          if (id) {
+            if (!opts.updateExisting) throw new ValidationError('Already exists (same Customer ID, or same name and phone)')
+            const current = getCustomer(db, id)!
+            updateCustomer(db, id, validateCustomer(raw, current))
+            results.push({ row, name: name(raw), action: 'update' })
+          } else {
+            const newId = insertCustomer(db, validateCustomer(raw, CUSTOMER_DEFAULTS))
+            const saved = getCustomer(db, newId)!
+            if (saved.customerNo) byNo.set(up(saved.customerNo), newId)
+            byKey.set(matchKey(saved), newId)
+            results.push({ row, name: name(raw), action: 'create' })
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          results.push({ row, name: name(raw), action: 'error', message: msg.includes('UNIQUE') ? 'That Customer ID is already used' : msg })
+        }
+      })
+      if (opts.dryRun) throw new Rollback()
+    })()
+  } catch (e) {
+    if (!(e instanceof Rollback)) throw e
+  }
+  return {
+    dryRun: opts.dryRun,
+    created: results.filter((r) => r.action === 'create').length,
+    updated: results.filter((r) => r.action === 'update').length,
+    errors: results.filter((r) => r.action === 'error').length,
+    results
+  }
+}
+
+/** Every customer (for Export to Excel) */
+export function allCustomers(db: DB): Customer[] {
+  return (db.prepare('SELECT * FROM customers ORDER BY COALESCE(last_name, company) COLLATE NOCASE, first_name COLLATE NOCASE').all() as Row[]).map(
+    toCustomer
+  )
 }

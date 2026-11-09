@@ -455,6 +455,14 @@ export const migrations: Migration[] = [
       -- Older sales: remember the store rate they were taxed at
       UPDATE sales SET tax_rate = (SELECT CAST(value AS REAL) FROM settings WHERE key = 'tax_rate') WHERE tax_rate IS NULL;
     `
+  },
+  {
+    version: 18,
+    name: 'customer past due balance and custom field (QuickBooks POS import)',
+    up: `
+      ALTER TABLE customers ADD COLUMN past_due_cents INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE customers ADD COLUMN custom_field1 TEXT;
+    `
   }
 ]
 

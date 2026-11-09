@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.17 - 9 Nov 2026
+> Update the Store Server PC first.
+- **Import and export customers with Excel** (Customer List). A QuickBooks Point of Sale customer export imports as it is, with every column: name, company, address, phones, alt contact, discount, tax exempt, email and email notification, past due, notes and custom field 1.
+- Tax-exempt customers from QuickBooks POS get their Farm Tax ID from Custom Field 1. Importing the same file again updates customers instead of making doubles.
+- Customers now have **Past Due $** and **Custom Field 1**.
+
 ## v0.3.16 - 7 Nov 2026
 > Update the Store Server PC first, then **update every till** (sales tax now works differently).
 - **Sales tax is now added at checkout**: shelf prices are before tax, and the Sale screen shows Subtotal, Sales tax and Total. Receipts, reports, returns and QuickBooks all follow. Sales made before this update keep their old (tax-included) amounts and are refunded the old way.

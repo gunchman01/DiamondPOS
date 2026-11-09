@@ -156,6 +156,15 @@ Open **Customer List** to search, add and edit customers.
 - **Customer Settings**: customer type, tax exempt with **Farm Tax ID**, expiry date and "card copied", discount, notes.
 - **History** and **Statistics** show what they've bought. Click a sale in History to open that receipt, see every item and payment, and reprint it.
 
+- **Past Due $** and **Custom Field 1** come over from QuickBooks Point of Sale (past due balance, and the custom field, often the Farm Tax ID or e.g. DISABLED VET).
+
+**Excel import and export**
+- **Import from Excel** adds or updates customers. A **QuickBooks Point of Sale customer export** imports as it is (Company, Last Name, First Name, Title, Street, Street2, City, State, ZIP, Phone 1, Phone 2, Alt Contact, Alt Phone, Disc %, Tax-exempt, EMail, EMail Notification, Past Due, Notes, Custom Field 1). You see a preview with any problems before anything is saved.
+  - "Tax-exempt = Exempt" makes the customer tax exempt, and **Custom Field 1** becomes their Farm Tax ID.
+  - EMail cells that aren't email addresses (fax numbers, web sites) are kept in the Notes.
+  - Customers already in Diamond POS are matched by Customer ID, or the same name, company and Phone 1, and updated, so importing the same file twice doesn't create doubles.
+- **Export to Excel** saves every customer in the same QuickBooks POS column layout, plus Customer ID, Customer Type, Farm Tax ID, Tax ID Expires, Tax Card Copied and Active.
+
 ## Customer kiosk (iPad)
 The iPad on the counter shows the store logo until a till sends it the sign-up form.
 

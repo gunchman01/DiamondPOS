@@ -1,3 +1,4 @@
+import type { ImportCustomer } from '../../shared/customerImport'
 import type { HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
 import type { PrintDesigns } from '../../shared/printDesigns'
 import type { CustomerReceipt, ReturnableSale } from '../../shared/returns'
@@ -54,14 +55,14 @@ export function configureApi(url: string, key: string): void {
   apiKey = key
 }
 
-async function request<T>(method: string, path: string, body?: unknown, base = baseUrl, key = apiKey): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, base = baseUrl, key = apiKey, timeoutMs = 8000): Promise<T> {
   let res: Response
   try {
     res = await fetch(base + path, {
       method,
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': key },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(timeoutMs)
     })
   } catch {
     throw new Error('Cannot reach the store server. Check the network and that the server PC is running.')
@@ -91,8 +92,11 @@ export const api = {
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
   createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
+  importCustomers: (rows: ImportCustomer[], opts: { dryRun: boolean; updateExisting: boolean }) =>
+    request<ImportSummary>('POST', '/api/customers/import', { rows, ...opts }, undefined, undefined, 120000),
+  allCustomers: () => request<Customer[]>('GET', '/api/customers/all', undefined, undefined, undefined, 60000),
   importProducts: (items: ImportItem[], opts: { dryRun: boolean; updateExisting: boolean }) =>
-    request<ImportSummary>('POST', '/api/products/import', { items, ...opts }),
+    request<ImportSummary>('POST', '/api/products/import', { items, ...opts }, undefined, undefined, 120000),
 
   listCustomers: (search = '', includeInactive = false) =>
     request<Customer[]>(

@@ -364,11 +364,18 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - ⚠️ Lost and restored `Sell.tsx` during this session (a script truncated it); restored from git HEAD (v0.3.15) and the tax changes re-applied. Everything verified afterwards.
 - Verified: new `taxes.ts` (rates CRUD + validation, default/older-till PUT, per-sale rate, unknown rate, refund at original rate after a rate change, old inclusive sale refunded the old way); all suites updated to tax-added amounts and passing; `designs.ts` (WO label render + auto-added); TypeScript; previews of "I want to" and the Sale screen tax line.
 
+### 9 Nov 2026: Customer import / export (QuickBooks POS format) (next release **v0.3.17**, DB migration 18)
+- [x] **DB migration 18**: `customers.past_due_cents` (QB POS "Past Due", negative = credit), `customers.custom_field1`. Added to `CUSTOMER_FIELDS` (new `cents` kind); notes can now be up to 4,000 characters. Customer window: Past Due $ and Custom Field 1.
+- [x] `src/shared/customerImport.ts`: `CUSTOMER_COLUMNS` = the 20 QB POS export columns in order (Company … Custom Field 1) + Diamond POS extras (Customer ID, Customer Type, Farm Tax ID, Tax ID Expires, Tax Card Copied, Active); `rowToCustomer` (Tax-exempt "Exempt" → exempt, Custom Field 1 → Farm Tax ID when none, invalid EMail → notes, state upper-cased, ZIP padded, company-only → track as company, Disc 0 → none), `customerToRow` for export.
+- [x] Server `importCustomers` (customers.ts): matches by Customer ID, else last + first + company + phone digits (in-memory index, so 12k rows take < 1 s); dry run = preview; rows of the same person in one file merge. `POST /api/customers/import`, `GET /api/customers/all`. JSON body limit raised to 60 MB; client import calls have a 2-minute timeout (`request(..., timeoutMs)`).
+- [x] UI: Customer List **Import from Excel** (`ImportCustomers.tsx`, template download, preview, shows the first 1,000 result rows) and **Export to Excel**.
+- Verified with Greg's real "QB POS Customers Export.xlsx" (12,665 rows): all 20 columns recognised, 0 problems, 12,637 customers created (28 rows were the same person twice), 1,889 tax exempt (1,686 with a Farm Tax ID from Custom Field 1, 203 without), 9 non-email EMail values kept in notes, re-import = 0 new, export → import round trip matches every customer by Customer ID. TypeScript; customer/kiosk/exempt suites pass.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till).
+**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18).
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
    - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount %; QuickBooks tax item per tax rate

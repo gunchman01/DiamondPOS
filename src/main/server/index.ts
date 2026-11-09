@@ -24,6 +24,8 @@ import {
 import {
   CUSTOMER_DEFAULTS,
   customerDetail,
+  allCustomers,
+  importCustomers,
   getCustomer,
   insertCustomer,
   searchCustomers,
@@ -110,7 +112,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   const app = express()
   // The QuickBooks Web Connector sends SOAP (XML), not JSON
   app.use('/qbwc', express.text({ type: () => true, limit: '20mb' }))
-  app.use(express.json({ limit: '20mb' })) // large enough for bulk item imports
+  app.use(express.json({ limit: '60mb' })) // large enough for bulk item / customer imports
 
   // Allow the UI (loaded from a local file) to call this server
   app.use((req, res, next) => {
@@ -240,6 +242,17 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // ----- Customers ---------------------------------------------------------
   app.get('/api/customers', (req, res) => {
     res.json(searchCustomers(db, String(req.query.search ?? ''), req.query.includeInactive === '1'))
+  })
+
+  // Every customer, for Export to Excel
+  app.get('/api/customers/all', (_req, res) => res.json(allCustomers(db)))
+
+  // Bulk import (Excel / QuickBooks POS export). dryRun=true returns a preview without saving.
+  app.post('/api/customers/import', (req, res) => {
+    const { rows, dryRun, updateExisting } = (req.body ?? {}) as { rows?: Record<string, unknown>[]; dryRun?: boolean; updateExisting?: boolean }
+    if (!Array.isArray(rows) || rows.length === 0) throw new HttpError(400, 'No rows to import')
+    if (rows.length > 50000) throw new HttpError(400, 'Too many rows (maximum 50,000 per import)')
+    res.json(importCustomers(db, rows, { dryRun: dryRun === true, updateExisting: updateExisting !== false }))
   })
 
   app.get('/api/customers/:id', (req, res) => {
