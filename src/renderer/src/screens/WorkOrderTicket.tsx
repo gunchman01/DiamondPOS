@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PriceCell } from '../saleColumns'
 import type { Product } from '../../../shared/types'
 import { STAGES, stage, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
@@ -247,7 +248,7 @@ export default function WorkOrderTicket(props: {
                     />
                   </td>
                   <td className="r">
-                    <MoneyCell value={l.unitPriceCents} disabled={closed} onSave={(c) => editLine(l, { unitPriceCents: c })} />
+                    <PriceCell value={l.unitPriceCents} disabled={closed} onSave={(c) => editLine(l, { unitPriceCents: c })} />
                   </td>
                   <td className="r">{money(Math.round(l.unitPriceCents * l.qty))}</td>
                   <td className="r">
@@ -421,24 +422,6 @@ function NumberCell(props: { value: number; step: number; disabled?: boolean; on
   )
 }
 
-function MoneyCell(props: { value: number; disabled?: boolean; onSave: (cents: number) => void }) {
-  const [v, setV] = useState((props.value / 100).toFixed(2))
-  useEffect(() => setV((props.value / 100).toFixed(2)), [props.value])
-  return (
-    <input
-      className="cell-input money"
-      disabled={props.disabled}
-      value={v}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        const c = parseMoney(v)
-        if (!isNaN(c) && c !== props.value) props.onSave(c)
-        else setV((props.value / 100).toFixed(2))
-      }}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
-  )
-}
 
 /** Search the item list for a part; shows stock so the mechanic knows if it must be ordered */
 function PartPicker(props: { onPick: (p: Product, qty: number) => void; onCancel: () => void }) {

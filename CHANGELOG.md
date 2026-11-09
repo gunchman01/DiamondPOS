@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.21 - 9 Nov 2026
+> Update the Store Server PC first.
+- **Change a price by clicking it**: on the Sale screen, click the price on a line, type the new price and press Enter. It's for that sale only (the item's price doesn't change). Changed prices show in red with the regular price under them, and the sale remembers the regular price.
+- Held receipts keep a changed price.
+- **Work orders**: click a line's price on the ticket to change it. When ringing up a repair pick-up, its prices can also be clicked and changed on the Sale screen (the ticket is updated).
+- The Price column on the Sale screen is now always shown.
+
 ## v0.3.20 - 9 Nov 2026
 > Update the Store Server PC first.
 - **Receiving** (Home → Receiving History, or I want to… → Receive items): when an order comes in, scan the items, enter the qty and the cost on the invoice, plus vendor, invoice #, PO #, invoice date, who received it, freight and notes. Save it to finish later, or receive it right away.

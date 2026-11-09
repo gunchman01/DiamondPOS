@@ -5,6 +5,8 @@ export interface HeldItemInput {
   productId: number
   qty: number
   serial?: string
+  /** Price changed at the till; omitted = the regular price when it's rung up */
+  priceCents?: number
 }
 
 export interface HeldReceiptInput {
@@ -32,7 +34,7 @@ export interface HeldSummary {
 export interface HeldReceipt extends HeldSummary {
   taxExempt: boolean
   /** Items with their current details; missing = item deleted or made inactive since it was held */
-  items: { product: Product; qty: number; serial?: string }[]
+  items: { product: Product; qty: number; serial?: string; priceCents?: number }[]
   missing: number
 }
 

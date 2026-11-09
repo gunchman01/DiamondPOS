@@ -123,7 +123,8 @@ export interface SaleRequest {
   /** Paying for a work order: fee = estimate fee at drop-off, repair = pick-up, credit = fee toward a new purchase */
   workOrder?: { id: number; mode: 'fee' | 'repair' | 'credit' }
   /** serial: for items with "Use Serial #" (one per line); saved as the customer's unit */
-  items: { productId: number; qty: number; serial?: string }[]
+  /** unitPriceCents: price changed at the till for this sale (before tax); omitted = the item's regular price */
+  items: { productId: number; qty: number; serial?: string; unitPriceCents?: number }[]
   /** Tax rate picked on the Sale screen (Settings → Taxes); omitted = the store's default */
   taxRateId?: string | null
   /** Ringing up a held receipt: it's marked done when the sale is saved */
@@ -150,6 +151,8 @@ export interface SaleItem {
   unitPriceCents: number
   qty: number
   lineTotalCents: number
+  /** Set when the price was changed at the till: the item's regular price at the time */
+  regularPriceCents?: number | null
 }
 
 export interface Sale {

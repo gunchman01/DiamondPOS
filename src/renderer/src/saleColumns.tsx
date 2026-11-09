@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Product } from '../../shared/types'
-import { money } from './format'
+import { money, parseMoney } from './format'
 
 /** One row on the Sale screen's receipt grid (a scanned item, a work order line, a return…) */
 export interface GridRow {
@@ -19,6 +19,64 @@ export interface GridRow {
   extCents: number
   /** Price differs from the shelf price because the sale is tax exempt */
   exTax?: boolean
+  /** The price can be changed by clicking it (items on the sale) */
+  onPrice?: (cents: number) => void
+  /** Regular (shelf) price, shown when the price was changed */
+  regCents?: number
+}
+
+/**
+ * A price that changes when clicked: shows as text, turns into a box on click.
+ * Enter or clicking away saves, Esc cancels.
+ */
+export function PriceCell(props: { value: number; reg?: number; disabled?: boolean; onSave: (cents: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [v, setV] = useState('')
+  const cancelled = useRef(false)
+  const changed = props.reg !== undefined && props.reg !== props.value
+  if (props.disabled) return <>{money(props.value)}</>
+  if (!editing)
+    return (
+      <span
+        className={changed ? 'price-click changed' : 'price-click'}
+        title={changed ? `Price changed (regular ${money(props.reg!)}). Click to change` : 'Click to change the price'}
+        onClick={(e) => {
+          e.stopPropagation()
+          cancelled.current = false
+          setV((props.value / 100).toFixed(2))
+          setEditing(true)
+        }}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        {money(props.value)}
+        {changed && <span className="ex-tag">reg {money(props.reg!)}</span>}
+      </span>
+    )
+  return (
+    <input
+      className="price-input"
+      autoFocus
+      value={v}
+      onFocus={(e) => e.target.select()}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onChange={(e) => setV(e.target.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+        else if (e.key === 'Escape') {
+          cancelled.current = true
+          ;(e.target as HTMLInputElement).blur()
+        }
+      }}
+      onBlur={() => {
+        setEditing(false)
+        if (cancelled.current) return
+        const c = parseMoney(v)
+        if (!isNaN(c) && c >= 0 && c !== props.value) props.onSave(c)
+      }}
+    />
+  )
 }
 
 export interface SaleColumn {
@@ -58,14 +116,18 @@ export const SALE_COLUMNS: SaleColumn[] = [
   {
     id: 'price',
     label: 'Price',
+    required: true,
     width: 90,
     num: true,
-    cell: (r) => (
-      <>
-        {r.kind === 'credit' ? `−${money(r.unitCents)}` : money(r.unitCents)}
-        {r.exTax && <span className="ex-tag">ex tax</span>}
-      </>
-    )
+    cell: (r) =>
+      r.onPrice ? (
+        <PriceCell value={r.unitCents} reg={r.regCents} onSave={r.onPrice} />
+      ) : (
+        <>
+          {r.kind === 'credit' ? `−${money(r.unitCents)}` : money(r.unitCents)}
+          {r.exTax && <span className="ex-tag">ex tax</span>}
+        </>
+      )
   },
   { id: 'ext', label: 'Ext. Price', required: true, width: 100, num: true, cell: (r) => (r.kind === 'credit' ? `−${money(r.extCents)}` : signed(r, r.extCents)) }
 ]

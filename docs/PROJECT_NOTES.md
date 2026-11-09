@@ -389,11 +389,16 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] UI `screens/Receiving.tsx`: list + editor (header fields, type-ahead add, grid with on hand / last cost / avg -> new / price / margin / note, totals), Save draft, **Receive items…** review dialog (update cost per line, new regular price, margin), then `TagPrintDialog` with `lines` (qty = received, per-line label Auto / priced / no-price). Wired: Home Purchasing "Receiving History" tile, menus "Receive items" (intent `receive`) + "See receivings", item window **Receiving history** panel.
 - Verified: new `receiving.ts` test (freight spread, weighted average, updateCost off, new price, services no stock, post twice 409, history, delete -> inactive); deleting/items/import/held/returns suites pass; TypeScript web + node.
 
+### 9 Nov 2026: Click-to-change price (next release **v0.3.21**, DB migration 21)
+- [x] **DB migration 21**: `sale_items.regular_price_cents` (set when the price was changed at the till). `SaleRequest.items[].unitPriceCents` (optional override, whole cents 0..`MAX_PRICE_CENTS` = $100,000, in `shared/pricing.ts`); `SaleItem.regularPriceCents`. Held items keep `priceCents` in items_json (no migration).
+- [x] UI: `PriceCell` in `saleColumns.tsx` (text with dashed underline; click -> input, Enter/blur saves, Esc cancels). Sale screen cart lines (`CartLine.priceCents`, `unitOf`), `setPrice` (typing the regular price clears it); Price column now required. Repair pick-up work order rows on the Sale screen are editable too: `setWoPrice` calls `woUpdateLine` and reloads the ticket (fractional labor hours: typed amount = line total). Work order ticket uses `PriceCell` (MoneyCell removed).
+- Verified: new `priceedit.ts` test (bad prices 400, override + regular price stored, tax on changed price, $0 allowed, held keeps price); held/returns/checks/exempt/qb/workorders/wofees/taxes suites pass; TypeScript web + node.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.19** (assumed pushed: v0.3.16-v0.3.19). Next release: **v0.3.20** receiving (DB migration 20: update the Store Server PC first).
+**Latest release: v0.3.20** (receiving). Next release: **v0.3.21** click-to-change price (DB migration 21: update the Store Server PC first). Idea: a "price changes" report from `sale_items.regular_price_cents`; a staff PIN/reason for price changes.
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs and a vendor list; receiving done in v0.3.20; next: build a receiving from a PO, print a receiving report), Departments, QuickBooks sync
    - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount % and Custom Price levels (from QB POS) by customer type; selling by case (Unit of Measure 1); QuickBooks tax item per tax rate

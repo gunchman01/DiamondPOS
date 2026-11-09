@@ -28,7 +28,12 @@ interface CartLine {
   product: Product
   qty: number
   serial?: string
+  /** Price changed on this sale (clicked and typed); undefined = the item's regular price */
+  priceCents?: number
 }
+
+/** Price per unit charged for a line on this sale */
+const unitOf = (l: CartLine) => l.priceCents ?? l.product.priceCents
 
 type Message = { kind: 'error' | 'info'; text: string } | null
 
@@ -154,7 +159,7 @@ export default function Sell({
           const key = it.serial ? `${it.product.id}:${it.serial}` : String(it.product.id)
           const same = next.findIndex((l) => l.key === key)
           if (same >= 0 && !it.serial) next[same] = { ...next[same], qty: next[same].qty + it.qty }
-          else if (same < 0) next.push({ key, product: it.product, qty: it.qty, serial: it.serial })
+          else if (same < 0) next.push({ key, product: it.product, qty: it.qty, serial: it.serial, ...(it.priceCents !== undefined ? { priceCents: it.priceCents } : {}) })
         }
         return next
       })
@@ -205,7 +210,7 @@ export default function Sell({
       note,
       taxExempt: applyExempt,
       tillName: boot.config.tillName,
-      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial }))
+      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial, ...(l.priceCents !== undefined ? { priceCents: l.priceCents } : {}) }))
     }
     const h = held ? await api.updateHeld(held.id, body) : await api.holdSale(body)
     setHolding(false)
@@ -259,7 +264,7 @@ export default function Sell({
   // Same pricing function the server uses, so the total shown is exactly what's charged
   const priced = priceWithFeeCredit(
     [
-      ...cart.map((l) => ({ unitPriceCents: l.product.priceCents, qty: l.qty, taxable: l.product.taxable !== false })),
+      ...cart.map((l) => ({ unitPriceCents: unitOf(l), qty: l.qty, taxable: l.product.taxable !== false })),
       ...woLines.map((l) => ({ unitPriceCents: l.unitPriceCents, qty: l.qty, taxable: l.taxable }))
     ],
     rate,
@@ -279,7 +284,7 @@ export default function Sell({
   const total = priced.totalCents - refundNet - refundTax + feeKept
   const isRefund = total < 0
   const shelfTotal =
-    cart.reduce((s, l) => s + l.product.priceCents * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
+    cart.reduce((s, l) => s + unitOf(l) * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
   const hasLines = cart.length > 0 || woLines.length > 0 || returns.length > 0
   const gst = priced.taxCents - refundTax
   // How the original receipt(s) were paid: suggest refunding the same way
@@ -317,7 +322,8 @@ export default function Sell({
       qty: l.qty,
       unitCents: priced.lines[i].unitPriceCents,
       extCents: priced.lines[i].lineTotalCents,
-      exTax: priced.lines[i].unitPriceCents !== l.product.priceCents
+      regCents: l.product.priceCents,
+      onPrice: (cents: number) => setPrice(l.key, cents)
     })),
     ...woLines.map((l, j) => ({
       key: `wo-${j}`,
@@ -329,7 +335,9 @@ export default function Sell({
       serial: null,
       qty: l.qty,
       unitCents: priced.lines[cart.length + j].unitPriceCents,
-      extCents: priced.lines[cart.length + j].lineTotalCents
+      extCents: priced.lines[cart.length + j].lineTotalCents,
+      // Repair pick-up: the price changes on the ticket too
+      onPrice: wo?.mode === 'repair' && wo.order.lines[j] ? (cents: number) => setWoPrice(j, cents) : undefined
     })),
     ...(priced.creditCents > 0
       ? [
@@ -438,6 +446,30 @@ export default function Sell({
     if (qty <= 0) setSelectedId(null)
   }
 
+  /** Price clicked and changed on the receipt grid (back to the regular price = no change) */
+  function setPrice(key: string, cents: number) {
+    setCart((c) => c.map((l) => (l.key === key ? { ...l, priceCents: cents === l.product.priceCents ? undefined : cents } : l)))
+    setSelectedId(key)
+    setLastSale(null)
+    focusScan()
+  }
+
+  /** Price of a work order line changed on the Sale screen: saved on the ticket, then the ticket is reloaded */
+  async function setWoPrice(index: number, cents: number) {
+    if (!wo) return
+    const line = wo.order.lines[index]
+    // Labor with part hours shows as one line (hours x rate): the typed amount is the line total
+    const unit = Number.isInteger(line.qty) ? cents : Math.round(cents / line.qty)
+    try {
+      const order = await api.woUpdateLine(wo.order.id, line.id, { unitPriceCents: unit })
+      setWo({ ...wo, order })
+      setMessage({ kind: 'info', text: `${wo.order.number}: price changed on the ticket` })
+    } catch (e) {
+      setMessage({ kind: 'error', text: (e as Error).message })
+    }
+    focusScan()
+  }
+
   function removeSelected() {
     if (selectedId === null) return
     if (selectedReturn) removeReturn(selectedReturn.key)
@@ -542,7 +574,7 @@ export default function Sell({
       tillName: boot.config.tillName,
       customerId: customer?.id ?? null,
       taxExempt: applyExempt,
-      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial })),
+      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial, ...(l.priceCents !== undefined ? { unitPriceCents: l.priceCents } : {}) })),
       returns: returns.map((l) =>
         l.saleItemId !== null
           ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
@@ -723,7 +755,7 @@ export default function Sell({
                   <tr
                     key={r.key}
                     className={cls}
-                    title={r.kind === 'wo' || r.kind === 'credit' ? "From the work order (can't be changed here)" : r.kind === 'return' ? 'Item coming back' : undefined}
+                    title={r.kind === 'wo' || r.kind === 'credit' ? (r.onPrice ? 'From the work order: click the price to change it' : "From the work order (can't be changed here)") : r.kind === 'return' ? 'Item coming back' : undefined}
                     onClick={selectable ? () => setSelectedId(r.key) : undefined}
                     onDoubleClick={
                       r.kind === 'item'

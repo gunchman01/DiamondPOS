@@ -7,6 +7,7 @@ import type { DB } from './db'
 import { customerDisplayName } from '../../shared/types'
 import type { HeldItemInput, HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
 import { toProduct, type ProductRow } from './products'
+import { MAX_PRICE_CENTS } from '../../shared/pricing'
 
 class HeldError extends Error {
   constructor(public status: number, message: string) {
@@ -45,7 +46,9 @@ function clean(b: Partial<HeldReceiptInput>): { customerId: number | null; note:
     const qty = Number(i?.qty)
     if (!Number.isInteger(Number(i?.productId)) || !Number.isInteger(qty) || qty <= 0) throw new HeldError(400, 'Each held item needs an item and a quantity above 0')
     const serial = String(i?.serial ?? '').trim().slice(0, 80)
-    return { productId: Number(i.productId), qty, ...(serial ? { serial } : {}) }
+    const price = i?.priceCents === undefined || i?.priceCents === null ? undefined : Number(i.priceCents)
+    if (price !== undefined && !(Number.isInteger(price) && price >= 0 && price <= MAX_PRICE_CENTS)) throw new HeldError(400, 'A changed price must be $0.00 or more')
+    return { productId: Number(i.productId), qty, ...(serial ? { serial } : {}), ...(price !== undefined ? { priceCents: price } : {}) }
   })
   if (items.length === 0) throw new HeldError(400, 'There is nothing on the sale to hold')
   return {
@@ -61,13 +64,13 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
   const getProduct = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1')
   const select = `SELECT h.*, c.first_name, c.last_name, c.company, c.track_as_company FROM held_sales h LEFT JOIN customers c ON c.id = h.customer_id`
 
-  const summary = (r: Row): HeldSummary & { _items: { product: ReturnType<typeof toProduct>; qty: number; serial?: string }[]; _missing: number } => {
+  const summary = (r: Row): HeldSummary & { _items: { product: ReturnType<typeof toProduct>; qty: number; serial?: string; priceCents?: number }[]; _missing: number } => {
     const raw = parseItems(r.items_json)
-    const items: { product: ReturnType<typeof toProduct>; qty: number; serial?: string }[] = []
+    const items: { product: ReturnType<typeof toProduct>; qty: number; serial?: string; priceCents?: number }[] = []
     let missing = 0
     for (const i of raw) {
       const p = getProduct.get(i.productId) as ProductRow | undefined
-      if (p) items.push({ product: toProduct(p), qty: i.qty, ...(i.serial ? { serial: i.serial } : {}) })
+      if (p) items.push({ product: toProduct(p), qty: i.qty, ...(i.serial ? { serial: i.serial } : {}), ...(i.priceCents !== undefined ? { priceCents: i.priceCents } : {}) })
       else missing++
     }
     return {
@@ -80,7 +83,7 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
       note: r.note,
       tillName: r.till_name,
       itemCount: items.reduce((n, i) => n + i.qty, 0),
-      totalCents: items.reduce((n, i) => n + i.product.priceCents * i.qty, 0),
+      totalCents: items.reduce((n, i) => n + (i.priceCents ?? i.product.priceCents) * i.qty, 0),
       itemsText: items
         .slice(0, 4)
         .map((i) => (i.qty > 1 ? `${i.qty} x ${i.product.name}` : i.product.name))

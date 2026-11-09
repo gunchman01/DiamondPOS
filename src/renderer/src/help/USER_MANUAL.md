@@ -26,6 +26,7 @@ Open **Make a Sale**.
 1. **Scan** the barcode, or start typing an item number or description: matching items pop up as you type. Click one, or use **↑ ↓** and **Enter** to add it. Typing a full item number and pressing Enter adds it straight away.
 2. Tap a **Quick Pick** button for items that are often sold (if any are set up).
 3. Click a line to select it, then use **+1 / −1**, **Change qty** or **Remove line**. The red **✕** at the left of each line removes that item.
+   - **Change a price:** click the price on the line, type the new price and press **Enter** (Esc cancels). It's for this sale only; the item's regular price doesn't change. A changed price shows in red with the regular price crossed out under it, and the receipt keeps the regular price for reports. Type the regular price again to undo it. A held receipt keeps the changed price.
 4. Add a **customer** if needed (F5), see below.
 5. Take payment with **Cash (F7)**, **Card (F8)** or **Check**.
 
@@ -49,7 +50,7 @@ After the sale, click **Print receipt** or **Reprint last receipt** (or set the 
 
 **Sales tax:** shelf prices are before tax. The totals show the **Subtotal**, the **sales tax** at the sale's rate, and the **Total** the customer pays. If the store has more than one tax rate (Settings → Taxes), pick the rate for this sale from the drop-down on the tax line; the next sale goes back to the default rate. Items marked non-taxable never get tax.
 
-**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty and Ext. Price are always shown.
+**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty, Price and Ext. Price are always shown.
 
 **Serial-numbered items** (items with "Use Serial #" ticked) ask for the serial number when scanned. Type it or scan the barcode on the unit. A customer must be on the sale, and the unit is saved under that customer for repairs later.
 
@@ -118,6 +119,8 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - **Picked up / Closed**: the ticket is finished and locked.
 
 **Work order label:** when a unit is checked in, a label prints on the Zebra label printer with the **customer's name, the work order number, the date checked in and a barcode**. Stick it on the unit. Click **🏷 Label** on the ticket to print it again. Scanning the barcode into the search box on the Work Orders screen finds the ticket. (Settings → Printing chooses the label design and whether it prints automatically; the Label Designer can change what's on it.)
+
+**Changing a price:** click the price on any line of the ticket, type the new price and press **Enter**. When ringing up a repair pick-up on the Sale screen, the work order lines' prices can be clicked and changed there too: the ticket is updated. (Labor shown as hours × rate is changed as the line total.)
 
 **Printing:** click **🖨 Print** on a ticket to print the work order on a full page (customer, unit, problem, diagnosis, parts and labor, totals and a signature line), for example as the claim ticket at drop-off or the estimate for approval.
 

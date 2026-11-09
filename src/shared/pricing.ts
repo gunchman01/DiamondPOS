@@ -53,3 +53,6 @@ export function priceSale(items: PriceInput[], taxRate: number, taxExempt: boole
     taxExemptCents: taxExempt ? tax : 0
   }
 }
+
+/** Highest price that can be typed for a line ($100,000.00): catches a scanned barcode typed into a price box */
+export const MAX_PRICE_CENTS = 10_000_000

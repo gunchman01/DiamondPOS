@@ -521,6 +521,13 @@ export const migrations: Migration[] = [
 
       ALTER TABLE products ADD COLUMN last_received_at TEXT;
     `
+  },
+  {
+    version: 21,
+    name: 'price changed at the till (regular price kept on the sale line)',
+    up: `
+      ALTER TABLE sale_items ADD COLUMN regular_price_cents INTEGER;
+    `
   }
 ]
 

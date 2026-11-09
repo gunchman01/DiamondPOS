@@ -54,7 +54,7 @@ import { registerReceivingRoutes } from './receiving'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
-import { priceSale } from '../../shared/pricing'
+import { MAX_PRICE_CENTS, priceSale } from '../../shared/pricing'
 import type {
   TaxRate,
   DailyReport,
@@ -548,14 +548,22 @@ function createSale(db: DB, req: SaleRequest): Sale {
     const p = toProduct(row)
     const serial = String((it as { serial?: string }).serial ?? '').trim().slice(0, 80)
     if (serial && qty !== 1) throw new HttpError(400, `${p.name}: a serial-numbered item must be one per line`)
+    // Price changed at the till for this sale
+    let unit = p.priceCents
+    if (it.unitPriceCents !== undefined && it.unitPriceCents !== null) {
+      const c = Number(it.unitPriceCents)
+      if (!Number.isInteger(c) || c < 0 || c > MAX_PRICE_CENTS) throw new HttpError(400, `${p.name}: the price must be between $0.00 and $100,000.00`)
+      unit = c
+    }
     return {
+      regularPriceCents: unit !== p.priceCents ? p.priceCents : null,
       productId: p.id,
       serial,
       manufacturer: p.manufacturer,
       name: p.name,
-      unitPriceCents: p.priceCents,
+      unitPriceCents: unit,
       qty,
-      lineTotalCents: p.priceCents * qty,
+      lineTotalCents: unit * qty,
       taxable: p.taxable,
       department: p.department,
       tracksStock: p.type === 'inventory',
@@ -577,7 +585,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
         taxable: l.taxable,
         department: l.department,
         tracksStock: false,
-        kind: 'wo'
+        kind: 'wo',
+        regularPriceCents: null
       })
 
   // Tax is added on the taxable items at the sale's rate; none on exempt sales.
@@ -597,7 +606,8 @@ function createSale(db: DB, req: SaleRequest): Sale {
       taxable: false,
       department: c.department,
       tracksStock: false,
-      kind: 'credit'
+      kind: 'credit',
+      regularPriceCents: null
     })
   }
   lines.forEach((l, i) => {
@@ -657,13 +667,13 @@ function createSale(db: DB, req: SaleRequest): Sale {
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
       `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial,
-                               kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                               kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents, regular_price_cents)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
     for (const l of lines) {
       addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0, l.serial || null,
-        l.kind, null, null, null, 0, null)
+        l.kind, null, null, null, 0, null, l.regularPriceCents ?? null)
       // A serial-numbered item sold to a customer is saved as one of their units (for repairs later)
       if (l.serial && customerId && l.kind === 'item')
         addUnitFromSale(db, { customerId, saleId, serial: l.serial, name: l.name, department: l.department, manufacturer: l.manufacturer })
@@ -671,7 +681,7 @@ function createSale(db: DB, req: SaleRequest): Sale {
     }
     for (const r of retLines)
       addItem.run(saleId, r.productId, r.name, r.unitPriceCents, r.qty, r.lineTotalCents, r.department, r.taxable ? 1 : 0, r.serial || null,
-        r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents)
+        r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents, null)
     finishReturns(db, retLines)
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
@@ -727,6 +737,7 @@ function getSale(db: DB, id: number): Sale | null {
     qty: number
     line_total_cents: number
     serial: string | null
+    regular_price_cents: number | null
   }[]
   const payments = db.prepare('SELECT * FROM payments WHERE sale_id = ? ORDER BY id').all(id) as {
     method: 'cash' | 'card' | 'check'
@@ -765,7 +776,8 @@ function getSale(db: DB, id: number): Sale | null {
       unitPriceCents: i.unit_price_cents,
       qty: i.qty,
       lineTotalCents: i.line_total_cents,
-      serial: i.serial
+      serial: i.serial,
+      regularPriceCents: i.regular_price_cents ?? null
     })),
     payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, reference: p.reference ?? undefined }))
   }
