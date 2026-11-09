@@ -102,13 +102,13 @@ export function templateFor(p: Partial<Product>, s: PrintSettings, labels: Label
 }
 
 /** Print tags on the label printer. override = use this template for every item. One print job per template. */
-export async function printTags(items: { product: Product; qty: number }[], override?: string | null): Promise<number> {
+export async function printTags(items: { product: Product; qty: number; template?: string | null }[], override?: string | null): Promise<number> {
   const list = items.filter((i) => i.qty > 0)
   if (list.length === 0) return 0
   const [s, designs, { store }] = await Promise.all([currentPrintSettings(), printDesigns(), storeAndLogo()])
   const groups = new Map<LabelTemplate, { product: Product; qty: number }[]>()
   for (const it of list) {
-    const t = templateFor(it.product, s, designs.labels, override)
+    const t = templateFor(it.product, s, designs.labels, it.template || override)
     groups.set(t, [...(groups.get(t) ?? []), it])
   }
   for (const [t, group] of groups)

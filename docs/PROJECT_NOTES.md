@@ -382,13 +382,20 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] UI: 🗑 Delete in the item and customer windows; tick boxes + "tick all shown" + **Delete selected (n)** on the Item List and Customer List; plain-words result (`renderer/src/deleteText.ts`).
 - Verified: new `deleting.ts` test (erase vs inactive for items and customers, not found, receipts unaffected, held receipt unlinked, hidden from search); TypeScript.
 
+### 9 Nov 2026: Receiving (next release **v0.3.20**, DB migration 20)
+- [x] **DB migration 20**: `receivings` (vendor, invoice_no, po_number, invoice_date, received_by, freight_cents, freight_to_cost, notes, till_name, status draft/posted, created_at, posted_at), `receiving_lines` (qty, unit_cost, note + snapshots at posting: on hand, avg cost, order cost, price before; landed cost, new avg, new price, cost_updated), `products.last_received_at`.
+- [x] `shared/receiving.ts`: types, `receivingNumber` (RV-000001), `landedCosts` (freight spread by value), `newAverageCost` (weighted; stock <= 0 or no average -> new cost), `receivingTotals`, `marginPct`.
+- [x] Server `receiving.ts`: list/search (drafts first), get, create, update/delete (drafts only, 409 when posted), `POST /api/receivings/:id/post` `{lines: PostLineChoice[]}` (on_hand += qty for inventory, cost_cents = new average, order_cost_cents = landed cost if updateCost, optional new price; one transaction), `GET /api/products/:id/receivings` (last 20). Deleting an item on a receiving makes it inactive.
+- [x] UI `screens/Receiving.tsx`: list + editor (header fields, type-ahead add, grid with on hand / last cost / avg -> new / price / margin / note, totals), Save draft, **Receive items…** review dialog (update cost per line, new regular price, margin), then `TagPrintDialog` with `lines` (qty = received, per-line label Auto / priced / no-price). Wired: Home Purchasing "Receiving History" tile, menus "Receive items" (intent `receive`) + "See receivings", item window **Receiving history** panel.
+- Verified: new `receiving.ts` test (freight spread, weighted average, updateCost off, new price, services no stock, post twice 409, history, delete -> inactive); deleting/items/import/held/returns suites pass; TypeScript web + node.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18), **v0.3.18**: QuickBooks POS inventory import (DB migration 19), **v0.3.19**: delete items and customers.
+**Latest release: v0.3.19** (assumed pushed: v0.3.16-v0.3.19). Next release: **v0.3.20** receiving (DB migration 20: update the Store Server PC first).
 
-0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
+0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs and a vendor list; receiving done in v0.3.20; next: build a receiving from a PO, print a receiving report), Departments, QuickBooks sync
    - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount % and Custom Price levels (from QB POS) by customer type; selling by case (Unit of Measure 1); QuickBooks tax item per tax rate
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)

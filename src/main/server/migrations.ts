@@ -476,6 +476,51 @@ export const migrations: Migration[] = [
       -- Other columns from an imported sheet that have data but no field of their own (JSON object)
       ALTER TABLE products ADD COLUMN extra_json TEXT;
     `
+  },
+  {
+    version: 20,
+    name: 'receiving (items received from vendors, average cost)',
+    up: `
+      CREATE TABLE receivings (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        status          TEXT NOT NULL DEFAULT 'draft',   -- draft | posted
+        vendor          TEXT NOT NULL DEFAULT '',
+        invoice_no      TEXT NOT NULL DEFAULT '',
+        po_number       TEXT NOT NULL DEFAULT '',
+        invoice_date    TEXT,
+        received_by     TEXT NOT NULL DEFAULT '',
+        freight_cents   INTEGER NOT NULL DEFAULT 0,
+        freight_to_cost INTEGER NOT NULL DEFAULT 1,
+        notes           TEXT NOT NULL DEFAULT '',
+        till_name       TEXT NOT NULL DEFAULT '',
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        posted_at       TEXT
+      );
+      CREATE INDEX idx_receivings_status ON receivings(status);
+
+      CREATE TABLE receiving_lines (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        receiving_id       INTEGER NOT NULL REFERENCES receivings(id),
+        product_id         INTEGER NOT NULL REFERENCES products(id),
+        qty                REAL NOT NULL,
+        unit_cost_cents    INTEGER NOT NULL,
+        note               TEXT NOT NULL DEFAULT '',
+        -- snapshot when posted
+        prev_on_hand       REAL,
+        prev_avg_cents     INTEGER,
+        prev_order_cents   INTEGER,
+        prev_price_cents   INTEGER,
+        landed_cost_cents  INTEGER,
+        new_avg_cents      INTEGER,
+        new_price_cents    INTEGER,
+        cost_updated       INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX idx_receiving_lines_rv ON receiving_lines(receiving_id);
+      CREATE INDEX idx_receiving_lines_product ON receiving_lines(product_id);
+
+      ALTER TABLE products ADD COLUMN last_received_at TEXT;
+    `
   }
 ]
 

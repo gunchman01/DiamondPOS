@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.20 - 9 Nov 2026
+> Update the Store Server PC first.
+- **Receiving** (Home → Receiving History, or I want to… → Receive items): when an order comes in, scan the items, enter the qty and the cost on the invoice, plus vendor, invoice #, PO #, invoice date, who received it, freight and notes. Save it to finish later, or receive it right away.
+- When you receive, choose for each item whether to **update its cost** and change its **regular price**. Stock goes up and the **average cost** is worked out again each time. Freight can be added into the items' cost.
+- Then it asks to **print tags** line by line: with price, no price, or skip, and how many of each.
+- Every receiving keeps its number (RV-000001), date and before/after costs. The item window now shows its **receiving history**.
+
 ## v0.3.19 - 9 Nov 2026
 - **Delete items and customers**: 🗑 Delete in the item or customer window, or tick several in the list and click **Delete selected**. Ones that are on past sales or work orders are made inactive instead (hidden), so old receipts stay correct.
 

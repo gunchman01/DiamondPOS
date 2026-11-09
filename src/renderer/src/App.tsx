@@ -18,6 +18,7 @@ import Help from './screens/Help'
 import Feedback from './screens/Feedback'
 import Logo from './Logo'
 import HeldReceipts from './screens/HeldReceipts'
+import Receiving from './screens/Receiving'
 import { Icons } from './icons'
 import { menuEntries, type Intent, type MenuEntry } from './menus'
 
@@ -35,6 +36,7 @@ type Tab =
   | 'help'
   | 'feedback'
   | 'held'
+  | 'receiving'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
@@ -49,7 +51,8 @@ const TITLES: Record<Tab, string> = {
   updates: 'Updates',
   help: 'Help',
   feedback: 'Feedback & Requests',
-  held: 'Held Receipts'
+  held: 'Held Receipts',
+  receiving: 'Receiving'
 }
 
 /** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
@@ -66,7 +69,8 @@ const HELP_TOPIC: Record<Tab, string> = {
   updates: 'updates',
   help: 'getting-started',
   feedback: 'feedback-and-requests',
-  held: 'held-receipts'
+  held: 'held-receipts',
+  receiving: 'receiving'
 }
 
 export default function App() {
@@ -219,6 +223,7 @@ export default function App() {
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
         {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} boot={boot} />}
         {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
+        {tab === 'receiving' && <Receiving boot={boot} startNew={intent === 'receive'} onIntentDone={() => setIntent(null)} />}
         {tab === 'held' && (
           <HeldReceipts
             onOpenAtTill={(id) => {

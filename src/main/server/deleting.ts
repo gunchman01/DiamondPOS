@@ -22,6 +22,7 @@ export function deleteProducts(db: DB, idList: number[]): DeleteResult {
   const get = db.prepare('SELECT id, name FROM products WHERE id = ?')
   const sold = db.prepare('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?')
   const onWo = db.prepare('SELECT COUNT(*) AS n FROM work_order_lines WHERE product_id = ?')
+  const onRv = db.prepare('SELECT COUNT(*) AS n FROM receiving_lines WHERE product_id = ?')
   const del = db.prepare('DELETE FROM products WHERE id = ?')
   const off = db.prepare("UPDATE products SET active = 0, quick_pick = 0, updated_at = datetime('now') WHERE id = ?")
   db.transaction(() => {
@@ -34,14 +35,15 @@ export function deleteProducts(db: DB, idList: number[]): DeleteResult {
       }
       const s = (sold.get(id) as { n: number }).n
       const w = (onWo.get(id) as { n: number }).n
-      if (s || w) {
+      const v = (onRv.get(id) as { n: number }).n
+      if (s || w || v) {
         off.run(id)
         out.deactivated++
         out.results.push({
           id,
           name: p.name,
           action: 'deactivated',
-          reason: `on ${[s ? plural(s, 'sale line') : '', w ? plural(w, 'work order line') : ''].filter(Boolean).join(' and ')}`
+          reason: `on ${[s ? plural(s, 'sale line') : '', w ? plural(w, 'work order line') : '', v ? plural(v, 'receiving') : ''].filter(Boolean).join(' and ')}`
         })
       } else {
         del.run(id)

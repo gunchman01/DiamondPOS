@@ -19,6 +19,7 @@ export type NavTarget =
   | 'help'
   | 'feedback'
   | 'held'
+  | 'receiving'
 
 interface Tile {
   icon: IconName
@@ -60,7 +61,7 @@ const PURCHASING: Section = {
     { kind: 'arrow', col: 2, row: 1, dir: 'right' },
     { kind: 'tile', col: 3, row: 1, icon: 'purchaseOrders', label: 'Purchase Orders' },
     { kind: 'arrow', col: 4, row: 1, dir: 'right' },
-    { kind: 'tile', col: 5, row: 1, icon: 'receivingHistory', label: 'Receiving History' },
+    { kind: 'tile', col: 5, row: 1, icon: 'receivingHistory', label: 'Receiving History', go: 'receiving' },
     { kind: 'arrow', col: 3, row: 2, dir: 'down' },
     { kind: 'tile', col: 3, row: 3, icon: 'poList', label: 'PO List' }
   ]

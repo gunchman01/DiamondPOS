@@ -20,9 +20,10 @@ export type Screen =
   | 'help'
   | 'feedback'
   | 'held'
+  | 'receiving'
 
 /** Something extra to do when the screen opens */
-export type Intent = 'return' | 'checkin' | 'tags' | null
+export type Intent = 'return' | 'checkin' | 'tags' | 'receive' | null
 
 export interface MenuEntry {
   id: string
@@ -42,6 +43,8 @@ export const MENU_ENTRIES: MenuEntry[] = [
   { id: 'workorders', label: 'See work orders', icon: 'workOrders', screen: 'workorders' },
   { id: 'customers', label: 'Find a customer', icon: 'customers', screen: 'customers' },
   { id: 'products', label: 'Look up an item', icon: 'itemList', screen: 'products' },
+  { id: 'receive', label: 'Receive items', icon: 'receivingHistory', screen: 'receiving', intent: 'receive' },
+  { id: 'receivings', label: 'See receivings', icon: 'receivingHistory', screen: 'receiving' },
   { id: 'tags', label: 'Print price tags', icon: 'printer', screen: 'products', intent: 'tags' },
   { id: 'reports', label: "See today's sales", icon: 'reports', screen: 'reports' },
   { id: 'marketing', label: 'Send a mailer', icon: 'marketing', screen: 'marketing' },
@@ -60,7 +63,7 @@ export interface MenuConfig {
 }
 
 export const DEFAULT_MENUS: MenuConfig = {
-  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'tags', 'reports', 'settings', 'help'],
+  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'receive', 'tags', 'reports', 'settings', 'help'],
   home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'help', 'feedback']
 }
 

@@ -156,7 +156,31 @@ Open **Item List**.
 
 **Deleting items**
 - Open one and click **🗑 Delete**, or tick several in the list (the box at the top ticks everything shown) and click **🗑 Delete selected**.
-- Items with no history are erased for good. Items that are on past sales or work orders can't be erased (old receipts and reports must stay correct), so they're made **inactive** instead: hidden from searches and the Sale screen. To bring one back, find it and tick **Active** again.
+- Items with no history are erased for good. Items that are on past sales, work orders or receivings can't be erased (old receipts and reports must stay correct), so they're made **inactive** instead: hidden from searches and the Sale screen. To bring one back, find it and tick **Active** again.
+- The item window shows **Receiving history** (the last 20 times it came in: date, RV #, vendor, qty, cost and the average cost after).
+
+## Receiving
+Use this when an order comes in from a vendor. Open **Receiving History** on Home (Purchasing), or **I want to… → Receive items**.
+
+**1. Start a receiving.** Click **+ New receiving** and fill in what you have:
+- **Vendor**, **Vendor invoice #**, **PO #**, **Invoice date**, **Received by**.
+- **Freight / shipping $** from the invoice. With **Add freight to the items' cost** ticked, the freight is spread over the items by value, so their cost includes shipping (shown as "+ freight" under the cost).
+- **Notes** (boxes damaged, backorders…).
+
+**2. Add the items.** Scan or type an item #, UPC or description (matches pop up as you type). Scanning the same item again adds 1 to its qty. For each line set:
+- **Qty in** and **Cost each** (the cost on this invoice). The cost box turns yellow when it's different from the item's last cost.
+- The grid shows **On hand**, **Last cost**, the **average cost now → after this receiving**, the regular price and the margin. A **Note** can go on each line.
+
+Click **Save (receive later)** to keep it as a draft: nothing changes in stock until it's received. Drafts stay at the top of the list marked **Not received yet**.
+
+**3. Receive.** Click **✓ Receive items…**. A window lists every line:
+- **Update cost**: tick to make this invoice's cost the item's order (last) cost. Lines where the cost changed are highlighted.
+- **Regular price**: change it here if the price should go up (or down); the margin updates as you type.
+- Click **✓ Receive items**. Stock goes up, and each item's **average cost** is worked out again: (on hand × old average + qty in × new cost) ÷ new on hand. If nothing was in stock, the new cost becomes the average. Services and non-inventory items don't get a stock count.
+
+**4. Print tags.** Next it asks **Print tags?** with one line per item: choose the label (**Auto** picks the price tag or the no-price tag, or choose one), and the number of tags (starts at the qty received). Set a line to 0 to skip it. Click **Print**, or close if you don't want tags. You can print them again later from **🏷 Print tags** on the received receiving.
+
+**Finding a receiving.** Search by RV #, vendor, invoice #, PO # or an item. A received receiving can't be changed; it keeps the costs, prices and averages from before and after. Drafts can be deleted.
 
 ## Customer list
 Open **Customer List** to search, add and edit customers.

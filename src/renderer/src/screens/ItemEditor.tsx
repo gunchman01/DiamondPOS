@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ItemType, Product, ProductInput } from '../../../shared/types'
 import TagPrintDialog from './TagPrintDialog'
 import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { api } from '../api'
-import { parseMoney } from '../format'
+import { dateTime, money, parseMoney } from '../format'
+import type { ItemReceipt } from '../../../shared/receiving'
 import { parseExtra } from '../../../shared/itemImport'
 
 const UNITS = ['Each', 'Pack', 'Box', 'Case', 'Pair', 'Set', 'kg', 'g', 'L', 'mL', 'm', 'Hour']
@@ -348,6 +349,7 @@ export default function ItemEditor(props: ItemEditorProps) {
                 </table>
               </fieldset>
             )}
+            {editing && <ReceivingHistory productId={editing.id} />}
           </div>
 
           {/* ----- Right column ----- */}
@@ -485,5 +487,48 @@ function Row(props: { label: string; required?: boolean; tall?: boolean; childre
       </span>
       <div className="fctl">{props.children}</div>
     </div>
+  )
+}
+
+/** Last times this item was received (cost paid and the average cost after) */
+function ReceivingHistory({ productId }: { productId: number }) {
+  const [rows, setRows] = useState<ItemReceipt[] | null>(null)
+  useEffect(() => {
+    api.itemReceipts(productId).then(setRows).catch(() => setRows([]))
+  }, [productId])
+  if (!rows || rows.length === 0) return null
+  return (
+    <fieldset className="id-panel">
+      <legend>Receiving history</legend>
+      <table className="extra-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>RV #</th>
+            <th>Vendor</th>
+            <th className="r">Qty</th>
+            <th className="r">Cost</th>
+            <th className="r">Avg after</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.receivingId}-${r.postedAt}`}>
+              <td className="muted">{dateTime(r.postedAt)}</td>
+              <td>{r.number}</td>
+              <td>
+                {r.vendor}
+                {r.invoiceNo ? <span className="muted"> #{r.invoiceNo}</span> : null}
+              </td>
+              <td className="r">{r.qty}</td>
+              <td className="r" title={r.landedCostCents !== r.unitCostCents ? `With freight ${money(r.landedCostCents)}` : ''}>
+                {money(r.unitCostCents)}
+              </td>
+              <td className="r">{money(r.newAvgCostCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </fieldset>
   )
 }

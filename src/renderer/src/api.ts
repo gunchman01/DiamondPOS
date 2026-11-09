@@ -1,3 +1,4 @@
+import type { ItemReceipt, PostLineChoice, Receiving, ReceivingInput, ReceivingSummary } from '../../shared/receiving'
 import type { DeleteResult } from '../../shared/deleting'
 import type { ImportCustomer } from '../../shared/customerImport'
 import type { HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
@@ -95,6 +96,14 @@ export const api = {
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
   importCustomers: (rows: ImportCustomer[], opts: { dryRun: boolean; updateExisting: boolean }) =>
     request<ImportSummary>('POST', '/api/customers/import', { rows, ...opts }, undefined, undefined, 120000),
+  receivings: (search = '', status = '') =>
+    request<ReceivingSummary[]>('GET', `/api/receivings?search=${encodeURIComponent(search)}&status=${status}`),
+  receiving: (id: number) => request<Receiving>('GET', `/api/receivings/${id}`),
+  createReceiving: (r: ReceivingInput) => request<Receiving>('POST', '/api/receivings', r),
+  saveReceiving: (id: number, r: ReceivingInput) => request<Receiving>('PUT', `/api/receivings/${id}`, r),
+  deleteReceiving: (id: number) => request<{ ok: boolean }>('DELETE', `/api/receivings/${id}`),
+  postReceiving: (id: number, lines: PostLineChoice[]) => request<Receiving>('POST', `/api/receivings/${id}/post`, { lines }, undefined, undefined, 60000),
+  itemReceipts: (productId: number) => request<ItemReceipt[]>('GET', `/api/products/${productId}/receivings`),
   deleteProducts: (ids: number[]) => request<DeleteResult>('POST', '/api/products/delete', { ids }, undefined, undefined, 120000),
   deleteCustomers: (ids: number[]) => request<DeleteResult>('POST', '/api/customers/delete', { ids }, undefined, undefined, 120000),
   allCustomers: () => request<Customer[]>('GET', '/api/customers/all', undefined, undefined, undefined, 60000),
