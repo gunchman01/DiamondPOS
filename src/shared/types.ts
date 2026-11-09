@@ -75,6 +75,15 @@ export interface Product {
   shipLength: number | null
   shipWidth: number | null
   comments: string | null
+  // --- From QuickBooks POS ---
+  msrpCents: number | null
+  /** Custom Price 1-4 (price levels) */
+  price1Cents: number | null
+  price2Cents: number | null
+  price3Cents: number | null
+  price4Cents: number | null
+  /** Other imported columns with data (JSON object of column → value), e.g. Income Account, Unit of Measure 1 */
+  extra: string | null
 }
 
 export type ProductInput = Omit<Product, 'id'>

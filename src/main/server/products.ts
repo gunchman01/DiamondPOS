@@ -6,7 +6,7 @@
 import type { DB } from './db'
 import type { ImportRowResult, ImportSummary, ItemType, Product, ProductInput } from '../../shared/types'
 
-type Kind = 'text' | 'cents' | 'int' | 'real' | 'bool' | 'type'
+type Kind = 'text' | 'cents' | 'int' | 'qty' | 'real' | 'bool' | 'type' | 'json'
 interface Field {
   key: keyof ProductInput
   col: string
@@ -24,7 +24,7 @@ export const FIELDS: Field[] = [
   { key: 'attribute', col: 'attribute', kind: 'text' },
   { key: 'priceCents', col: 'price_cents', kind: 'cents' },
   { key: 'costCents', col: 'cost_cents', kind: 'cents' },
-  { key: 'onHand', col: 'on_hand', kind: 'int' },
+  { key: 'onHand', col: 'on_hand', kind: 'qty' },
   { key: 'taxable', col: 'taxable', kind: 'bool' },
   { key: 'barcode', col: 'barcode', kind: 'text' },
   { key: 'quickPick', col: 'quick_pick', kind: 'bool' },
@@ -46,7 +46,13 @@ export const FIELDS: Field[] = [
   { key: 'shipHeight', col: 'ship_height', kind: 'real' },
   { key: 'shipLength', col: 'ship_length', kind: 'real' },
   { key: 'shipWidth', col: 'ship_width', kind: 'real' },
-  { key: 'comments', col: 'comments', kind: 'text' }
+  { key: 'comments', col: 'comments', kind: 'text' },
+  { key: 'msrpCents', col: 'msrp_cents', kind: 'cents' },
+  { key: 'price1Cents', col: 'price1_cents', kind: 'cents' },
+  { key: 'price2Cents', col: 'price2_cents', kind: 'cents' },
+  { key: 'price3Cents', col: 'price3_cents', kind: 'cents' },
+  { key: 'price4Cents', col: 'price4_cents', kind: 'cents' },
+  { key: 'extra', col: 'extra_json', kind: 'json' }
 ]
 
 /** Values used for a brand-new item when the request leaves a field out */
@@ -81,7 +87,13 @@ export const DEFAULTS: ProductInput = {
   shipHeight: null,
   shipLength: null,
   shipWidth: null,
-  comments: null
+  comments: null,
+  msrpCents: null,
+  price1Cents: null,
+  price2Cents: null,
+  price3Cents: null,
+  price4Cents: null,
+  extra: null
 }
 
 export class ValidationError extends Error {}
@@ -127,7 +139,7 @@ function coerce(f: Field, raw: unknown): unknown {
   switch (f.kind) {
     case 'text': {
       const s = String(raw ?? '').trim()
-      return s === '' ? null : s.slice(0, 500)
+      return s === '' ? null : s.slice(0, f.key === 'comments' ? 4000 : 500)
     }
     case 'bool':
       return raw === true || raw === 1
@@ -142,6 +154,26 @@ function coerce(f: Field, raw: unknown): unknown {
       if (f.kind === 'cents' && n < 0) throw new ValidationError(`${label(f)} can't be negative`)
       if (f.key === 'reorderPoint' && n < 0) throw new ValidationError('Reorder point can\'t be negative')
       return n
+    }
+    case 'qty': {
+      // On-hand can be a decimal (feet, pounds) and below zero (sold before it was received)
+      if (raw === null || raw === undefined || raw === '') return 0
+      const n = Number(raw)
+      if (!Number.isFinite(n)) throw new ValidationError(`${label(f)} must be a number`)
+      return Math.round(n * 1000) / 1000
+    }
+    case 'json': {
+      if (raw === null || raw === undefined || raw === '') return null
+      const s = typeof raw === 'string' ? raw : JSON.stringify(raw)
+      try {
+        const o = JSON.parse(s)
+        if (!o || typeof o !== 'object' || Array.isArray(o)) return null
+        const clean: Record<string, string> = {}
+        for (const [k, v] of Object.entries(o).slice(0, 60)) if (v !== null && v !== undefined && String(v) !== '') clean[String(k).slice(0, 60)] = String(v).slice(0, 300)
+        return Object.keys(clean).length ? JSON.stringify(clean) : null
+      } catch {
+        return null
+      }
     }
     case 'real': {
       if (raw === null || raw === undefined || raw === '') return null

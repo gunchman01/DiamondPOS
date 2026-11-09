@@ -5,7 +5,7 @@ import { money } from '../format'
 import TagPrintDialog from './TagPrintDialog'
 import ItemEditor from './ItemEditor'
 import ImportItems from './ImportItems'
-import { COLUMNS, itemToRow } from '../../../shared/itemImport'
+import { COLUMNS, extraHeadersOf, itemToRow } from '../../../shared/itemImport'
 import { today } from '../format'
 import { writeSpreadsheet } from '../spreadsheet'
 
@@ -38,7 +38,7 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
     try {
       const all = await api.listAllProducts()
       writeSpreadsheet(`Diamond POS items ${today()}.xlsx`, [
-        { name: 'Items', headers: COLUMNS.map((c) => c.header), rows: all.map(itemToRow) }
+        { name: 'Items', headers: [...COLUMNS.map((c) => c.header), ...extraHeadersOf(all)], rows: all.map(itemToRow) }
       ])
     } catch (e) {
       setError((e as Error).message)

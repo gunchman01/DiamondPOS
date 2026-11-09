@@ -463,6 +463,19 @@ export const migrations: Migration[] = [
       ALTER TABLE customers ADD COLUMN past_due_cents INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE customers ADD COLUMN custom_field1 TEXT;
     `
+  },
+  {
+    version: 19,
+    name: 'item MSRP, custom prices 1-4 and other imported details (QuickBooks POS import)',
+    up: `
+      ALTER TABLE products ADD COLUMN msrp_cents INTEGER;
+      ALTER TABLE products ADD COLUMN price1_cents INTEGER;
+      ALTER TABLE products ADD COLUMN price2_cents INTEGER;
+      ALTER TABLE products ADD COLUMN price3_cents INTEGER;
+      ALTER TABLE products ADD COLUMN price4_cents INTEGER;
+      -- Other columns from an imported sheet that have data but no field of their own (JSON object)
+      ALTER TABLE products ADD COLUMN extra_json TEXT;
+    `
   }
 ]
 

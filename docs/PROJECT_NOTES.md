@@ -371,14 +371,20 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 - [x] UI: Customer List **Import from Excel** (`ImportCustomers.tsx`, template download, preview, shows the first 1,000 result rows) and **Export to Excel**.
 - Verified with Greg's real "QB POS Customers Export.xlsx" (12,665 rows): all 20 columns recognised, 0 problems, 12,637 customers created (28 rows were the same person twice), 1,889 tax exempt (1,686 with a Farm Tax ID from Custom Field 1, 203 without), 9 non-email EMail values kept in notes, re-import = 0 new, export → import round trip matches every customer by Customer ID. TypeScript; customer/kiosk/exempt suites pass.
 
+### 9 Nov 2026: Item import from QuickBooks POS inventory export (next release **v0.3.18**, DB migration 19)
+- [x] **DB migration 19**: products `msrp_cents`, `price1_cents`..`price4_cents` (QB POS Custom Price 1-4 = price levels, not used in pricing yet), `extra_json` (other imported columns with data, JSON object column → value). `FIELDS`: new kinds `qty` (on hand: decimals and negatives allowed) and `json`; comments up to 4,000 chars.
+- [x] `shared/itemImport.ts`: QB POS header aliases (Item Number, Department Name, Base Unit of Measure, Company Reorder Point, Serial Tracking, Eligible for Commission/Rewards, Qty 1…); new columns MSRP + Custom Price 1-4 (`cents0`: 0 = not set); Tax Code: anything but Non/No/Exempt = taxable (e.g. "VER"); Item Type "Assembly" → inventory; reorder point rounded; zero shipping sizes ignored; `cleanName` drops stray trailing keys (`'/[;`, `../`). `extraColumns` + `hasData` (blank / 0 / "No" = no data): unrecognised columns with data are stored per item in `extra`; `itemToRow`/`extraHeadersOf` export them again. Import dialog flags the same Item No. twice in one file. Server import limit 50,000 rows.
+- [x] Item window: MSRP, Custom Prices 1-4, Unit of Measure is now free text with suggestions (imported "EACH"/"EA" kept), on-hand decimals, **Other details (imported)** list.
+- Verified with Greg's real "QB POS Inventory Items Export.xls" (22,215 rows, 97 columns): 32 columns mapped to item fields, 18 more kept as other details (Order By Unit, Sell By Unit, Income/COGS/Asset Account, Department Code, Vendor Code, QB ListID, Unit of Measure 1 + its UPC/ALU/prices), 47 empty columns skipped; 22,214 items imported in < 1 s (dry run 1 s), 1 problem: Item Number 49113 is used twice (SUNGLASSES … and LEVER); re-import = 0 new; ALU lookup works; export → import round trip clean. TypeScript; items/import/customer import/designs suites pass.
+
 ---
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18).
+**Latest release: v0.3.15** (printer chooser, drag-and-drop receipt layout, kiosk help). Next release: **v0.3.16** (tax added at checkout + tax rates, work order label, "I want to" menus; DB migration 17: update the Store Server PC first, then every till). Then **v0.3.17**: customer import / export (DB migration 18), **v0.3.18**: QuickBooks POS inventory import (DB migration 19).
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs, receiving, vendors), Departments, QuickBooks sync
-   - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount %; QuickBooks tax item per tax rate
+   - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount % and Custom Price levels (from QB POS) by customer type; selling by case (Unit of Measure 1); QuickBooks tax item per tax rate
    - Ideas: Quick Pick order/colours, hold/recall sale
 1. Staff PINs and an audit log (who rang up each sale)
 2. ~~Refunds~~ (done). Still to do: **void** a sale the same day (the `sales.status` column already exists); manager PIN to approve no-receipt returns; print a barcode on receipts so scanning finds them instantly; a "no-receipt returns" report

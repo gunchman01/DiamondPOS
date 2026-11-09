@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.18 - 9 Nov 2026
+> Update the Store Server PC first.
+- **Import your QuickBooks Point of Sale inventory export** (Item List → Import from Excel). Every column with data comes in: item number, name, description, alternate lookup, size, attribute, costs, regular price, MSRP, custom prices 1-4, tax code, UPC, order cost, item type, unit of measure, reorder point, print tags, unorderable, serial tracking, commission, rewards, department, vendor, manufacturer and quantity on hand.
+- Other columns with data (accounts, order/sell units, case pricing for Unit of Measure 1…) are kept on the item and shown under **Other details** in the item window. Export to Excel writes them back out.
+- Items now have **MSRP** and **Custom Price 1-4**. On-hand quantity can have decimals (feet, pounds) and go below zero.
+
 ## v0.3.17 - 9 Nov 2026
 > Update the Store Server PC first.
 - **Import and export customers with Excel** (Customer List). A QuickBooks Point of Sale customer export imports as it is, with every column: name, company, address, phones, alt contact, discount, tax exempt, email and email notification, past due, notes and custom field 1.

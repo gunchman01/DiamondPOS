@@ -227,7 +227,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       updateExisting?: boolean
     }
     if (!Array.isArray(items) || items.length === 0) throw new HttpError(400, 'No rows to import')
-    if (items.length > 10000) throw new HttpError(400, 'Too many rows (maximum 10,000 per import)')
+    if (items.length > 50000) throw new HttpError(400, 'Too many rows (maximum 50,000 per import)')
     res.json(importProducts(db, items, { dryRun: dryRun === true, updateExisting: updateExisting !== false }))
   })
 

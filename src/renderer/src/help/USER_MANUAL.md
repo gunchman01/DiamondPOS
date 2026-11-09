@@ -136,7 +136,7 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 ## Items
 Open **Item List**.
 - Search by name, item #, UPC or department. Click an item to edit it; click **+ Add item** to add one.
-- The item window holds price, cost, department, on-hand quantity, vendor, taxable, and more.
+- The item window holds price, cost, MSRP, Custom Prices 1-4, department, on-hand quantity, vendor, taxable, and more.
 - Tick **Quick Pick** to show the item as a button on the Sale screen.
 - Tick **Use Serial #** for items that have a serial number (mowers, saws, blowers…).
 - Untick **Active** to hide an item from sales without deleting it.
@@ -148,7 +148,10 @@ Open **Item List**.
 
 **Excel import and export**
 - **Export to Excel** saves every item to a spreadsheet.
-- **Import from Excel** adds or updates items from a spreadsheet (columns like Item Name, Item No., UPC, Department, Reg Price, On-Hand Qty). You see a preview with any problems before anything is saved.
+- **Import from Excel** adds or updates items. A **QuickBooks Point of Sale inventory export** (.xls or .xlsx) imports as it is: Item Number, Item Name, Item Description, Alternate Lookup, Size, Attribute, Average Unit Cost, Regular Price, MSRP, Custom Price 1-4, Tax Code, UPC, Order Cost, Item Type, Base Unit of Measure, Reorder Point, Print Tags, Unorderable, Serial Tracking, Commission, Rewards, Department, Vendor, Manufacturer and Qty. You see a preview with any problems before anything is saved.
+  - Any other column that has data (for example Income Account, Order By Unit, Unit of Measure 1 and its prices) is kept on the item and shown under **Other details (imported)** in the item window. Columns that are empty, all 0 or all "No" are skipped.
+  - Stray characters at the end of QuickBooks item names (like `'/[;`) are removed. Tax codes other than "Non" (e.g. VER) mean taxable.
+  - Items already in Diamond POS are matched by Item No. (or UPC) and updated, so importing again doesn't make doubles. If the same Item No. is in the file twice, the second one is listed as a problem: give it a new Item No. and import it again.
 
 ## Customer list
 Open **Customer List** to search, add and edit customers.

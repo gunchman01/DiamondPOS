@@ -3,6 +3,7 @@ import type { ItemType, Product, ProductInput } from '../../../shared/types'
 import TagPrintDialog from './TagPrintDialog'
 import { api } from '../api'
 import { parseMoney } from '../format'
+import { parseExtra } from '../../../shared/itemImport'
 
 const UNITS = ['Each', 'Pack', 'Box', 'Case', 'Pair', 'Set', 'kg', 'g', 'L', 'mL', 'm', 'Hour']
 const TYPES: { value: ItemType; label: string }[] = [
@@ -44,6 +45,11 @@ interface Form {
   shipLength: string
   shipWidth: string
   comments: string
+  msrp: string
+  price1: string
+  price2: string
+  price3: string
+  price4: string
 }
 
 const centsText = (c: number | null) => (c === null ? '' : (c / 100).toFixed(2))
@@ -81,12 +87,17 @@ function toForm(p: Product | null): Form {
     shipHeight: numText(p?.shipHeight ?? null),
     shipLength: numText(p?.shipLength ?? null),
     shipWidth: numText(p?.shipWidth ?? null),
-    comments: p?.comments ?? ''
+    comments: p?.comments ?? '',
+    msrp: centsText(p?.msrpCents ?? null),
+    price1: centsText(p?.price1Cents ?? null),
+    price2: centsText(p?.price2Cents ?? null),
+    price3: centsText(p?.price3Cents ?? null),
+    price4: centsText(p?.price4Cents ?? null)
   }
 }
 
 /** Convert the form to an item, or return an error message. */
-function fromForm(f: Form): ProductInput | string {
+function fromForm(f: Form, original: Product | null): ProductInput | string {
   if (!f.name.trim()) return 'Enter an item name'
   const money = (label: string, text: string, required = false): number | null | string => {
     if (!text.trim()) return required ? `${label} is required` : null
@@ -107,7 +118,12 @@ function fromForm(f: Form): ProductInput | string {
     priceCents: money('Regular price', f.price, true),
     costCents: money('Avg. unit cost', f.cost),
     orderCostCents: money('Order cost', f.orderCost),
-    onHand: int('On-hand qty', f.onHand),
+    msrpCents: money('MSRP', f.msrp),
+    price1Cents: money('Custom price 1', f.price1),
+    price2Cents: money('Custom price 2', f.price2),
+    price3Cents: money('Custom price 3', f.price3),
+    price4Cents: money('Custom price 4', f.price4),
+    onHand: f.onHand.trim() === '' ? 0 : Number.isFinite(Number(f.onHand)) ? Number(f.onHand) : 'On-hand qty must be a number',
     reorderPoint: int('Reorder point', f.reorderPoint),
     shipWeight: dec('Shipping weight', f.shipWeight),
     shipHeight: dec('Shipping height', f.shipHeight),
@@ -147,7 +163,14 @@ function fromForm(f: Form): ProductInput | string {
     shipHeight: values.shipHeight as number | null,
     shipLength: values.shipLength as number | null,
     shipWidth: values.shipWidth as number | null,
-    comments: t(f.comments)
+    comments: t(f.comments),
+    msrpCents: values.msrpCents as number | null,
+    price1Cents: values.price1Cents as number | null,
+    price2Cents: values.price2Cents as number | null,
+    price3Cents: values.price3Cents as number | null,
+    price4Cents: values.price4Cents as number | null,
+    // Other imported details are kept as they are
+    extra: original?.extra ?? null
   }
 }
 
@@ -188,7 +211,7 @@ export default function ItemEditor(props: ItemEditorProps) {
   const margin = !isNaN(priceC) && !isNaN(costC) && priceC > 0 ? Math.round(((priceC - costC) / priceC) * 100) : null
 
   async function save(andNew: boolean) {
-    const input = fromForm(form)
+    const input = fromForm(form, editing)
     if (typeof input === 'string') return setError(input)
     setBusy(true)
     setError('')
@@ -294,6 +317,21 @@ export default function ItemEditor(props: ItemEditorProps) {
               <legend>Comments</legend>
               <textarea className="comments" {...text('comments')} />
             </fieldset>
+            {editing?.extra && Object.keys(parseExtra(editing.extra)).length > 0 && (
+              <fieldset className="id-panel">
+                <legend>Other details (imported)</legend>
+                <table className="extra-table">
+                  <tbody>
+                    {Object.entries(parseExtra(editing.extra)).map(([k, v]) => (
+                      <tr key={k}>
+                        <td className="muted">{k}</td>
+                        <td>{v}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </fieldset>
+            )}
           </div>
 
           {/* ----- Right column ----- */}
@@ -306,6 +344,16 @@ export default function ItemEditor(props: ItemEditorProps) {
               <Row label="Order Cost">
                 <input className="money" placeholder="0.00" {...text('orderCost')} />
               </Row>
+              <Row label="MSRP">
+                <input className="money" placeholder="None" {...text('msrp')} />
+              </Row>
+              <Row label="Custom Prices">
+                <div className="price-levels">
+                  {(['price1', 'price2', 'price3', 'price4'] as const).map((k, i) => (
+                    <input key={k} className="money" placeholder={`#${i + 1}`} title={`Custom Price ${i + 1}`} {...text(k)} />
+                  ))}
+                </div>
+              </Row>
               <Row label="Reorder Point">
                 <input className="num" disabled={!stock} {...text('reorderPoint')} />
               </Row>
@@ -316,11 +364,12 @@ export default function ItemEditor(props: ItemEditorProps) {
                 <input placeholder="Alternate lookup code" {...text('alu')} />
               </Row>
               <Row label="Unit of Measure">
-                <select {...text('unitOfMeasure')}>
+                <input list="dl-units" {...text('unitOfMeasure')} />
+                <datalist id="dl-units">
                   {UNITS.map((u) => (
-                    <option key={u}>{u}</option>
+                    <option key={u} value={u} />
                   ))}
-                </select>
+                </datalist>
               </Row>
               <Row label="Manufacturer">
                 <input {...text('manufacturer')} />

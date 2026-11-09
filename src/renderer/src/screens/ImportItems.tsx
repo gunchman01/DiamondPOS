@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ImportRowResult, ImportSummary } from '../../../shared/types'
-import { COLUMNS, ImportItem, TEMPLATE_ROWS, mapHeaders, rowToItem } from '../../../shared/itemImport'
+import { COLUMNS, ImportItem, TEMPLATE_ROWS, extraColumns, mapHeaders, rowToItem } from '../../../shared/itemImport'
 import { api } from '../api'
 import { readSpreadsheet, writeSpreadsheet } from '../spreadsheet'
 
@@ -10,7 +10,8 @@ interface Parsed {
   fileName: string
   rowCount: number
   matched: string[] // recognised column headers
-  unknown: string[] // ignored columns
+  unknown: string[] // ignored columns (no data in them)
+  extras: string[] // other columns with data: kept on each item
   items: ImportItem[] // rows that converted cleanly
   clientErrors: ImportRowResult[] // rows with bad cell values
 }
@@ -37,10 +38,18 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
       if (![...map.values()].some((c) => c.key === 'name' || c.key === 'sku' || c.key === 'barcode'))
         throw new Error('Could not find an "Item Name", "Item No." or "UPC" column. Download the template to see the expected headers.')
 
+      const extras = extraColumns(unknown, sheet.rows.map((r) => r.values))
       const items: ImportItem[] = []
       const clientErrors: ImportRowResult[] = []
+      const skuRows = new Map<string, number>()
       for (const r of sheet.rows) {
-        const { item, errors } = rowToItem(r.values, map, r.rowNumber)
+        const { item, errors } = rowToItem(r.values, map, r.rowNumber, extras)
+        // The same Item No. twice in one file would overwrite the first item
+        if (item.sku) {
+          const first = skuRows.get(item.sku.toUpperCase())
+          if (first) errors.push(`Item No. ${item.sku} is already used on row ${first} of this file`)
+          else skuRows.set(item.sku.toUpperCase(), r.rowNumber)
+        }
         if (errors.length)
           clientErrors.push({ row: r.rowNumber, name: String(item.name ?? ''), action: 'error', message: errors.join('; ') })
         else items.push(item)
@@ -49,7 +58,8 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
         fileName: file.name,
         rowCount: sheet.rows.length,
         matched: [...map.values()].map((c) => c.header),
-        unknown,
+        unknown: unknown.filter((u) => !extras.includes(u)),
+        extras,
         items,
         clientErrors
       }
@@ -101,7 +111,8 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
 
   const allResults = useMemo(() => {
     const rows = [...(summary?.results ?? []), ...(parsed?.clientErrors ?? [])].sort((a, b) => a.row - b.row)
-    return errorsOnly ? rows.filter((r) => r.action === 'error') : rows
+    // Big files: show at most 1,000 rows (tick "problems only" to see every problem)
+    return (errorsOnly ? rows.filter((r) => r.action === 'error') : rows).slice(0, 1000)
   }, [summary, parsed, errorsOnly])
 
   const errorCount = (summary?.errors ?? 0) + (parsed?.clientErrors.length ?? 0)
@@ -122,7 +133,7 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
             <div className="import-pick">
               <ol className="steps">
                 <li>
-                  Download the template (or use your own sheet). Row 1 must be the column headers, such as{' '}
+                  Use a <b>QuickBooks Point of Sale inventory export</b> as it is, or download the template. Row 1 must be the column headers, such as{' '}
                   <b>Item Name, Item No., UPC, Department, Reg Price, On-Hand Qty</b>.
                 </li>
                 <li>Fill in one item per row and save the file (.xlsx, .xls or .csv).</li>
@@ -163,9 +174,12 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
               <div className="import-cols small">
                 <span className="muted">Columns used: </span>
                 {parsed.matched.join(', ')}
-                {parsed.unknown.length > 0 && (
-                  <div className="muted">Ignored columns (not recognised): {parsed.unknown.join(', ')}</div>
+                {parsed.extras.length > 0 && (
+                  <div className="muted">
+                    Also kept on each item (shown under "Other details" in the item window): {parsed.extras.join(', ')}
+                  </div>
                 )}
+                {parsed.unknown.length > 0 && <div className="muted">Skipped (no data in them): {parsed.unknown.join(', ')}</div>}
               </div>
               {step === 'done' && (
                 <div className="import-done">
@@ -176,6 +190,7 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
               <div className="row between">
                 <span className="small muted">
                   {step === 'preview' ? 'Preview: nothing has been saved yet.' : 'Results'}
+                  {(summary?.results.length ?? 0) > 1000 ? ' Showing the first 1,000 rows.' : ''}
                 </span>
                 <label className="check small">
                   <input type="checkbox" checked={errorsOnly} onChange={(e) => setErrorsOnly(e.target.checked)} />
@@ -223,7 +238,7 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
           <div className="id-msg" />
           {step === 'preview' && (
             <button className="primary" disabled={busy || goodCount === 0} onClick={runImport}>
-              {busy ? 'Importing…' : `Import ${goodCount} item${goodCount === 1 ? '' : 's'}`}
+              {busy ? 'Importing… (this can take a minute)' : `Import ${goodCount} item${goodCount === 1 ? '' : 's'}`}
             </button>
           )}
           <button onClick={onClose} disabled={busy}>
