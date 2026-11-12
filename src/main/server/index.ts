@@ -9,7 +9,9 @@
  */
 import express, { NextFunction, Request, Response } from 'express'
 import type { Server } from 'http'
+import path from 'path'
 import { openDatabase, getSchemaVersion, DB } from './db'
+import { startBackupScheduler } from './backup'
 import {
   DEFAULTS,
   ProductRow,
@@ -82,6 +84,7 @@ class HttpError extends Error {
 
 let httpServer: Server | null = null
 let db: DB | null = null
+let stopBackups: (() => Promise<void>) | null = null
 
 export function isServerRunning(): boolean {
   return httpServer !== null
@@ -97,11 +100,14 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     httpServer = s
   })
   console.log(`[server] Listening on port ${opts.port}`)
+  stopBackups = startBackupScheduler(db, path.join(path.dirname(opts.dbFile), 'backups'))
   startMarketingSender(db, readSettings) // sends mailers in the background (and resumes after a restart)
 }
 
 export async function stopServer(): Promise<void> {
   stopMarketingSender()
+  if (stopBackups) await stopBackups()
+  stopBackups = null
   if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
   httpServer = null
   db?.close()
