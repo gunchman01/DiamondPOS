@@ -1,3 +1,4 @@
+import { itemCosts } from './itemCosts'
 import { vendorIdForName } from './vendors'
 /**
  * Receiving on the store server: drafts, posting (stock up, average cost, order cost / price updates),
@@ -112,7 +113,7 @@ function clean(b: Partial<ReceivingInput>) {
     invoiceDate: date,
     receivedBy: str(b.receivedBy, 60),
     freightCents: freight,
-    freightToCost: b.freightToCost !== false,
+    freightToCost: b.freightToCost === true,
     notes: str(b.notes, 2000),
     tillName: str(b.tillName, 60),
     lines
@@ -216,7 +217,7 @@ export function registerReceivingRoutes(app: express.Express, db: DB) {
       const id = Number(req.params.id)
       const r = need(id)
       if (r.status !== 'draft') throw new RvError(409, `${r.number} has been received already and can't be changed`)
-      const c = clean(req.body ?? {})
+      const c = clean({...req.body,freightToCost:req.body?.freightToCost ?? r.freightToCost})
       db.transaction(() => {
         db.prepare(
           `UPDATE receivings SET vendor = ?, invoice_no = ?, po_number = ?, invoice_date = ?, received_by = ?, freight_cents = ?, freight_to_cost = ?,
@@ -281,6 +282,8 @@ export function registerReceivingRoutes(app: express.Express, db: DB) {
       res.json(need(id))
     })
   )
+
+  app.get('/api/products/:id/cost-summary',wrap((req,res)=>{const costs=itemCosts(db,Number(req.params.id));if(!costs)throw new RvError(404,'Item not found');res.json(costs)}))
 
   // An item's receiving history (item window)
   app.get(

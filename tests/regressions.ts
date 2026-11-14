@@ -1,3 +1,4 @@
+import { testReportingVoids } from './reporting-voids'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -92,7 +93,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 24)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 25)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
@@ -630,6 +631,7 @@ async function main() {
   await stopServer()
   check('server starts after a failed startup and waits for backup before closing', () => assert.equal(isServerRunning(), false))
   db.close()
+  await testReportingVoids(check,dir)
   console.log(`\n${checks} regression checks passed.`)
 }
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(() => fs.rmSync(dir, { recursive: true, force: true }))

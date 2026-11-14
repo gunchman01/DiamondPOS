@@ -152,6 +152,7 @@ async function printJob(job: PrintJob): Promise<void> {
     await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(String(job.html)))
     const options: Electron.WebContentsPrintOptions = {
       silent: true,
+      landscape: job.landscape === true,
       printBackground: true,
       margins: { marginType: 'none' },
       copies: Math.max(1, Math.min(10, Math.round(job.copies ?? 1)))

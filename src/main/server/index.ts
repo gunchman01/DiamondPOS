@@ -1,3 +1,5 @@
+import { saleVoid } from './voids'
+import { registerReportRoutes } from './reports'
 import { registerVendorRoutes } from './vendors'
 /**
  * The STORE SERVER.
@@ -245,6 +247,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     res.json(toProduct(row))
   })
 
+  app.get('/api/products/:id', (req,res) => { const p=getProduct(db,Number(req.params.id)); if(!p)throw new HttpError(404,'Item not found');res.json(p) })
+
   app.post('/api/products', (req, res) => {
     const id = insertProduct(db, validateProduct(req.body, DEFAULTS))
     res.status(201).json(getProduct(db, id))
@@ -281,6 +285,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // Receiving (items in from vendors, average cost)
   registerReceivingRoutes(app, db)
   registerVendorRoutes(app, db)
+  registerReportRoutes(app, db)
 
   // Every customer, for Export to Excel
   app.get('/api/customers/all', (_req, res) => res.json(allCustomers(db)))
@@ -363,7 +368,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError(400, 'date=YYYY-MM-DD is required')
     const rows = db
       .prepare(
-        `SELECT s.id, s.created_at, s.till_name, s.total_cents, c.id AS cid,
+        `SELECT s.id, s.created_at, s.till_name, s.total_cents, s.status, c.id AS cid,
                 c.first_name, c.last_name, c.company, c.track_as_company,
                 EXISTS (SELECT 1 FROM sale_items r WHERE r.sale_id = s.id AND r.kind = 'return') AS has_return
          FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
@@ -376,6 +381,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       tillName: r.till_name,
       totalCents: r.total_cents,
       customerName: rowCustomerName(r),
+      status: r.status,
       hasReturn: r.has_return === 1
     }))
     res.json(list)
@@ -469,6 +475,7 @@ interface SaleListRow {
   last_name: string | null
   company: string | null
   track_as_company: number | null
+  status?: string
   has_return?: number
 }
 
@@ -737,13 +744,13 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     const saleId = Number(info.lastInsertRowid)
     const addItem = db.prepare(
       `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial,
-                               kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents, regular_price_cents)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                               kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents, regular_price_cents, stock_removed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const takeStock = db.prepare(`UPDATE products SET on_hand = on_hand - ? WHERE id = ?`)
     for (const l of lines) {
       addItem.run(saleId, l.productId, l.name, l.unitPriceCents, l.qty, l.lineTotalCents, l.department, l.taxable ? 1 : 0, l.serial || null,
-        l.kind, null, null, null, 0, null, l.regularPriceCents ?? null)
+        l.kind, null, null, null, 0, null, l.regularPriceCents ?? null, l.tracksStock ? l.qty : 0)
       // A serial-numbered item sold to a customer is saved as one of their units (for repairs later)
       if (l.serial && customerId && l.kind === 'item')
         addUnitFromSale(db, { customerId, saleId, serial: l.serial, name: l.name, department: l.department, manufacturer: l.manufacturer })
@@ -751,7 +758,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     }
     for (const r of retLines)
       addItem.run(saleId, r.productId, r.name, r.unitPriceCents, r.qty, r.lineTotalCents, r.department, r.taxable ? 1 : 0, r.serial || null,
-        r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents, null)
+        r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents, null, null)
     finishReturns(db, retLines)
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference, card_brand) VALUES (?, ?, ?, ?, ?)')
     for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null, p.cardBrand ?? null)
@@ -763,7 +770,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   return getSale(db, id)!
 }
 
-function getSale(db: DB, id: number): Sale | null {
+export function getSale(db: DB, id: number): Sale | null {
   const s = db
     .prepare(
       `SELECT s.*, c.id AS cid, c.first_name, c.last_name, c.company, c.track_as_company
@@ -775,6 +782,7 @@ function getSale(db: DB, id: number): Sale | null {
         created_at: string
         till_name: string
         total_cents: number
+        status: string
         tax_cents: number
         change_cents: number
         tax_exempt: number
@@ -817,6 +825,8 @@ function getSale(db: DB, id: number): Sale | null {
   }[]
   return {
     id: s.id,
+    status: s.status,
+    void: saleVoid(db,s.id),
     createdAt: sqliteToIso(s.created_at),
     tillName: s.till_name,
     totalCents: s.total_cents,

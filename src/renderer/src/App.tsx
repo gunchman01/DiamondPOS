@@ -68,7 +68,7 @@ const HELP_TOPIC: Record<Tab, string> = {
   quickbooks: 'quickbooks',
   marketing: 'marketing-mailers',
   workorders: 'work-orders-repairs',
-  reports: 'sales-history-and-reports',
+  reports: 'reports',
   settings: 'settings',
   updates: 'updates',
   help: 'getting-started',

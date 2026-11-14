@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 14 November 2026 (v0.3.31 vendor list)_
+_Last updated: 14 November 2026 (v0.3.32 reports, voids and receiving costs)_
 
 ---
 
@@ -492,3 +492,18 @@ Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide w
 Adds shared vendors types, authenticated CRUD routes, list and QBPOS-style editor. Migration 24 seeds trimmed/case-insensitive supplier names from products and receivings, preserving their existing text, and attaches nullable vendor_id links. Item insert/update and Receiving create/draft updates link matching vendor names. Rename updates linked item master names, preserves voucher snapshots, and history uses stable IDs. No deletion; inactive filters suggestions. Unknown free text remains permitted for compatibility. Terms are reference only; no POs, payables or vendor QuickBooks export added.
 
 Validated with typecheck, build and 70 SQLite/API regression checks. Windows visual verification remains a local check. Release package is a changed-source overlay against main f7a82ed6bdc7d9a646a537f4a8c2bd40bfcbe0a5 / v0.3.30. User commits/tags main; no branch or push created here.
+
+
+## v0.3.32 implementation
+
+Report builder uses shared field/preset allowlists and parameterized server-side SQL (receipt/item/voucher grains respectively). Supports projections, AND filters, group SUMs/counts, relative/custom local dates and sorting. Explicit 10,000-row output cap, full-match totals. Saved definitions (up to 100) are stored in reports_saved_v1 in settings, shared across tills. No raw SQL or per-item historical profit reporting. Excel/CSV export + full-page print. DailyCloseout retains old Reports UI and refreshes after viewing/voiding receipts.
+
+Migration 25 adds sale_voids and sale_items.stock_removed. New sale lines snapshot stock quantity removed; pre-v32 lines stay null and require operator acknowledgment based on current product type. Void service atomically retains original amounts/payments, marks status=void, restores stock and deactivates sold units, with permanent reason/by/till/payment note/stock JSON. Repeat requests are idempotent. Restricted to ordinary positive sales without return/work-order/manual/legacy dependencies. Operator name is typed audit data, not authenticated role enforcement. Terminal payment reversal is manual and explicitly confirmed.
+
+Web Connector runs pending void tasks before normal exports when sending is enabled, regardless of configured sale start date. Known TxnID queries or ref-number recovery check ownership memo, customer, original amount; TxnVoidRq is followed by a zero-value/VOID-marker query. Failures remain error until explicit retry; lost responses recover by querying. Pending/failed voids are counted in operations and shown in queue without ordinary-sale resend eligibility. No external QuickBooks company file was modified during development; mocked SOAP tests exercise protocols. Validate against Greg's Windows test company before relying on live behavior.
+
+Receiving API + new-form defaults freight allocation false; draft PUT omission preserves saved preference. Posted voucher tag actions fetch exact full product records, avoiding search caps/stale price data. Item cost summary aggregates all posted receiving lines with quantity weighting (invoice and landed bases), independent from 20-row preview. Current average remains products.cost_cents; averages exclude opening/import stock without vouchers. Last cost uses posted_at/id/line ordering.
+
+Source overlay targets main 969294769f2be459867194827b4953ed99a8e08e / v0.3.31. All files copied over existing project; no push/tag performed here. Update server then every till. Windows UI/printing and real test-company validation are local checks.
+
+Validation for v0.3.32: npm run typecheck, npm run build and npm test passed (104 regression checks, including mocked QBWC void/recovery/error responses, report totals/caps, cost weighting and freight defaults). No physical printer or real QuickBooks Desktop run was performed here.

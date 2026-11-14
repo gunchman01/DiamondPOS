@@ -1,3 +1,4 @@
+import type { SaleVoid } from './voids'
 import type { CashDrawerConfig } from './drawer'
 import type { ReturnRequestLine } from './returns'
 import type { PrintJob, PrinterInfo, PrintSettings } from './printing'
@@ -167,6 +168,8 @@ export interface SaleItem {
 }
 
 export interface Sale {
+  status?: string
+  void?: SaleVoid | null
   id: number
   createdAt: string
   tillName: string
@@ -193,6 +196,7 @@ export interface Sale {
 }
 
 export interface SaleSummary {
+  status?: string
   id: number
   createdAt: string
   tillName: string

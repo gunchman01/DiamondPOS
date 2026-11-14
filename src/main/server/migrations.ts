@@ -580,6 +580,16 @@ export const migrations: Migration[] = [
     UPDATE receivings SET vendor_id=(SELECT id FROM vendors WHERE company_name=TRIM(receivings.vendor) COLLATE NOCASE) WHERE TRIM(COALESCE(vendor,''))<>'';
     CREATE INDEX idx_products_vendor ON products(vendor_id);
     CREATE INDEX idx_receivings_vendor ON receivings(vendor_id);
+  ` },
+  { version: 25, name: 'audited sale voids and inventory movement snapshot', up: `
+    ALTER TABLE sale_items ADD COLUMN stock_removed REAL;
+    CREATE TABLE sale_voids (
+      sale_id INTEGER PRIMARY KEY REFERENCES sales(id),reason TEXT NOT NULL,voided_by TEXT NOT NULL,till_name TEXT NOT NULL,
+      voided_at TEXT NOT NULL DEFAULT (datetime('now')),payment_note TEXT NOT NULL,stock_json TEXT NOT NULL,
+      qb_status TEXT NOT NULL CHECK(qb_status IN ('not_needed','pending','confirmed','error')),
+      qb_txn_id TEXT,qb_error TEXT,qb_confirmed_at TEXT
+    );
+    CREATE INDEX idx_voids_qb_status ON sale_voids(qb_status);
   ` }
 
 ]

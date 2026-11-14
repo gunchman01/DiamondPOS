@@ -1,3 +1,4 @@
+import VoidSaleDialog from './VoidSaleDialog'
 import { paymentLabel } from '../../../shared/types'
 import { useEffect, useState } from 'react'
 import type { Sale } from '../../../shared/types'
@@ -11,13 +12,15 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
   const [sale, setSale] = useState<Sale | null>(null)
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
+  const [voiding,setVoiding]=useState(false)
 
   useEffect(() => {
     api.getSale(saleId).then(setSale).catch((e) => setError(e.message))
   }, [saleId])
 
   const [choosing, setChoosing] = useState(false)
-  const reprint = () => sale && setChoosing(true)
+  const reprint = async () => {try{setSale(await api.getSale(saleId));setChoosing(true)}catch(e){setError((e as Error).message)}}
+  useEffect(()=>{if(sale?.void?.qbStatus!=='pending')return;const timer=setInterval(()=>api.getSale(saleId).then(setSale).catch(e=>setError(e.message)),15000);return()=>clearInterval(timer)},[saleId,sale?.void?.qbStatus])
 
 
   const refund = !!sale && sale.totalCents < 0
@@ -32,13 +35,14 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
           }
         }} tabIndex={-1}>
         <h2>
-          Receipt #{saleId}
+          Receipt #{saleId}{sale?.status==='void'?' · VOID':''}
           {refund ? ' · REFUND' : hasReturn ? ' · EXCHANGE' : ''}
         </h2>
         {error && <div className="error-text">{error}</div>}
         {!sale && !error && <p className="muted">Loading…</p>}
         {sale && (
           <>
+            {sale.status==='void'&&<div className="msg error"><b>VOID — original amounts below are retained for audit and are excluded from sales totals.</b>{sale.void&&<p>{sale.void.reason} · {sale.void.by} · {dateTime(sale.void.at)}<br/>Payment: {sale.void.paymentNote}<br/>QuickBooks: {sale.void.qbStatus==='not_needed'?'Not exported':sale.void.qbStatus}{sale.void.qbError&&' · '+sale.void.qbError}</p>}</div>}
             <div className="sale-head">
               <div>
                 <span className="muted small">Date</span>
@@ -135,6 +139,7 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
         )}
         {msg && <div className="ok-text">{msg}</div>}
         <div className="row gap end">
+          {sale&&sale.status!=='void'&&<button className="danger" onClick={()=>setVoiding(true)}>Void sale…</button>}
           <button type="button" disabled={!sale} onClick={reprint}>
             Reprint receipt
           </button>
@@ -153,6 +158,7 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
           onCancel={() => setChoosing(false)}
         />
       )}
+      {voiding&&<VoidSaleDialog id={saleId} onClose={()=>setVoiding(false)} onDone={()=>{setVoiding(false);api.getSale(saleId).then(setSale).catch(e=>setError(e.message));setMsg('Sale voided. Review the QuickBooks correction status above.')}}/>}
     </div>
   )
 }

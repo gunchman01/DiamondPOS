@@ -21,6 +21,8 @@ const ref = (tag: string, fullName: string) => `<${tag}><FullName>${esc(fullName
 const active = '<ActiveStatus>ActiveOnly</ActiveStatus>'
 
 export const rq = {
+  salesReceiptById: (id:string) => `<SalesReceiptQueryRq requestID="1"><TxnID>${esc(id)}</TxnID></SalesReceiptQueryRq>`,
+  voidSalesReceipt: (id:string) => `<TxnVoidRq requestID="1"><TxnVoidType>SalesReceipt</TxnVoidType><TxnID>${esc(id)}</TxnID></TxnVoidRq>`,
   company: () => `<CompanyQueryRq requestID="1"></CompanyQueryRq>`,
   accounts: () => `<AccountQueryRq requestID="1">${active}</AccountQueryRq>`,
   salesTaxItems: () => `<ItemSalesTaxQueryRq requestID="1">${active}</ItemSalesTaxQueryRq>`,

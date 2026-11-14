@@ -132,7 +132,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
     invoiceDate: today(),
     receivedBy: boot.config.tillName,
     freight: '',
-    freightToCost: true,
+    freightToCost: false,
     notes: ''
   })
   const [lines, setLines] = useState<EditLine[]>([])
@@ -170,7 +170,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
       notes: r.notes
     })
     // The lines need the full items (for averages and tags)
-    const prods = await Promise.all(r.lines.map((l) => api.listProducts(l.sku ?? l.name, true).then((ps) => ps.find((p) => p.id === l.productId))))
+    const prods = await Promise.all(r.lines.map((l) => api.product(l.productId)))
     setLines(
       r.lines.map((l, i) => ({
         key: `l${l.id}`,
@@ -289,11 +289,14 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
       setMsg({ ok: false, text: (e as Error).message })
     }
   }
-  const tagLinesFor = (r: Rv): TagLine[] =>
-    r.lines.map((l, i) => {
-      const p = lines.find((x) => x.product.id === l.productId)?.product ?? lines[i]?.product
-      return { product: { ...p, priceCents: l.newPriceCents ?? l.priceCents } as Product, qty: Math.max(1, Math.round(l.qty)) }
-    })
+  async function printReceivingTags(r:Rv){
+    setBusy(true)
+    try {
+      const products=await Promise.all(r.lines.map(l=>api.product(l.productId)))
+      setTags(r.lines.map((l,i)=>({product:products[i],qty:Math.max(1,Math.round(l.qty))})))
+    }catch(e){setMsg({ok:false,text:`Receiving remains saved. Could not load tag items: ${(e as Error).message}. Use Print Tags to retry.`})}
+    finally{setBusy(false)}
+  }
 
   const setH = (c: Partial<typeof head>) => {
     setHead({ ...head, ...c })
@@ -308,10 +311,10 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
         </button>
         <span className="muted small">{rv ? `Started ${dateTime(rv.createdAt)}${rv.postedAt ? ` · received ${dateTime(rv.postedAt)}` : ''}` : 'New receiving'}</span>
       </div>
-      <h2>
+      <div className="row between"><h2>
         {rv ? rv.number : 'New receiving'}{' '}
         {rv && (posted ? <span className="pill ok">Received</span> : <span className="pill">Not received yet</span>)}
-      </h2>
+      </h2>{posted&&rv&&<button className="primary" disabled={busy} onClick={()=>void printReceivingTags(rv)}>🏷 Print tags for received items</button>}</div>
 
       <div className="card rv-head">
         <div className="rv-vendor-field"><label htmlFor="rv-vendor">Vendor</label><div className="row gap">
@@ -529,7 +532,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
               </button>
             </>
           )}
-          {posted && rv && <button onClick={() => setTags(tagLinesFor(rv))}>🏷 Print tags</button>}
+          {posted && rv && <button disabled={busy} onClick={() => void printReceivingTags(rv)}>🏷 Print tags</button>}
         </div>
       </div>
 
@@ -543,7 +546,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
             setReviewing(false)
             await show(done)
             setMsg({ ok: true, text: `${done.number} received: stock and costs updated.` })
-            setTags(tagLinesFor(done))
+            await printReceivingTags(done)
           }}
         />
       )}

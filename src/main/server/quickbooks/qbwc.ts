@@ -1,3 +1,4 @@
+import { registerVoidRoutes } from '../voids'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 /**
  * QUICKBOOKS DESKTOP SYNC (via Intuit's QuickBooks Web Connector)
@@ -101,6 +102,11 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     return sessions.size > 0
   })
 
+  registerVoidRoutes(app,db,() => {
+    for (const [id,session] of sessions) if(Date.now()-session.touchedAt>30*60000)sessions.delete(id)
+    return sessions.size>0
+  })
+
   // ---------- Export bookkeeping ----------
   const upsertExport = (s: QbDailySummary) => {
     db.prepare(`INSERT OR IGNORE INTO qb_sale_exports
@@ -169,8 +175,46 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         }
       )
     }
+    q.push({kind:'plan',label:'Plan void corrections',run:()=>planVoids(s)})
     q.push({ kind: 'plan', label: 'Plan exports', run: () => planExports(s) })
     s.queue = q
+  }
+
+  function planVoids(s:Session){
+    if(!getQbConfig(db).enabled)return
+    const rows=db.prepare(`SELECT v.*,e.ref_number,e.customer_name,e.total_cents,e.status AS export_status
+      FROM sale_voids v JOIN qb_sale_exports e ON e.sale_id=v.sale_id WHERE v.qb_status='pending' ORDER BY v.sale_id LIMIT 40`).all() as any[]
+    const steps:Step[]=[]
+    for(const row of rows){
+      const fail=(message:string)=>{db.prepare("UPDATE sale_voids SET qb_status='error',qb_error=? WHERE sale_id=?").run(message.slice(0,1000),row.sale_id);s.failed++;recordQbFailure(db,message);qbLog(db,'error',`Void #${row.sale_id}: ${message}`)}
+      const confirmed=()=>{db.prepare("UPDATE sale_voids SET qb_status='confirmed',qb_error=NULL,qb_confirmed_at=datetime('now') WHERE sale_id=?").run(row.sale_id);qbLog(db,'info',`QuickBooks confirmed void of receipt #${row.sale_id}`)}
+      const check=(r:QbResult,verify=false)=>{
+        if(r.node.children.filter(c=>c.name==='SalesReceiptRet').length>1)return fail('Multiple QuickBooks receipts match this reference. Reconcile them before retrying.')
+        const receipt=child(r.node,'SalesReceiptRet'),txn=text(receipt,'TxnID')
+        if(!txn){
+          if(!verify&&!row.qb_txn_id&&row.export_status!=='sent'){
+            db.prepare("UPDATE sale_voids SET qb_status='not_needed',qb_error=NULL,qb_confirmed_at=datetime('now') WHERE sale_id=?").run(row.sale_id)
+            qbLog(db,'info',`Void #${row.sale_id}: confirmed that the unsent receipt is absent from QuickBooks`)
+          }else fail('The original QuickBooks transaction was not found. Review the company file and transaction; it has not been marked reconciled.')
+          return
+        }
+        const customer=text(child(receipt,'CustomerRef'),'FullName'),memo=text(receipt,'Memo'),totalText=text(receipt,'TotalAmount'),total=totalText.trim()?Math.round(Number(totalText)*100):NaN
+        const owned=memo.replace(/^VOID:\s*/i,'').startsWith(`DiamondPOS receipt #${row.sale_id};`)
+        if(!owned||customer.toLowerCase()!==row.customer_name.toLowerCase()||(row.qb_txn_id&&txn!==row.qb_txn_id))return fail('QuickBooks transaction details conflict with this sale. No automatic change was made; reconcile the transaction.')
+        if(total===0&&/^VOID:/i.test(memo)){confirmed();return}
+        if(verify)return fail('QuickBooks has not confirmed a zero-value void. Retry/review the correction.')
+        if(total!==row.total_cents)return fail('QuickBooks receipt amount differs from the original export. Review it before voiding.')
+        db.prepare('UPDATE sale_voids SET qb_txn_id=? WHERE sale_id=?').run(txn,row.sale_id)
+        row.qb_txn_id=txn
+        s.queue.unshift({kind:'rq',label:`Void receipt #${row.sale_id}`,xml:rq.voidSalesReceipt(txn),onOk:(reply)=>{
+          const returned=text(child(reply.node,'TxnVoidRet'),'TxnID')
+          if(returned!==txn)return fail('QuickBooks returned no matching void transaction ID. Retry will verify its current state.')
+          s.queue.unshift({kind:'rq',label:`Verify void #${row.sale_id}`,xml:rq.salesReceiptById(txn),onOk:r=>check(r,true),onFail:fail})
+        },onFail:fail})
+      }
+      steps.push({kind:'rq',label:`Check void #${row.sale_id}`,xml:row.qb_txn_id?rq.salesReceiptById(row.qb_txn_id):rq.findSalesReceipt(row.ref_number),onOk:r=>check(r),onFail:fail})
+    }
+    s.queue.unshift(...steps)
   }
 
   function planExports(s: Session) {
@@ -532,7 +576,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
   // A day that had to be entered in QuickBooks by hand (individual refunds / exceptions)
   app.post('/api/qb/exports/:id/manual-done', (req, res) => {
     db.prepare(
-      "UPDATE qb_sale_exports SET status = 'sent', txn_id = 'MANUAL', error = NULL, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'manual'"
+      "UPDATE qb_sale_exports SET status = 'sent', txn_id = 'MANUAL', error = NULL, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'manual' AND sale_id IN (SELECT id FROM sales WHERE status='completed')"
     ).run(Number(req.params.id))
     qbLog(db, 'info', `Export ${req.params.id} marked as entered in QuickBooks by hand`)
     res.json(listExports(db))

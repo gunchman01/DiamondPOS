@@ -1,110 +1,58 @@
-import { useEffect, useState } from 'react'
-import type { DailyReport, SaleSummary } from '../../../shared/types'
+import { currentPrintSettings } from '../printing'
+import { useEffect, useRef, useState } from 'react'
+import { REPORT_FIELDS, REPORT_OPERATORS, REPORT_PRESETS, blankReport, reportCsv, type ReportDefinition, type ReportField, type ReportFilter, type ReportResult, type ReportSource, type SavedReport } from '../../../shared/reports'
 import { api } from '../api'
-import { dateTime, money, today } from '../format'
-import PrintChooser from '../PrintChooser'
-import type { Sale } from '../../../shared/types'
+import { dateTime, escapeHtml, money, today } from '../format'
+import { writeSpreadsheet } from '../spreadsheet'
+import DailyCloseout from './DailyCloseout'
 import SaleDialog from './SaleDialog'
-
-/** End-of-day totals across ALL tills, plus a list of sales with reprint. */
-export default function Reports() {
-  const [date, setDate] = useState(today())
-  const [report, setReport] = useState<DailyReport | null>(null)
-  const [sales, setSales] = useState<SaleSummary[]>([])
-  const [error, setError] = useState('')
-  const [viewSale, setViewSale] = useState<number | null>(null)
-
-  useEffect(() => {
-    setError('')
-    Promise.all([api.dailyReport(date), api.listSales(date)])
-      .then(([r, s]) => {
-        setReport(r)
-        setSales(s)
-      })
-      .catch((e) => setError(e.message))
-  }, [date])
-
-  const [printing, setPrinting] = useState<Sale | null>(null)
-  async function reprint(id: number) {
-    try {
-      setPrinting(await api.getSale(id))
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-
-  return (
-    <div className="page">
-      <div className="row between">
-        <h2>Daily report</h2>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+const labels:Record<ReportSource,string>={sales:'Sales',inventory:'Inventory',receiving:'Receiving'}
+const clone=(d:ReportDefinition):ReportDefinition=>JSON.parse(JSON.stringify(d))
+const display=(value:unknown,f:ReportField)=>value===null||value===undefined?'—':f.type==='money'?money(Number(value)):f.type==='boolean'?(value?'Yes':'No'):String(value)
+export default function Reports(){
+  const [mode,setMode]=useState<'library'|'builder'|'daily'>('library')
+  const [category,setCategory]=useState<ReportSource>('sales')
+  const [saved,setSaved]=useState<SavedReport[]>([]),[savedId,setSavedId]=useState<string|null>(null)
+  const [definition,setDefinition]=useState<ReportDefinition>(blankReport('sales'))
+  const [name,setName]=useState('Custom sales report'),[error,setError]=useState(''),[notice,setNotice]=useState('')
+  const [result,setResult]=useState<ReportResult|null>(null),[busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[viewSale,setViewSale]=useState<number|null>(null)
+  const [resultTitle,setResultTitle]=useState('')
+  const version=useRef(0)
+  const load=()=>api.savedReports().then(setSaved).catch(e=>setError(e.message))
+  useEffect(()=>{void load();return()=>{version.current++}},[])
+  function open(d:ReportDefinition,title:string,id:string|null=null){version.current++;setBusy(false);setDefinition(clone(d));setName(title);setSavedId(id);setResult(null);setError('');setNotice('');setMode('builder')}
+  function change(patch:Partial<ReportDefinition>){setDefinition(d=>({...d,...patch}));setError('')}
+  async function run(){const current=++version.current;setBusy(true);setError('');setResult(null);try{const data=await api.runReport(definition);if(current===version.current){setResult(data);setResultTitle(name)}}catch(e){if(current===version.current)setError((e as Error).message)}finally{if(current===version.current)setBusy(false)}}
+  async function save(copy=false){setSaving(true);setError('');try{const report=await api.saveReport(name,definition,copy?undefined:savedId??undefined);setSavedId(report.id);setNotice('Report saved for all tills.');await load()}catch(e){setError((e as Error).message)}finally{setSaving(false)}}
+  async function remove(r:SavedReport){if(!confirm(`Delete saved report “${r.name}”? Transactions are not changed.`))return;try{await api.deleteReport(r.id);await load()}catch(e){setError((e as Error).message)}}
+  const stale=!!result&&JSON.stringify(result.definition)!==JSON.stringify({...definition,start:definition.period==='custom'?definition.start:'',end:definition.period==='custom'?definition.end:''})
+  function downloadCsv(){if(!result)return;const url=URL.createObjectURL(new Blob([reportCsv(result)],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`DiamondPOS report ${today()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+  function exportExcel(){if(!result)return;writeSpreadsheet(`DiamondPOS report ${today()}.xlsx`,[{name:'Report',headers:result.columns.map(c=>c.label),rows:result.rows.map(r=>Object.fromEntries(result.columns.map(c=>[c.label,c.type==='money'&&r[c.key]!==null?Number(r[c.key])/100:c.type==='boolean'?display(r[c.key],c):r[c.key]])))},{name:'Summary',headers:['Detail','Value'],rows:[{Detail:'Report',Value:resultTitle},{Detail:'Period',Value:result.periodLabel},{Detail:'Generated',Value:dateTime(result.generatedAt)},{Detail:'Matching records',Value:result.recordCount},{Detail:'Result rows',Value:result.rowCount},{Detail:'Exported rows',Value:result.rows.length},...result.columns.filter(c=>c.sum).map(c=>({Detail:`All matching: ${c.label}`,Value:c.type==='money'?result.totals[c.key]/100:result.totals[c.key]}))]}])}
+  async function print(){if(!result)return;try{const html=`<!doctype html><html><head><meta charset="UTF-8"><style>@page{size:letter landscape;margin:12mm}body{font:10px Arial}table{border-collapse:collapse;width:100%}th,td{padding:5px;border-bottom:1px solid #ccc;text-align:left}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body><h1>${escapeHtml(resultTitle)}</h1><p>${escapeHtml(result.periodLabel)} · ${escapeHtml(dateTime(result.generatedAt))} · ${result.rows.length} of ${result.rowCount} rows</p><p>${result.columns.filter(c=>c.sum).map(c=>escapeHtml(c.label)+': '+escapeHtml(display(result.totals[c.key],c))).join(' · ')}</p>${result.truncated?'<p>Limited to 10,000 rows. Narrow filters for a complete detail report. Totals cover all matching records.</p>':''}<table><thead><tr>${result.columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join('')}</tr></thead><tbody>${result.rows.map(r=>`<tr>${result.columns.map(c=>`<td>${escapeHtml(display(r[c.key],c))}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;const settings=await currentPrintSettings();await window.pos.print({html,printer:settings.fullPagePrinter,letter:true,landscape:true});setNotice('Report sent to the configured full-page printer (or Windows default).')}catch(e){setError((e as Error).message)}}
+  const fields=REPORT_FIELDS[definition.source]
+  function toggleColumn(key:string){const columns=definition.columns.includes(key)?definition.columns.filter(k=>k!==key):[...definition.columns,key];change({columns,groupBy:definition.groupBy.filter(k=>columns.includes(k)),sort:columns.includes(definition.sort)?definition.sort:columns[0]??''})}
+  function toggleGroup(key:string){const groupBy=definition.groupBy.includes(key)?definition.groupBy.filter(k=>k!==key):[...definition.groupBy,key];const columns=groupBy.length?[...new Set([...definition.columns,...groupBy])].filter(k=>groupBy.includes(k)||fields.find(f=>f.key===k)?.sum):definition.columns;change({groupBy,columns,sort:columns.includes(definition.sort)?definition.sort:columns[0]??''})}
+  function filterChange(i:number,patch:Partial<ReportFilter>){change({filters:definition.filters.map((f,n)=>n===i?{...f,...patch}:f)})}
+  return <div className="page wide report-center"><div className="row between"><h2>Reports</h2><div className="row gap"><button onClick={()=>{version.current++;setMode('library');setBusy(false);void load()}}>Report library</button><button onClick={()=>{version.current++;setBusy(false);setMode('daily')}}>Daily closeout &amp; receipts</button></div></div>
+    {error&&<div className="error-text" role="alert">{error}</div>}{notice&&<p role="status">{notice}</p>}
+    {mode==='daily'?<DailyCloseout/>:mode==='library'?<>
+      <p className="muted">Run a ready-made report, customize it, or create your own. Saved reports are shared across tills.</p>
+      <div className="row gap">{Object.entries(labels).map(([key,label])=><button key={key} className={category===key?'primary':''} onClick={()=>setCategory(key as ReportSource)}>{label}</button>)}<button onClick={()=>open(blankReport(category),`Custom ${labels[category].toLowerCase()} report`)}>+ Create custom report</button></div>
+      <div className="report-cards">{REPORT_PRESETS.filter(p=>p.definition.source===category).map(p=><button key={p.id} className="report-card" onClick={()=>open(p.definition,p.name)}><b>{p.name}</b><span>{p.description}</span></button>)}</div>
+      <h3>Saved custom reports</h3>{!saved.filter(s=>s.definition.source===category).length&&<p className="muted">No saved {labels[category].toLowerCase()} reports yet.</p>}
+      {saved.filter(s=>s.definition.source===category).map(s=><div className="row between report-saved" key={s.id}><button className="link" onClick={()=>open(s.definition,s.name,s.id)}>{s.name}</button><div className="row gap"><span className="muted small">Updated {dateTime(s.updatedAt)}</span><button onClick={()=>void remove(s)}>Delete</button></div></div>)}
+    </>:<>
+      <div className="report-config"><label>Report name<input maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></label>
+        <label>Report data<select value={definition.source} onChange={e=>open(blankReport(e.target.value as ReportSource),`Custom ${labels[e.target.value as ReportSource].toLowerCase()} report`)}>{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+        {definition.source!=='inventory'&&<label>Date period<select value={definition.period} onChange={e=>change({period:e.target.value as ReportDefinition['period']})}><option value="today">Today</option><option value="month">This month</option><option value="last30">Last 30 days</option><option value="all">All dates</option><option value="custom">Custom dates</option></select></label>}
+        {definition.source!=='inventory'&&definition.period==='custom'&&<><label>From<input type="date" value={definition.start} onChange={e=>change({start:e.target.value})}/></label><label>Through<input type="date" value={definition.end} onChange={e=>change({end:e.target.value})}/></label></>}
       </div>
-      {error && <div className="error-text">{error}</div>}
-
-      {report && (
-        <div className="stats">
-          <Stat label="Sales" value={String(report.saleCount)} />
-          <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
-          <Stat label="Sales tax" value={money(report.taxCents)} />
-          <Stat label="Cash (net of change)" value={money(report.cashCents)} />
-          <Stat label="Card (terminal)" value={money(report.cardCents)} />
-          <Stat label="Checks" value={money(report.checkCents ?? 0)} />
-          <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
-          <Stat label={`Returns (${report.refundCount ?? 0})`} value={`−${money(report.refundCents ?? 0)}`} />
-        </div>
-      )}
-      <p className="muted small">
-        Tip: compare “Card (terminal)” with the settlement total printed by the card terminal at end of day.
-      </p>
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Time</th>
-            <th>Till</th>
-            <th>Customer</th>
-            <th className="r">Total</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {sales.map((s) => (
-            <tr key={s.id} className="clickable" title="Open this receipt" onClick={() => setViewSale(s.id)}>
-              <td>{s.id}</td>
-              <td>{dateTime(s.createdAt)}</td>
-              <td>{s.tillName}</td>
-              <td>
-                {s.customerName ?? ''}
-                {s.hasReturn && <span className={s.totalCents < 0 ? 'pill refund-pill' : 'pill'}>{s.totalCents < 0 ? 'Refund' : 'Exchange'}</span>}
-              </td>
-              <td className="r">{money(s.totalCents)}</td>
-              <td className="r">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    reprint(s.id)
-                  }}
-                >
-                  Reprint
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => setViewSale(null)} />}
-      {printing && <PrintChooser sale={printing} onDone={() => setPrinting(null)} onCancel={() => setPrinting(null)} />}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="card stat">
-      <div className="muted small">{label}</div>
-      <div className="stat-value">{value}</div>
-    </div>
-  )
+      <p className="muted small">{definition.source==='inventory'?'Current snapshot, not historical stock. Valuation uses average cost; items with unknown costs contribute no cost value. Negative stock remains negative.':definition.source==='sales'?'One row per receipt. Refunds and exchanges keep their signed amounts. Completed status is selected by default. Sales are before tax; payments are net of cash change. Customer names reflect the current customer record.':'One row per voucher. Date is the posted date, or created date for a draft. Freight is counted once. Vendor names reflect the original voucher.'} Dates use the Store Server’s local time.</p>
+      <details className="report-options" open><summary>Columns and grouping</summary><p className="muted small">Check columns in the order you want them. Group by a non-total column for a summary; only grouping columns and totals remain selected.</p><div className="report-columns">{fields.map(f=><div className="report-column" key={f.key}><label><input type="checkbox" checked={definition.columns.includes(f.key)} disabled={definition.groupBy.length>0&&!f.sum&&!definition.groupBy.includes(f.key)} onChange={()=>toggleColumn(f.key)}/>{f.label}</label>{!f.sum&&<label className="small"><input type="checkbox" disabled={!definition.groupBy.includes(f.key)&&definition.groupBy.length>=5} checked={definition.groupBy.includes(f.key)} onChange={()=>toggleGroup(f.key)}/>Group</label>}</div>)}</div></details>
+      <details className="report-options" open><summary>Filters · all conditions must match</summary>{definition.filters.map((f,i)=>{const meta=fields.find(m=>m.key===f.field)!;return <div className="row gap report-filter" key={i}><select aria-label={`Filter ${i+1} field`} value={f.field} onChange={e=>filterChange(i,{field:e.target.value,op:'eq',value:''})}>{fields.map(m=><option value={m.key} key={m.key}>{m.label}</option>)}</select><select aria-label={`Filter ${i+1} comparison`} value={f.op} onChange={e=>filterChange(i,{op:e.target.value as ReportFilter['op']})}>{Object.entries(REPORT_OPERATORS).filter(([op])=>op!=='contains'||meta.type==='text').map(([op,label])=><option key={op} value={op}>{label}</option>)}</select>{!['empty','notEmpty'].includes(f.op)&&(meta.type==='boolean'?<select aria-label={`Filter ${i+1} value`} value={f.value} onChange={e=>filterChange(i,{value:e.target.value})}><option value="">Choose…</option><option value="1">Yes</option><option value="0">No</option></select>:<input aria-label={`Filter ${i+1} value`} placeholder={meta.type==='money'?'Dollars, e.g. 100.00':'Value'} type={meta.type==='date'?'date':['number','money'].includes(meta.type)?'number':'text'} step="any" value={f.value} onChange={e=>filterChange(i,{value:e.target.value})}/>)}<button onClick={()=>change({filters:definition.filters.filter((_,n)=>n!==i)})}>Remove</button></div>})}<button disabled={definition.filters.length>=20} onClick={()=>change({filters:[...definition.filters,{field:fields[0].key,op:'eq',value:''}]})}>+ Add filter</button></details>
+      <div className="row gap report-actions"><label>Sort by<select value={definition.sort} onChange={e=>change({sort:e.target.value})}>{definition.columns.map(k=><option key={k} value={k}>{fields.find(f=>f.key===k)?.label}</option>)}</select></label><select aria-label="Sort direction" value={definition.descending?'desc':'asc'} onChange={e=>change({descending:e.target.value==='desc'})}><option value="asc">Ascending</option><option value="desc">Descending</option></select><button className="primary" disabled={busy} onClick={()=>void run()}>{busy?'Running…':'Run report'}</button><button disabled={saving||busy} onClick={()=>void save()}>{savedId?'Update saved report':'Save report'}</button>{savedId&&<button disabled={saving||busy} onClick={()=>void save(true)}>Save as new</button>}</div>
+      {result&&<section className="report-result"><div className="row between"><h3>{resultTitle}</h3><div className="row gap"><button onClick={exportExcel}>Export Excel</button><button onClick={downloadCsv}>Export CSV</button><button onClick={()=>void print()}>Print</button></div></div>{stale&&<p className="error-text">Options changed. Run the report again to update these results.</p>}<p className="muted">{result.periodLabel} · {result.recordCount} matching records · {result.rowCount} result rows · Generated {dateTime(result.generatedAt)}</p>{result.truncated&&<p className="error-text">Showing/exporting the first 10,000 rows. Narrow the filters for all detail. Totals cover all matching records.</p>}
+        <div className="stats">{result.columns.filter(c=>c.sum).map(c=><div key={c.key} className="card stat"><div className="muted small">All matching: {c.label}</div><b>{display(result.totals[c.key],c)}</b></div>)}</div><div className="report-table"><table className="table"><thead><tr>{result.columns.map(c=><th key={c.key}>{c.label}</th>)}</tr></thead><tbody>{result.rows.map((r,i)=><tr key={i}>{result.columns.map(c=><td key={c.key}>{c.key==='id'&&result.definition.source==='sales'&&!result.definition.groupBy.length?<button className="link" onClick={()=>setViewSale(Number(r.id))}>#{r.id}</button>:display(r[c.key],c)}</td>)}</tr>)}</tbody></table></div>{!result.rows.length&&<p>No matching records. Adjust your filters or dates.</p>}
+      </section>}
+    </>}{viewSale!==null&&<SaleDialog saleId={viewSale} onClose={()=>{setViewSale(null);void run()}}/>}</div>
 }

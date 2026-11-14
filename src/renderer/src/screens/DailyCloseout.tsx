@@ -1,0 +1,111 @@
+import { useEffect, useState } from 'react'
+import type { DailyReport, SaleSummary } from '../../../shared/types'
+import { api } from '../api'
+import { dateTime, money, today } from '../format'
+import PrintChooser from '../PrintChooser'
+import type { Sale } from '../../../shared/types'
+import SaleDialog from './SaleDialog'
+
+/** End-of-day totals across ALL tills, plus a list of sales with reprint. */
+export default function DailyCloseout() {
+  const [date, setDate] = useState(today())
+  const [report, setReport] = useState<DailyReport | null>(null)
+  const [sales, setSales] = useState<SaleSummary[]>([])
+  const [error, setError] = useState('')
+  const [viewSale, setViewSale] = useState<number | null>(null)
+  const [refresh,setRefresh]=useState(0)
+
+  useEffect(() => {
+    setError('')
+    Promise.all([api.dailyReport(date), api.listSales(date)])
+      .then(([r, s]) => {
+        setReport(r)
+        setSales(s)
+      })
+      .catch((e) => setError(e.message))
+  }, [date,refresh])
+
+  const [printing, setPrinting] = useState<Sale | null>(null)
+  async function reprint(id: number) {
+    try {
+      setPrinting(await api.getSale(id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+
+  return (
+    <div className="page">
+      <div className="row between">
+        <h2>Daily report</h2>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      {error && <div className="error-text">{error}</div>}
+
+      {report && (
+        <div className="stats">
+          <Stat label="Sales" value={String(report.saleCount)} />
+          <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
+          <Stat label="Sales tax" value={money(report.taxCents)} />
+          <Stat label="Cash (net of change)" value={money(report.cashCents)} />
+          <Stat label="Card (terminal)" value={money(report.cardCents)} />
+          <Stat label="Checks" value={money(report.checkCents ?? 0)} />
+          <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
+          <Stat label={`Returns (${report.refundCount ?? 0})`} value={`−${money(report.refundCents ?? 0)}`} />
+        </div>
+      )}
+      <p className="muted small">
+        Tip: compare “Card (terminal)” with the settlement total printed by the card terminal at end of day.
+      </p>
+
+      <table className="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Till</th>
+            <th>Customer</th>
+            <th className="r">Total</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {sales.map((s) => (
+            <tr key={s.id} className="clickable" title="Open this receipt" onClick={() => setViewSale(s.id)}>
+              <td>{s.id}{s.status==='void'&&<span className="pill refund-pill">VOID</span>}</td>
+              <td>{dateTime(s.createdAt)}</td>
+              <td>{s.tillName}</td>
+              <td>
+                {s.customerName ?? ''}
+                {s.hasReturn && <span className={s.totalCents < 0 ? 'pill refund-pill' : 'pill'}>{s.totalCents < 0 ? 'Refund' : 'Exchange'}</span>}
+              </td>
+              <td className="r">{money(s.totalCents)}</td>
+              <td className="r">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    reprint(s.id)
+                  }}
+                >
+                  Reprint
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => {setViewSale(null);setRefresh(n=>n+1)}} />}
+      {printing && <PrintChooser sale={printing} onDone={() => setPrinting(null)} onCancel={() => setPrinting(null)} />}
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="card stat">
+      <div className="muted small">{label}</div>
+      <div className="stat-value">{value}</div>
+    </div>
+  )
+}

@@ -1,8 +1,10 @@
+import type { SaleVoid, VoidReview, VoidRequest } from '../../shared/voids'
+import type { ReportDefinition, ReportResult, SavedReport } from '../../shared/reports'
 import type { Vendor, VendorInput, VendorDetail } from '../../shared/vendors'
 import type { EquipmentMatch } from '../../shared/workorders'
 import type { QbQueuePage } from '../../shared/quickbooks'
 import type { OperationsStatus } from '../../shared/operations'
-import type { ItemReceipt, PostLineChoice, Receiving, ReceivingInput, ReceivingSummary } from '../../shared/receiving'
+import type { ItemCostSummary, ItemReceipt, PostLineChoice, Receiving, ReceivingInput, ReceivingSummary } from '../../shared/receiving'
 import type { DeleteResult } from '../../shared/deleting'
 import type { ImportCustomer } from '../../shared/customerImport'
 import type { HeldReceipt, HeldReceiptInput, HeldSummary } from '../../shared/held'
@@ -109,6 +111,7 @@ export const api = {
   /** Every item including inactive ones, no limit (for Export to Excel) */
   listAllProducts: () => request<Product[]>('GET', '/api/products?includeInactive=1&all=1'),
   listQuickPicks: () => request<Product[]>('GET', '/api/products?quickPick=1'),
+  product: (id:number) => request<Product>('GET',`/api/products/${id}`),
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
   createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
   updateProduct: (id: number, p: ProductInput) => request<Product>('PUT', `/api/products/${id}`, p),
@@ -121,6 +124,7 @@ export const api = {
   saveReceiving: (id: number, r: ReceivingInput) => request<Receiving>('PUT', `/api/receivings/${id}`, r),
   deleteReceiving: (id: number) => request<{ ok: boolean }>('DELETE', `/api/receivings/${id}`),
   postReceiving: (id: number, lines: PostLineChoice[]) => request<Receiving>('POST', `/api/receivings/${id}/post`, { lines }, undefined, undefined, 60000),
+  itemCosts: (id:number) => request<ItemCostSummary>('GET',`/api/products/${id}/cost-summary`),
   itemReceipts: (productId: number) => request<ItemReceipt[]>('GET', `/api/products/${productId}/receivings`),
   deleteProducts: (ids: number[]) => request<DeleteResult>('POST', '/api/products/delete', { ids }, undefined, undefined, 120000),
   deleteCustomers: (ids: number[]) => request<DeleteResult>('POST', '/api/customers/delete', { ids }, undefined, undefined, 120000),
@@ -220,5 +224,13 @@ export const api = {
   resendFeedback: (id: number) => request<Feedback>('POST', `/api/feedback/${id}/resend`),
   returnable: (saleId: number) => request<ReturnableSale>('GET', `/api/sales/${saleId}/returnable`),
   customerReceipts: (customerId: number) => request<CustomerReceipt[]>('GET', `/api/customers/${customerId}/receipts`),
+  voidReview: (id:number) => request<VoidReview>('GET', `/api/sales/${id}/void-review`),
+  voidSale: (id:number, body:VoidRequest) => request<SaleVoid>('POST', `/api/sales/${id}/void`, body),
+  qbVoids: () => request<SaleVoid[]>('GET','/api/qb/voids'),
+  retryVoid: (id:number) => request<SaleVoid>('POST',`/api/qb/voids/${id}/retry`),
+  runReport: (definition: ReportDefinition) => request<ReportResult>('POST', '/api/reports/run', definition),
+  savedReports: () => request<SavedReport[]>('GET', '/api/reports/saved'),
+  saveReport: (name: string, definition: ReportDefinition, id?: string) => request<SavedReport>(id ? 'PUT' : 'POST', `/api/reports/saved${id ? '/' + encodeURIComponent(id) : ''}`, {name,definition}),
+  deleteReport: (id: string) => request<{ok:boolean}>('DELETE', `/api/reports/saved/${encodeURIComponent(id)}`),
   dailyReport: (date: string) => request<DailyReport>('GET', `/api/reports/daily?date=${date}`)
 }

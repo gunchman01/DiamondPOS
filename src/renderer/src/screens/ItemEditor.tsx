@@ -5,7 +5,7 @@ import TagPrintDialog from './TagPrintDialog'
 import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { api } from '../api'
 import { dateTime, money, parseMoney } from '../format'
-import type { ItemReceipt } from '../../../shared/receiving'
+import type { ItemCostSummary, ItemReceipt } from '../../../shared/receiving'
 import { parseExtra } from '../../../shared/itemImport'
 
 const UNITS = ['Each', 'Pack', 'Box', 'Case', 'Pair', 'Set', 'kg', 'g', 'L', 'mL', 'm', 'Hour']
@@ -497,13 +497,26 @@ function Row(props: { label: string; required?: boolean; tall?: boolean; childre
 /** Last times this item was received (cost paid and the average cost after) */
 function ReceivingHistory({ productId }: { productId: number }) {
   const [rows, setRows] = useState<ItemReceipt[] | null>(null)
+  const [costs,setCosts]=useState<ItemCostSummary|null>(null)
+  const [error,setError]=useState('')
   useEffect(() => {
-    api.itemReceipts(productId).then(setRows).catch(() => setRows([]))
+    let live=true
+    Promise.all([api.itemReceipts(productId),api.itemCosts(productId)]).then(([r,c])=>{if(live){setRows(r);setCosts(c);setError('')}}).catch(e=>{if(live)setError(e.message)})
+    return()=>{live=false}
   }, [productId])
-  if (!rows || rows.length === 0) return null
+  if(error)return <p className="error-text">Could not load item costs: {error}</p>
+  if(!costs||!rows)return <p className="muted">Loading item costs…</p>
   return (
     <fieldset className="id-panel">
-      <legend>Receiving history</legend>
+      <legend>Item costs &amp; receiving history</legend>
+      <div className="item-cost-summary">
+        <div><span>Last received unit cost</span><b>{costs.lastReceivedCostCents===null?'Not yet received':money(costs.lastReceivedCostCents)}</b></div>
+        <div><span>Current inventory average</span><b>{costs.currentAvgCents===null?'Not set':money(costs.currentAvgCents)}</b></div>
+        <div><span>Lifetime receiving average</span><b>{costs.lifetimeInvoiceAvgCents===null?'No posted receipts':money(costs.lifetimeInvoiceAvgCents)}</b></div>
+        <div><span>Lifetime average incl. allocated freight</span><b>{costs.lifetimeLandedAvgCents===null?'No posted receipts':money(costs.lifetimeLandedAvgCents)}</b></div>
+      </div>
+      <p className="muted small">Lifetime: {costs.lifetimeQty} units in {costs.receivingCount} posted vouchers, weighted by quantity across all stored receiving history. Excludes drafts and opening/imported stock. Current average is the saved inventory cost; unsaved edits are not reflected here. Latest 20 lines below.</p>
+      {!rows.length&&<p className="muted">No posted receiving history yet.</p>}
       <table className="extra-table">
         <thead>
           <tr>
@@ -516,8 +529,8 @@ function ReceivingHistory({ productId }: { productId: number }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={`${r.receivingId}-${r.postedAt}`}>
+          {rows.map((r,index) => (
+            <tr key={`${r.receivingId}-${index}`}>
               <td className="muted">{dateTime(r.postedAt)}</td>
               <td>{r.number}</td>
               <td>

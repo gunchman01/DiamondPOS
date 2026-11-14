@@ -97,6 +97,8 @@ export interface PrintJob {
   pageMm?: { width: number; height: number }
   /** Letter-size page (full-page printer) */
   letter?: boolean
+  /** Full-page reports may print in landscape. */
+  landscape?: boolean
 }
 
 export interface PrinterInfo {

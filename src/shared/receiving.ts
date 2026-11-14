@@ -149,3 +149,9 @@ export function receivingTotals(lines: { qty: number; unitCostCents: number }[],
 /** Margin %: profit as a % of the price (null when no cost) */
 export const marginPct = (priceCents: number, costCents: number | null) =>
   costCents && priceCents ? Math.round(((priceCents - costCents) / priceCents) * 1000) / 10 : null
+
+export interface ItemCostSummary {
+  productId:number;currentAvgCents:number|null;orderCostCents:number|null;
+  lastReceivedCostCents:number|null;lastLandedCostCents:number|null;lastReceivedAt:string|null;
+  lifetimeQty:number;lifetimeInvoiceAvgCents:number|null;lifetimeLandedAvgCents:number|null;receivingCount:number
+}

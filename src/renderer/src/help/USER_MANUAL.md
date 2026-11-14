@@ -231,7 +231,7 @@ Click **Save (receive later)** to keep it as a draft: nothing changes in stock u
 - **Regular price**: change it here if the price should go up (or down); the margin updates as you type.
 - Click **✓ Receive items**. Stock goes up, and each item's **average cost** is worked out again: (on hand × old average + qty in × new cost) ÷ new on hand. If nothing was in stock, the new cost becomes the average. Services and non-inventory items don't get a stock count.
 
-**4. Print tags.** Next it asks **Print tags?** with one line per item: choose the label (**Auto** picks the price tag or the no-price tag, or choose one), and the number of tags (starts at the qty received). Set a line to 0 to skip it. Click **Print**, or close if you don't want tags. You can print them again later from **🏷 Print tags** on the received receiving.
+**4. Print tags.** A prominent **Print tags for received items** button is available at the top of a posted voucher. After posting, it asks **Print tags?** with one line per item: choose the label (**Auto** picks the price tag or the no-price tag, or choose one), and the number of tags (starts at the qty received). Set a line to 0 to skip it. Click **Print**, or close if you don't want tags. You can print them again later from **🏷 Print tags** on the received receiving.
 
 **Finding a receiving.** Search by RV #, vendor, invoice #, PO # or an item. A received receiving can't be changed; it keeps the costs, prices and averages from before and after. Drafts can be deleted.
 
@@ -270,7 +270,7 @@ The iPad on the counter shows the store logo until a till sends it the sign-up f
 > Tablet won't connect? See **Kiosk tablet won't connect** below for step-by-step checks.
 
 ## Sales history and reports
-Open **Sales History** or **Reports** and pick a date.
+Open **Sales History** or **Reports**, choose **Daily closeout & receipts**, and pick a date.
 - Totals across all tills: number of sales, takings (after refunds), tax, **cash** (after change), **card**, tax-exempt sales and **returns**.
 - Every sale is listed with its till and customer. Refunds and exchanges are marked. Click a sale to open the full receipt, or **Reprint** for a printed copy.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
@@ -451,3 +451,46 @@ Saved active vendors appear in the Vendor suggestions in Items and Receiving. Th
 History shows the latest 100 receiving vouchers, with posted totals across all receiving history. From Vendor List, click a voucher number to open it in Receiving. Drafts appear in history but are excluded from posted totals. Renaming a vendor updates linked item vendor names; historical voucher names stay as originally recorded. Inactive hides a vendor from suggestions, but does not block manually entering its name.
 
 Vendor records, payment terms and purchases are not sent to QuickBooks. The existing sales/customer integration is unaffected.
+
+
+## Reports
+
+Open **Reports** in the left navigation or on Home. Choose Sales, Inventory or Receiving. Select a ready-made report to open its options, then click **Run report**. **Daily closeout & receipts** keeps the existing date-based totals, receipt viewing and reprinting.
+
+Ready-made reports include sales by day, receipt register, customer and till summaries, refunds/exchanges, a void audit, inventory valuation, low stock/reorder, stock by department/vendor, a receiving register, receiving by vendor and open receiving drafts.
+
+For an **ad hoc report**, choose **Create custom report**. Select columns in the desired order, add filters, and choose date period, grouping and sorting. All filters must match. Grouping keeps grouping columns and fields that can be totalled; check Group on another field to add a grouping level (up to five). Monetary filter values are entered in dollars, such as 100.00. Boolean filters use Yes/No. Inventory reports are current snapshots and have no historical date filter.
+
+**Save report** stores the definition on the Store Server for all tills. Relative periods such as This month and Last 30 days are recalculated on each run. Open a saved report to update it, or change its name and choose **Save as new**. Delete removes only the saved definition. Report definitions do not save a frozen copy of results.
+
+**Export Excel**, **Export CSV** and **Print** use the last generated results. Run again after changing options or transactions. Excel includes a Summary sheet; print uses the configured full-page printer (Windows default when blank), Letter landscape. At most 10,000 result rows are displayed/exported/printed, with an explicit notice if limited. Totals always cover every matching record; narrow filters to obtain complete detail. Dates use the Store Server's local time.
+
+Sales reports have **one row per receipt**, preventing multiple items/tenders from duplicating totals. Normal reports filter Completed status and include signed refunds/exchanges; they exclude voids. Net sales are before tax; cash subtracts change. The refunds/exchanges report shows entire receipts, including any positive exchange items. Customer names reflect the current customer record. This first reporting builder is receipt-level; it does not calculate historical item profit or cost of goods sold.
+
+Inventory valuation uses saved average cost, includes negative stock, and flags missing costs rather than inventing a value. Missing-cost items contribute no cost valuation. Low stock requires a configured reorder point. Quantity totals can combine different units of measure; review item detail when comparing mixed products. Receiving uses posted-date (created-date for drafts), counts freight once, and retains original vendor names. Drafts are excluded unless you select them.
+
+## Voiding a sale
+
+Open the receipt through Daily closeout or a Sales report, then choose **Void sale…**. Review the stock quantities, enter a reason and your name, record how the payment was handled, and confirm. The entered operator name is an audit label, not an authenticated manager approval. There is no unvoid/delete operation.
+
+The sale remains on file with original amounts and payments, marked **VOID**. Reprints carry a mandatory VOID banner. Normal sales/tax/payment totals exclude it. Inventory quantities are restored exactly once; equipment from the sale is deactivated from the customer's active units. New sales record stock movements. Older receipts require an explicit check because reversal quantities use current item types.
+
+The POS does **not** refund/void a standalone terminal payment. Cancel/return the actual payment separately and record the result before confirming the POS void.
+
+QuickBooks handling:
+- With no export record, a voided sale is excluded from later exports.
+- If an export exists, including an uncertain failed export, a correction waits for the next Web Connector run with sending enabled. The original receipt is located and checked for matching identity/customer/amount before changing it. Existing voids are recognized on retries.
+- It is marked **Void confirmed** only after a query verifies the same receipt at zero with its VOID marker. Errors, conflicts or missing known transactions stay unresolved and visible. Use **QuickBooks → Voided receipts → Retry correction** after fixing the cause. Sending off or a stopped Web Connector leaves corrections pending.
+- Do not edit/delete these exported receipts independently in QuickBooks or switch company files during reconciliation. Conflicts need review, not a blind resend.
+
+Voids are blocked while the connector is syncing. This workflow supports ordinary positive sales. Refunds/exchanges, work-order payments, already-returned originals, equipment with work orders, and tracked manual/old daily QuickBooks entries require their return/work-order or manual reconciliation workflow. They are blocked from automatic voiding to preserve those links.
+
+Use **Reports → Sales → Voided sales audit** for the permanent audit. Its date filter is the original sale date; the void timestamp is separately shown in UTC. QuickBooks shows the latest 500 void corrections; the report supports older records with date filters.
+
+## Item cost comparison
+
+Open an existing item. **Item costs & receiving history** shows last received invoice unit cost, current saved inventory average, lifetime receiving average, and the lifetime average including any allocated freight.
+
+Lifetime average = sum(quantity × unit cost) ÷ sum(quantity) across **all posted receiving lines**. The freight-inclusive version uses each line's recorded landed cost, honoring that voucher's freight setting. Drafts, opening balances and imported stock without receiving vouchers are excluded. Sales do not change the lifetime receiving average. Current inventory average is the running saved average used to value remaining stock, so it can differ from the lifetime average. The preview lists only the latest 20 receiving lines; the summary uses all stored history.
+
+For new receiving vouchers, freight allocation starts off. Freight is still included in the voucher total; turn allocation on explicitly if wanted. Existing vouchers keep their saved preference. Tag selection opens after posting and can be reopened with the top Print tags button; it uses current item prices, with quantities prefilled from the received quantities (rounded to whole tags and editable).

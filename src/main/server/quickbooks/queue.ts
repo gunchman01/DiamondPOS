@@ -23,13 +23,14 @@ export function transactionQueue(db: DB, options: QueueOptions = {}): QbQueuePag
   ), base AS (
     SELECT s.id AS saleId, date(s.created_at, 'localtime') AS saleDate, s.created_at AS createdAt,
       s.total_cents AS totalCents, s.status AS saleStatus, e.id AS exportId, e.ref_number AS refNumber,
-      e.txn_id AS txnId, e.sent_at AS sentAt, e.status AS exportStatus,
+      v.qb_status AS voidStatus, v.qb_error AS voidError, e.txn_id AS txnId, e.sent_at AS sentAt, e.status AS exportStatus,
       CASE WHEN EXISTS (SELECT 1 FROM qb_exports old WHERE old.sale_date = date(s.created_at, 'localtime'))
         OR s.total_cents <= 0 OR COALESCE(paid.methods,0) <> 1 OR paid.total <> s.total_cents OR e.status = 'manual'
         THEN 1 ELSE 0 END AS manualRequired,
       COALESCE(e.customer_name, NULLIF(CASE WHEN c.track_as_company = 1 THEN c.company
         ELSE TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) END, ''), ?) AS customerName,
       CASE
+        WHEN s.status = 'void' THEN CASE v.qb_status WHEN 'confirmed' THEN 'VOID: QuickBooks confirmed the correction.' WHEN 'not_needed' THEN 'VOID: not exported to QuickBooks.' WHEN 'error' THEN COALESCE(v.qb_error,'Void correction failed.') WHEN 'pending' THEN 'VOID: QuickBooks correction pending.' ELSE 'Void / noncompleted receipt.' END
         WHEN s.status <> 'completed' THEN 'Sale is not completed.'
         WHEN date(s.created_at, 'localtime') < ? THEN 'Before the configured sync start date.'
         WHEN date(s.created_at, 'localtime') > ? THEN 'Future-dated sale; not eligible yet.'
@@ -39,11 +40,12 @@ export function transactionQueue(db: DB, options: QueueOptions = {}): QbQueuePag
         WHEN paid.total <> s.total_cents THEN 'Payments do not match the sale total; review in QuickBooks.'
         WHEN e.status = 'manual' THEN COALESCE(e.error, 'Manual entry required.')
         ELSE COALESCE(e.error, '') END AS reason
-    FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+    FROM sales s LEFT JOIN sale_voids v ON v.sale_id=s.id LEFT JOIN customers c ON c.id = s.customer_id
     LEFT JOIN qb_sale_exports e ON e.sale_id = s.id LEFT JOIN paid ON paid.sale_id = s.id
     WHERE 1=1 ${ids}
   ), classified AS (
     SELECT *, CASE
+      WHEN saleStatus = 'void' THEN CASE voidStatus WHEN 'confirmed' THEN 'synced' WHEN 'pending' THEN 'waiting' WHEN 'error' THEN 'failed' ELSE 'excluded' END
       WHEN exportStatus = 'sent' THEN 'synced'
       WHEN saleStatus <> 'completed' OR saleDate < ? OR saleDate > ? THEN 'excluded'
       WHEN manualRequired = 1 THEN 'manual'
@@ -64,14 +66,14 @@ export function transactionQueue(db: DB, options: QueueOptions = {}): QbQueuePag
   const counts = Object.fromEntries(states.map((s) => [s, 0])) as Record<QbQueueState, number>
   for (const r of db.prepare(cte + ' SELECT status, COUNT(*) AS n FROM filtered GROUP BY status').all(...args) as { status: QbQueueState; n: number }[]) counts[r.status] = r.n
   const rows = db.prepare(cte + ` SELECT * FROM filtered${where} ORDER BY saleId DESC LIMIT ? OFFSET ?`).all(...args, ...selection, pageSize, (page - 1)*pageSize) as
-    (QbQueueRow & { exportStatus: string | null })[]
+    (QbQueueRow & { exportStatus: string | null; saleStatus:string })[]
   return { total, page, pageSize, counts, rows: rows.map((r) => ({
     saleId: r.saleId, saleDate: r.saleDate, createdAt: r.createdAt.replace(' ','T')+'Z', customerName: r.customerName,
     totalCents: r.totalCents, status: r.status,
-    reason: r.status === 'synced' ? (r.txnId === 'MANUAL' ? 'Marked as entered by hand.' : 'QuickBooks confirmed this transaction.') : r.reason,
+    reason: r.status === 'synced' && r.saleStatus !== 'void' ? (r.txnId === 'MANUAL' ? 'Marked as entered by hand.' : 'QuickBooks confirmed this transaction.') : r.reason,
     exportId: r.exportId, refNumber: r.refNumber, txnId: r.txnId,
     sentAt: r.sentAt ? r.sentAt.replace(' ','T')+'Z' : null,
-    eligible: r.status === 'waiting' || r.status === 'failed', queued: r.exportStatus === 'pending'
+    eligible: r.saleStatus === 'completed' && (r.status === 'waiting' || r.status === 'failed'), queued: r.saleStatus === 'completed' && r.exportStatus === 'pending'
   })) }
 }
 

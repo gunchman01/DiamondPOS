@@ -1,3 +1,4 @@
+import VoidQueue from './VoidQueue'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { PAYMENT_LABEL } from '../../../shared/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -109,6 +110,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
         </label>
       </div>
 
+      <VoidQueue/>
       {/* ---------- Status ---------- */}
       <div className={st.missing.length ? 'card qb-status warn' : 'card qb-status ok'}>
         <div className="qb-status-main">

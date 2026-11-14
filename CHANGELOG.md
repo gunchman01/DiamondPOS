@@ -14,6 +14,16 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.32 - 14 Nov 2026
+> Update the Store Server PC first.
+- **Reports:** Sales, Inventory and Receiving report library with 13 ready-made reports. Build custom reports with chosen columns, filters, date periods, grouping and sorting. Save definitions for all tills, export Excel/CSV, or print full-page reports. Daily closeout and receipt reprinting remain available.
+- **Audited voids:** open an ordinary completed sale and choose Void sale. A reason, operator name and payment-handling confirmation are required. The original receipt stays marked VOID, stock is restored once, and voids are excluded from normal sales totals. A separate Voided sales audit report keeps the history visible.
+- **QuickBooks void corrections:** never-exported receipts stay excluded. Exported/uncertain receipts are checked, voided through Web Connector, and verified before being marked confirmed. Pending/failed corrections stay visible in QuickBooks and the Home status counts. This does not operate the standalone payment terminal.
+- **Receiving tags:** tag selection opens after posting, using freshly loaded item prices. A prominent Print tags for received items button is available when reopening a posted voucher.
+- **Freight:** Add freight to item cost starts unchecked for new receiving vouchers. Saved vouchers retain their allocation preference; freight still appears in voucher totals.
+- **Item cost comparison:** item windows show the latest received unit cost, current inventory average, and lifetime quantity-weighted receiving averages with/without allocated freight. Lifetime averages use all posted receiving history, not only the last 20 displayed lines.
+- Migration 25 adds void audit records and stock-movement snapshots for new sales. Older receipts require a stock review. Refunds/exchanges, work-order payments, returned originals and manually entered/legacy daily QuickBooks entries require their existing correction/reconciliation workflow.
+
 ## v0.3.31 - 14 Nov 2026
 > Update the Store Server PC first.
 - **Vendor List:** add, search and edit suppliers for parts and equipment. The editor follows the familiar QuickBooks POS sections: company, contact and address, payment terms, account settings, yellow notes and receiving history.

@@ -48,7 +48,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
   { id: 'receive', label: 'Receive items', icon: 'receivingHistory', screen: 'receiving', intent: 'receive' },
   { id: 'receivings', label: 'See receivings', icon: 'receivingHistory', screen: 'receiving' },
   { id: 'tags', label: 'Print price tags', icon: 'printer', screen: 'products', intent: 'tags' },
-  { id: 'reports', label: "See today's sales", icon: 'reports', screen: 'reports' },
+  { id: 'reports', label: "Reports", icon: 'reports', screen: 'reports' },
   { id: 'marketing', label: 'Send a mailer', icon: 'marketing', screen: 'marketing' },
   { id: 'quickbooks', label: 'Sync with QuickBooks', icon: 'sync', screen: 'quickbooks' },
   { id: 'settings', label: 'Change settings', icon: 'settings', screen: 'settings' },
