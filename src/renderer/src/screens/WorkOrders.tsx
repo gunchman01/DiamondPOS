@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
-import { STAGES, stage, type WoSaleMode, type WoStatus, type WoSummary } from '../../../shared/workorders'
+import { STAGES, stage, stageStyle, DEFAULT_STAGE_COLORS, type WoSaleMode, type WoStatus, type WoSummary } from '../../../shared/workorders'
 import { api } from '../api'
 import { money } from '../format'
 import NewWorkOrder from './NewWorkOrder'
 import { currentPrintSettings, printWorkOrderLabel } from '../printing'
 import WorkOrderTicket from './WorkOrderTicket'
 import WorkOrderSettings from './WorkOrderSettings'
+import EquipmentLookup from './EquipmentLookup'
 
 type View = { kind: 'list' } | { kind: 'ticket'; id: number } | { kind: 'settings' }
 
@@ -29,12 +30,14 @@ export default function WorkOrders({
   /** Open the Sale screen with this work order loaded */
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [view, setView] = useState<View>({ kind: 'list' })
   const [filter, setFilter] = useState<WoStatus | 'open' | 'all'>('open')
   const [search, setSearch] = useState('')
   const [list, setList] = useState<WoSummary[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [creating, setCreating] = useState(false)
+  const [findingEquipment, setFindingEquipment] = useState(false)
   useEffect(() => {
     if (startCheckIn) {
       setCreating(true)
@@ -45,8 +48,9 @@ export default function WorkOrders({
   const by = boot.config.tillName
 
   const load = () =>
-    Promise.all([api.woList(filter, search), api.woCounts()])
-      .then(([l, c]) => {
+    Promise.all([api.woList(filter, search), api.woCounts(), api.woSettings()])
+      .then(([l, c, settings]) => {
+        setColors(settings.stageColors ?? DEFAULT_STAGE_COLORS)
         setList(l)
         setCounts(c)
       })
@@ -54,7 +58,8 @@ export default function WorkOrders({
   useEffect(() => {
     if (view.kind !== 'list') return
     const t = setTimeout(load, 150)
-    return () => clearTimeout(t)
+    const timer = setInterval(load, 30000)
+    return () => { clearTimeout(t); clearInterval(timer) }
   }, [filter, search, view.kind])
 
   if (view.kind === 'ticket')
@@ -68,6 +73,7 @@ export default function WorkOrders({
       <div className="row between">
         <h2>Work Orders</h2>
         <div className="row gap">
+          <button onClick={() => setFindingEquipment(true)}>Find equipment by serial</button>
           <button onClick={() => setView({ kind: 'settings' })}>⚙ Work order settings</button>
           <button className="primary" onClick={() => setCreating(true)}>
             + New work order
@@ -83,7 +89,7 @@ export default function WorkOrders({
           <button
             key={s.status}
             className={filter === s.status ? 'chip active' : 'chip'}
-            style={filter === s.status ? { background: s.color, borderColor: s.color } : { borderLeftColor: s.color }}
+            style={filter === s.status ? { ...stageStyle(s.status, colors), borderColor: stage(s.status, colors).color } : { borderLeftColor: stage(s.status, colors).color }}
             onClick={() => setFilter(s.status)}
           >
             {s.label} <b>{counts[s.status] ?? 0}</b>
@@ -130,7 +136,7 @@ export default function WorkOrders({
               </td>
               <td className="muted">{w.serial}</td>
               <td>
-                <span className="stage-badge" style={{ background: stage(w.status).color }}>
+                <span className="stage-badge" style={stageStyle(w.status, colors)}>
                   {stage(w.status).label}
                 </span>
               </td>
@@ -144,6 +150,8 @@ export default function WorkOrders({
         </tbody>
       </table>
       {list.length === 0 && <p className="muted">No work orders here.</p>}
+
+      {findingEquipment && <EquipmentLookup colors={colors} onClose={() => setFindingEquipment(false)} onTicket={(id) => { setFindingEquipment(false); setView({ kind: 'ticket', id }) }} />}
 
       {creating && (
         <NewWorkOrder

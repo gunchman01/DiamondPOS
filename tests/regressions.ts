@@ -13,6 +13,8 @@ import { createVerifiedBackup, startBackupScheduler } from '../src/main/server/b
 import { returnableSale } from '../src/main/server/returns'
 import { parseQuantity, quantityError } from '../src/renderer/src/quantity'
 import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlineReturn'
+import { getWoSettings, saveWoSettings } from '../src/main/server/workorders'
+import { STAGES, DEFAULT_STAGE_COLORS, normaliseStageColors, stageStyle } from '../src/shared/workorders'
 import { getProduct } from '../src/main/server/products'
 import { returnAmount } from '../src/shared/returns'
 import { getQbConfig, saveQbConfig, saveQbLists, listExports } from '../src/main/server/quickbooks/store'
@@ -136,7 +138,8 @@ async function main() {
   })
   db.prepare('UPDATE products SET use_serial = 1 WHERE id = 2').run()
   const equipment = getProduct(db, 2)!
-  const serialSale = createSale(db, request({ items: [{ productId: 2, qty: 1, serial: 'MOWER-123' }], payments: [{ method: 'cash', amountCents: 100 }] }))
+  const equipmentCustomer = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Equipment','Buyer')").run().lastInsertRowid)
+  const serialSale = createSale(db, request({ customerId: equipmentCustomer, items: [{ productId: 2, qty: 1, serial: 'MOWER-123' }], payments: [{ method: 'cash', amountCents: 100 }] }))
   const serialReceipt = returnableSale(db, serialSale.id)!
   check('serialized inline return matches its original serial and requires one unit', () => {
     assert.equal(matchingReturnLines(serialReceipt, equipment, 'MOWER-123').length, 1)
@@ -150,6 +153,60 @@ async function main() {
     assert.equal(damagedSale.items[0].serial, 'MOWER-123')
     assert.equal(db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n, stockBeforeDamaged)
     assert.throws(() => createSale(db, request({ items: [], returns: [{ productId: equipment.id, serial: 'MOWER-123', qty: 2, reason: 'Other', restock: false }], payments: [{ method: 'cash', amountCents: -200 }] })), /one unit/)
+  })
+  check('serialized sales require both serial and customer on the server', () => {
+    const count = db.prepare('SELECT COUNT(*) AS n FROM sales').get().n
+    assert.throws(() => createSale(db, request({ customerId: equipmentCustomer, items: [{ productId: 2, qty: 1 }], payments: [{ method: 'cash', amountCents: 100 }] })), /serial number/)
+    assert.throws(() => createSale(db, request({ items: [{ productId: 2, qty: 1, serial: 'NEW-SERIAL' }], payments: [{ method: 'cash', amountCents: 100 }] })), /select a customer/)
+    assert.throws(() => createSale(db, request({ items: [{ productId: 1, qty: 1, serial: 'OPTIONAL-SERIAL' }] })), /select a customer/)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sales').get().n, count)
+  })
+  check('serial duplicates are rejected within checkout and against sold history, ignoring letter case', () => {
+    const stock = db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n
+    assert.throws(() => createSale(db, request({ customerId: equipmentCustomer, items: [{ productId: 2, qty: 1, serial: 'DUP-1' }, { productId: 2, qty: 1, serial: ' dup-1 ' }], payments: [{ method: 'cash', amountCents: 200 }] })), /already on this sale/)
+    // The earlier damaged no-receipt return cannot release an unrelated original sale's ownership link.
+    assert.throws(() => createSale(db, request({ customerId: equipmentCustomer, items: [{ productId: 2, qty: 1, serial: ' mower-123 ' }], payments: [{ method: 'cash', amountCents: 100 }] })), /already sold/)
+    assert.throws(() => createSale(db, request({ customerId: equipmentCustomer, items: [{ productId: 2, qty: 1, serial: 'x'.repeat(81) }], payments: [{ method: 'cash', amountCents: 100 }] })), /80 characters/)
+    assert.equal(db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n, stock)
+  })
+  const originalUnit = db.prepare('SELECT * FROM customer_units WHERE sale_id = ?').get(serialSale.id) as any
+  check('serialized sale creates an equipment record linked to customer and receipt', () => {
+    assert.equal(originalUnit.customer_id, equipmentCustomer)
+    assert.equal(originalUnit.serial, 'MOWER-123')
+    assert.equal(originalUnit.active, 1)
+  })
+  createSale(db, request({ items: [], returns: [{ saleItemId: serialReceipt.lines[0].saleItemId, qty: 1, reason: 'Other', restock: true }], payments: [{ method: 'cash', amountCents: -100 }] }))
+  const nextEquipmentCustomer = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Resale','Buyer')").run().lastInsertRowid)
+  const resaleRequest = request({ customerId: nextEquipmentCustomer, items: [{ productId: 2, qty: 1, serial: 'MOWER-123' }], payments: [{ method: 'cash', amountCents: 100 }] })
+  const resale = createSale(db, resaleRequest)
+  check('receipt-linked return allows legitimate resale while retaining previous equipment history', () => {
+    assert.equal(db.prepare('SELECT active FROM customer_units WHERE id = ?').get(originalUnit.id).active, 0)
+    assert.equal(db.prepare('SELECT customer_id FROM customer_units WHERE sale_id = ?').get(resale.id).customer_id, nextEquipmentCustomer)
+    assert.equal(createSale(db, resaleRequest).id, resale.id)
+  })
+  const resaleReceipt = returnableSale(db, resale.id)!
+  const exchangedSerial = createSale(db, request({ customerId: nextEquipmentCustomer,
+    items: [{ productId: 2, qty: 1, serial: 'MOWER-123' }],
+    returns: [{ saleItemId: resaleReceipt.lines[0].saleItemId, qty: 1, reason: 'Other', restock: true }], payments: [] }))
+  check('a receipt-linked return and resale on the same exchange keeps only the new equipment record active', () => {
+    assert.equal(exchangedSerial.totalCents, 0)
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM customer_units WHERE serial = 'MOWER-123' AND active = 1").get().n, 1)
+    assert.equal(db.prepare('SELECT active FROM customer_units WHERE sale_id = ?').get(exchangedSerial.id).active, 1)
+  })
+  check('work-order colors default for existing settings and validate known stage hex colors', () => {
+    assert.deepEqual(getWoSettings(db).stageColors, DEFAULT_STAGE_COLORS)
+    const settings = saveWoSettings(db, { stageColors: { ...DEFAULT_STAGE_COLORS, approved: '#FFFFFF', on_bench: '#000000' } })
+    assert.equal(settings.stageColors.approved, '#ffffff')
+    assert.equal(stageStyle('approved', settings.stageColors).color, '#000000')
+    assert.equal(stageStyle('on_bench', settings.stageColors).color, '#ffffff')
+    assert.throws(() => saveWoSettings(db, { stageColors: { approved: 'red' } as any }), /valid/)
+    assert.throws(() => saveWoSettings(db, { stageColors: { invented: '#ffffff' } as any }), /valid/)
+    assert.equal(normaliseStageColors({ approved: 'bad' }).approved, DEFAULT_STAGE_COLORS.approved)
+  })
+  check('partial settings updates preserve shared colors and do not alter stage transitions', () => {
+    saveWoSettings(db, { laborRateCents: 12300 })
+    assert.equal(getWoSettings(db).stageColors.approved, '#ffffff')
+    assert.ok(STAGES.find((s) => s.status === 'approved')!.next.includes('waiting_parts'))
   })
   const backup = await createVerifiedBackup(db, path.join(dir, 'backups'))
   const restored = new Database(backup, { readonly: true, fileMustExist: true })
@@ -195,6 +252,7 @@ async function main() {
   check('backup history survives reopening the store database', () => {
     assert.equal(operationsStatus(db).backup.lastVerifiedAt, lastGood)
     assert.match(operationsStatus(db).backup.error!, /Simulated/)
+    assert.equal(getWoSettings(db).stageColors.approved, '#ffffff')
   })
   const cust1 = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Greg & Co','Barnes')").run().lastInsertRowid)
   const cust2 = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Greg & Co','Barnes')").run().lastInsertRowid)
@@ -328,6 +386,18 @@ async function main() {
     assert.equal(queueBad.status, 400)
     assert.equal(queueDuringSync.status, 409)
   })
+  const equipmentResponse = await fetch(`${base}/api/equipment/serial?serial=mower-123`, { headers: { 'X-Api-Key': 'test' } })
+  const equipmentMatches = await equipmentResponse.json() as any[]
+  const equipmentUnauthorized = await fetch(`${base}/api/equipment/serial?serial=MOWER-123`)
+  check('serial lookup is paired and includes current/prior customer equipment and sale links', () => {
+    assert.equal(equipmentUnauthorized.status, 401)
+    assert.equal(equipmentMatches.length, 3)
+    assert.equal(equipmentMatches[0].unit.customerId, nextEquipmentCustomer)
+    assert.equal(equipmentMatches[0].unit.saleId, exchangedSerial.id)
+    assert.equal(equipmentMatches[1].unit.active, false)
+  })
+  const colorRead = await fetch(`${base}/api/workorders/settings`, { headers: { 'X-Api-Key': 'test' } }).then((r) => r.json())
+  check('shared settings API supplies saved stage colors to every till', () => assert.equal(colorRead.stageColors.approved, '#ffffff'))
   const receiptIds = new Map<string,string>()
   const receiptDetails = new Map<string,string>()
   const customers = new Set<string>()

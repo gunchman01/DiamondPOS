@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
   DEFAULT_WO_SETTINGS,
+  STAGES,
+  DEFAULT_STAGE_COLORS,
+  stageStyle,
   TEMPLATE_PLACEHOLDERS,
   stage,
   type EmailableStatus,
@@ -87,6 +90,17 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
 
+      <div className="card form">
+        <div className="row between"><h3>Stage colors</h3><button type="button" onClick={() => setS({ ...s, stageColors: { ...DEFAULT_STAGE_COLORS } })}>Reset stage colors</button></div>
+        <p className="muted small">Shared across all tills. Preview text adjusts for contrast; the stage name always stays visible. Click Save settings to apply.</p>
+        <div className="wo-color-grid">{STAGES.map((item) => <label key={item.status} className="wo-color-row">
+          <span>{item.label}</span>
+          <input type="color" aria-label={`${item.label} color`} value={s.stageColors?.[item.status] ?? item.color}
+            onChange={(e) => setS({ ...s, stageColors: { ...s.stageColors, [item.status]: e.target.value } })} />
+          <span className="stage-badge" style={stageStyle(item.status, s.stageColors)}>{item.label}</span>
+        </label>)}</div>
+      </div>
+
       {fees && (
         <div className="card form">
           <h3>Estimate fee (taken at drop-off)</h3>
@@ -163,7 +177,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         {(Object.keys(s.templates) as EmailableStatus[]).map((k) => (
           <div key={k} className="template-box">
             <div className="row between">
-              <span className="stage-badge" style={{ background: stage(k).color }}>
+              <span className="stage-badge" style={stageStyle(k, s.stageColors)}>
                 {stage(k).label}
               </span>
               <div className="row gap">

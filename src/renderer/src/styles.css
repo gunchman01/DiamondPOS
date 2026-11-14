@@ -934,3 +934,8 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .qb-queue-table { overflow: auto; max-height: 480px; }
 .qb-queue-table table { min-width: 700px; }
 @media (max-width: 1200px) { .qb-queue-filters { grid-template-columns: 1fr 1fr; } }
+
+.wo-color-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 10px; }
+.wo-color-row { display: grid; grid-template-columns: minmax(100px,1fr) 48px minmax(130px,1fr); gap: 10px; align-items: center; }
+.wo-color-row input[type="color"] { width: 44px; height: 36px; padding: 2px; cursor: pointer; }
+.equipment-results { max-height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }

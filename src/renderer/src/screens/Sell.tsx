@@ -593,9 +593,15 @@ export default function Sell({
       return
     }
     // A serial-numbered unit is saved under the customer, so one must be attached
-    if (cart.some((l) => l.serial) && !customer) {
+    if (cart.some((l) => l.serial || l.product.useSerial) && !customer) {
       setMessage({ kind: 'error', text: 'This sale has a serial-numbered item. Add the customer (F5) so the unit is saved to them.' })
       setPickingCustomer(true)
+      return
+    }
+    const missingSerial = cart.find((l) => l.product.useSerial && !l.serial?.trim())
+    if (missingSerial) {
+      setSelectedId(missingSerial.key)
+      setMessage({ kind: 'error', text: `${missingSerial.product.name}: remove and rescan this item to enter its serial number before checkout.` })
       return
     }
     // Nothing to pay (e.g. the estimate fee covers the whole repair): finish without a payment

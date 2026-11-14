@@ -12,6 +12,7 @@ import type { DB } from './db'
 import { customerDisplayName, taxExemptState, type StoreSettings } from '../../shared/types'
 import {
   DEFAULT_WO_SETTINGS,
+  normaliseStageColors,
   STAGES,
   guessCategory,
   isEmailable,
@@ -63,6 +64,7 @@ export function getWoSettings(db: DB): WoSettings {
   }
   const d = DEFAULT_WO_SETTINGS
   return {
+    stageColors: normaliseStageColors(saved.stageColors),
     estimateFee: {
       cents: { ...d.estimateFee.cents, ...(saved.estimateFee?.cents ?? {}) },
       description: saved.estimateFee?.description ?? d.estimateFee.description,
@@ -82,14 +84,23 @@ export function getWoSettings(db: DB): WoSettings {
   }
 }
 
-function saveWoSettings(db: DB, input: Partial<WoSettings>): WoSettings {
+export function saveWoSettings(db: DB, input: Partial<WoSettings>): WoSettings {
   const cur = getWoSettings(db)
   const cents = (v: unknown, label: string) => {
     const n = Number(v)
     if (!Number.isInteger(n) || n < 0) throw new WoError(400, `${label} must be a positive amount`)
     return n
   }
+  const stageColors = { ...cur.stageColors }
+  if (input.stageColors !== undefined) {
+    if (!input.stageColors || typeof input.stageColors !== 'object' || Array.isArray(input.stageColors)) throw new WoError(400, 'Stage colors must be an object')
+    for (const [key, value] of Object.entries(input.stageColors)) {
+      if (!STAGES.some((s) => s.status === key) || typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) throw new WoError(400, 'Choose a valid #RRGGBB color for an existing stage')
+      stageColors[key as WoStatus] = value.toLowerCase()
+    }
+  }
   const next: WoSettings = {
+    stageColors,
     estimateFee: {
       cents: { ...cur.estimateFee.cents },
       description: String(input.estimateFee?.description ?? cur.estimateFee.description).trim().slice(0, 120) || cur.estimateFee.description,
@@ -505,6 +516,19 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       res.json(getUnit(db, cur.id))
     })
   )
+
+  app.get('/api/equipment/serial', (req, res) => {
+    const serial = String(req.query.serial ?? '').trim()
+    if (!serial || serial.length > 80) return res.status(400).json({ error: 'Enter a serial number of 1–80 characters' })
+    const rows = db.prepare(`SELECT u.*, c.first_name, c.last_name, c.company, c.track_as_company
+      FROM customer_units u JOIN customers c ON c.id = u.customer_id
+      WHERE UPPER(TRIM(u.serial)) = UPPER(?) ORDER BY u.active DESC, u.id DESC LIMIT 100`).all(serial) as
+      (UnitRow & { first_name: string; last_name: string; company: string; track_as_company: number })[]
+    res.json(rows.map((row) => ({ unit: toUnit(row), customerName: customerDisplayName({ firstName: row.first_name,
+      lastName: row.last_name, company: row.company, trackAsCompany: row.track_as_company === 1 }),
+      tickets: (db.prepare('SELECT id, status FROM work_orders WHERE unit_id = ? ORDER BY id DESC LIMIT 50').all(row.id) as
+        { id: number; status: WoStatus }[]).map((t) => ({ ...t, number: woNumber(t.id) })) })))
+  })
 
   // Find a unit by serial number (any customer)
   app.get('/api/units', (req, res) => {

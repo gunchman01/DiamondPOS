@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PriceCell } from '../saleColumns'
 import type { Product } from '../../../shared/types'
-import { STAGES, stage, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
+import { STAGES, stage, stageStyle, DEFAULT_STAGE_COLORS, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
 import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
@@ -16,6 +16,7 @@ export default function WorkOrderTicket(props: {
   onBack: () => void
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [wo, setWo] = useState<WorkOrder | null>(null)
   const [notes, setNotes] = useState({ problem: '', diagnosis: '', workDone: '', internalNotes: '' })
   const [picking, setPicking] = useState(false)
@@ -25,6 +26,13 @@ export default function WorkOrderTicket(props: {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    let live = true
+    const loadColors = () => api.woSettings().then((s) => { if (live) setColors(s.stageColors ?? DEFAULT_STAGE_COLORS) }).catch(() => {})
+    void loadColors()
+    const timer = setInterval(() => void loadColors(), 30000)
+    return () => { live = false; clearInterval(timer) }
+  }, [])
   const show = (w: WorkOrder) => {
     setWo(w)
     setNotes({ problem: w.problem, diagnosis: w.diagnosis, workDone: w.workDone, internalNotes: w.internalNotes })
@@ -50,7 +58,7 @@ export default function WorkOrderTicket(props: {
 
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
-  const st = stage(wo.status)
+  const st = stage(wo.status, colors)
   const closed = wo.status === 'closed'
   const shortParts = wo.lines.filter((l) => l.short)
   const notesDirty =
@@ -77,7 +85,7 @@ export default function WorkOrderTicket(props: {
       <div className="card ticket-head">
         <div>
           <div className="ticket-no">{wo.number}</div>
-          <span className="stage-badge big" style={{ background: st.color }}>
+          <span className="stage-badge big" style={stageStyle(wo.status, colors)}>
             {st.label}
           </span>
         </div>
@@ -128,12 +136,12 @@ export default function WorkOrderTicket(props: {
       {/* ---------------- Stage flow ---------------- */}
       <div className="stage-flow">
         {FLOW.map((s) => (
-          <span key={s} className={s === wo.status ? 'flow-step current' : 'flow-step'} style={s === wo.status ? { background: stage(s).color } : undefined}>
+          <span key={s} className={s === wo.status ? 'flow-step current' : 'flow-step'} style={s === wo.status ? stageStyle(s, colors) : undefined}>
             {stage(s).label}
           </span>
         ))}
         {wo.status === 'not_fixed' && (
-          <span className="flow-step current" style={{ background: st.color }}>
+          <span className="flow-step current" style={stageStyle(wo.status, colors)}>
             {st.label}
           </span>
         )}

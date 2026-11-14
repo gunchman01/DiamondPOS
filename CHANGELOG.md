@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.29 - 14 Nov 2026
+- **Serialized sales require a customer and serial number.** Checkout checks are enforced on the Store Server as well as at the till. Serialized equipment stays one unit per line.
+- Blocks duplicate serials on the same checkout or already sold on an unreturned completed receipt. A receipt-linked return permits legitimate resale while retaining previous customer/unit history.
+- **Find equipment by serial** in Work Orders shows associated customers, linked sale receipts, and recent service tickets, including previous/inactive records.
+- **Stage colors:** Work Orders → Work order settings now has a color picker, readable preview and reset option for each stage. Saved colors are shared across tills and used in list/filter badges and ticket stage indicators. Stage names remain visible; workflow rules are unchanged.
+- Update the Store Server first, then tills. No database schema or dependency changes. Receiving still records quantities only; serials are captured when sold.
+
 ## v0.3.28 - 14 Nov 2026
 - **QuickBooks transaction sync queue:** see every POS transaction, including sales the connector has not examined yet. Filter by status, date, receipt number or customer; browse 50 rows per page.
 - Select Waiting or Failed transactions and choose **Queue selected for sync**. Web Connector performs the normal duplicate-checked transfer on its next run. Normal sales remain automatic.

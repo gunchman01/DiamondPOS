@@ -585,14 +585,34 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   }
 
   const getActive = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1')
+  const serialsInSale = new Set<string>()
   const lines = req.items.map((it) => {
     const qty = Number(it.qty)
     if (!Number.isInteger(qty) || qty <= 0) throw new HttpError(400, 'Quantity must be a whole number above 0')
     const row = getActive.get(it.productId) as ProductRow | undefined
     if (!row) throw new HttpError(400, `Item ${it.productId} not found or inactive`)
     const p = toProduct(row)
-    const serial = String((it as { serial?: string }).serial ?? '').trim().slice(0, 80)
+    const serial = String(it.serial ?? '').trim()
+    if (serial.length > 80) throw new HttpError(400, `${p.name}: serial number must be 80 characters or less`)
+    if (p.useSerial && !serial) throw new HttpError(400, `${p.name}: enter the serial number before checkout`)
+    if (serial && !customerId) throw new HttpError(400, `${p.name}: select a customer for this serialized sale`)
     if (serial && qty !== 1) throw new HttpError(400, `${p.name}: a serial-numbered item must be one per line`)
+    if (serial) {
+      const key = serial.replace(/[a-z]/g, (c) => c.toUpperCase())
+      if (serialsInSale.has(key)) throw new HttpError(400, `Serial ${serial} is already on this sale`)
+      serialsInSale.add(key)
+      const sold = db.prepare(`SELECT si.id, si.sale_id, si.qty,
+          COALESCE((SELECT SUM(-r.qty) FROM sale_items r JOIN sales rs ON rs.id = r.sale_id
+            WHERE r.kind = 'return' AND r.return_of_item_id = si.id AND rs.status = 'completed'), 0) AS returned
+        FROM sale_items si JOIN sales s ON s.id = si.sale_id
+        WHERE si.kind = 'item' AND s.status = 'completed' AND UPPER(TRIM(si.serial)) = ?`).all(key) as
+        { id: number; sale_id: number; qty: number; returned: number }[]
+      for (const original of sold) {
+        const comingBack = (returns?.lines ?? []).filter((r) => r.kind === 'return' && r.returnOfItemId === original.id).reduce((n,r) => n - r.qty, 0)
+        if (original.qty > original.returned + comingBack)
+          throw new HttpError(409, `Serial ${serial} was already sold on receipt #${original.sale_id}. Link its original receipt when returning it before resale.`)
+      }
+    }
     // Price changed at the till for this sale
     let unit = p.priceCents
     if (it.unitPriceCents !== undefined && it.unitPriceCents !== null) {

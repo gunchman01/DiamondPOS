@@ -39,6 +39,11 @@ Home is where every area of the app starts.
 - Press **F1** on any screen, or click **? Help** at the top, to open this manual.
 
 ## Making a sale
+**Serialized equipment:** select a customer for every sale containing a serial number. Items marked Use Serial # must have a serial at checkout, and every serialized unit must be on its own line. The Store Server independently checks these rules. Receiving remains quantity-only; serials are captured at sale time.
+
+Duplicate matching is store-wide, case-insensitive for ordinary serial letters, and ignores leading/trailing spaces. Duplicate serials within one checkout or an existing completed, unreturned sale are blocked. Use a receipt-linked return before reselling a returned unit. A no-receipt return records its serial but cannot release an unidentified original sale's serial/ownership link. Historical sales are not rewritten. If an older held receipt is missing its required serial, remove/rescan that item to capture the serial before payment.
+
+
 **Quantity directly on the receipt:** each item row has a Qty box with − and + buttons. Click the box and type a whole quantity. Enter, Tab or clicking away saves; Escape restores the previous value. Totals update after saving. Zero removes the line; a negative sale quantity opens Return details. Invalid quantities are shown beside the box without changing the saved quantity.
 
 Serialized equipment stays at one unit per line. Return rows show negative quantities: − increases the number coming back and + reduces it toward zero. Receipt-linked returns cannot exceed the units still available, including other return lines already on this checkout. Editing a return retains its reason, stock choice, original price and tax. To sell an item instead of returning it, remove the return and scan it again. Work order/credit/fee quantities are not edited from this grid.
@@ -136,6 +141,11 @@ You can also click **↩ Return** on the Sale screen to start from a receipt or 
 - The receipt prints **REFUND** or **EXCHANGE**, the original receipt number and a line for the customer's signature.
 
 ## Work orders (repairs)
+**Stage colors:** open Work Orders → Work order settings → Stage colors. Choose a color for each stage, inspect the preview, then Save settings. Reset stage colors restores the defaults after saving. Text automatically uses black or white for contrast, and stage names remain visible. Colors are stored on the server; other tills refresh the work-order list/ticket colors within 30 seconds or when reopened. Color changes do not change stage transitions, stock rules or emails.
+
+**Find equipment by serial:** on the Work Orders list, choose Find equipment by serial and enter/scan the full number. View the associated customer and sale receipt, plus up to 50 recent tickets per matching unit. Previous/inactive records remain visible after a return/resale; they are not presented as current ownership. Close the lookup to return to the list.
+
+
 Open **Work Orders**. The coloured buttons at the top filter by stage; the search box finds a customer, phone, serial number, brand, model or WO number.
 
 **Checking in a unit**

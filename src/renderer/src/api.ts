@@ -1,3 +1,4 @@
+import type { EquipmentMatch } from '../../shared/workorders'
 import type { QbQueuePage } from '../../shared/quickbooks'
 import type { OperationsStatus } from '../../shared/operations'
 import type { ItemReceipt, PostLineChoice, Receiving, ReceivingInput, ReceivingSummary } from '../../shared/receiving'
@@ -83,6 +84,7 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  equipmentBySerial: (serial: string) => request<EquipmentMatch[]>('GET', `/api/equipment/serial?serial=${encodeURIComponent(serial)}`),
   qbQueue: (query: string) => request<QbQueuePage>('GET', `/api/qb/queue?${query}`),
   qbQueueSelected: (saleIds: number[]) => request<{ queued: number }>('POST', '/api/qb/queue', { saleIds }),
   operationsStatus: () => request<OperationsStatus>('GET', '/api/operations/status'),

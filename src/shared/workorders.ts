@@ -94,7 +94,20 @@ export const STAGES: StageDef[] = [
   { status: 'closed', label: 'Picked Up', color: '#374151', partsTaken: true, canEmail: false, next: [] }
 ]
 
-export const stage = (s: WoStatus): StageDef => STAGES.find((x) => x.status === s) ?? STAGES[0]
+export const DEFAULT_STAGE_COLORS = Object.fromEntries(STAGES.map((s) => [s.status, s.color])) as Record<WoStatus, string>
+export function normaliseStageColors(input?: Partial<Record<WoStatus, string>>): Record<WoStatus, string> {
+  return Object.fromEntries(STAGES.map((s) => [s.status, /^#[0-9a-f]{6}$/i.test(input?.[s.status] ?? '') ? input![s.status]!.toLowerCase() : s.color])) as Record<WoStatus, string>
+}
+export const stage = (s: WoStatus, colors?: Partial<Record<WoStatus, string>>): StageDef => {
+  const def = STAGES.find((x) => x.status === s) ?? STAGES[0]
+  return { ...def, color: normaliseStageColors(colors)[def.status] }
+}
+export function stageStyle(s: WoStatus, colors?: Partial<Record<WoStatus, string>>): { background: string; color: string } {
+  const background = stage(s, colors).color
+  const rgb = [1,3,5].map((i) => parseInt(background.slice(i,i+2),16)/255).map((n) => n <= 0.04045 ? n/12.92 : ((n+0.055)/1.055)**2.4)
+  const luminance = 0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2]
+  return { background, color: (luminance+0.05)/0.05 >= 1.05/(luminance+0.05) ? '#000000' : '#ffffff' }
+}
 export const OPEN_STATUSES: WoStatus[] = STAGES.filter((s) => s.status !== 'closed').map((s) => s.status)
 
 // ---------------- Work orders ----------------
@@ -242,6 +255,7 @@ export interface EstimateFeeSettings {
 }
 
 export interface WoSettings {
+  stageColors: Record<WoStatus, string>
   estimateFee: EstimateFeeSettings
   laborRateCents: number // per hour, before tax
   laborTaxable: boolean
@@ -266,6 +280,7 @@ export const TEMPLATE_PLACEHOLDERS: { key: string; meaning: string }[] = [
 ]
 
 export const DEFAULT_WO_SETTINGS: WoSettings = {
+  stageColors: { ...DEFAULT_STAGE_COLORS },
   estimateFee: {
     cents: { handheld: 3500, mower: 7000, other: 3500 },
     description: 'Estimate fee (credited toward the repair or a new purchase)',
@@ -397,4 +412,10 @@ export function priceWithFeeCredit(
   if (credit === 0) return { ...before, creditCents: 0, creditKeptCents: creditAvailableCents }
   const after = priceSale([...items, { unitPriceCents: -credit, qty: 1, taxable: false }], taxRate, taxExempt)
   return { ...after, creditCents: credit, creditKeptCents: creditAvailableCents - credit }
+}
+
+export interface EquipmentMatch {
+  unit: CustomerUnit
+  customerName: string
+  tickets: { id: number; number: string; status: WoStatus }[]
 }

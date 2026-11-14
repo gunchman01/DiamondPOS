@@ -71,6 +71,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 14 Nov 2026: v0.3.29 serialized checkout and stage colors
+- Based on main c3e58baa, latest release v0.3.28. Server now requires serials for use_serial products, customer association for every item carrying a serial, one unit per line and at most 80 serial characters. Checks run inside checkout's existing transaction/idempotency boundary.
+- Duplicate detection is case-insensitive for ASCII letters with trimmed ends, store-wide: same-request duplicates or positive sold quantities not offset by completed receipt-linked returns. Valid planned receipt-linked returns on the same exchange count; no-receipt returns and manual equipment deactivation cannot bypass sold-history checks. Historical receipts remain unchanged.
+- Existing addUnitFromSale/finishReturns links preserve original/new customer records. Added paired equipment-by-serial lookup and Work Orders dialog showing associated customer, receipt and up to 50 recent tickets per unit (at most 100 matching unit records).
+- Added validated per-stage #RRGGBB colors to existing server settings, defaults and old-client partial-save preservation. Shared UI list/filter badges and ticket current-stage indicators refresh within 30 seconds; settings previews and reset use automatic black/white contrast. Stage names/stock transitions/email rules unchanged. No schema/dependency changes.
+- 56 Electron/SQLite regression checks passed: required customer/serial, duplicates/atomic rollback, customer-unit linkage, legitimate resale and same-exchange return/resale, settings/color validation/contrast/persistence, shared API and paired equipment lookup. TypeScript/build pass; Windows scanner/color-picker/till-to-till visual checks remain local.
+
+
 ### 14 Nov 2026: v0.3.28 transaction sync queue
 - Based on main 4ec86549 (latest release v0.3.27). New authenticated GET/POST /api/qb/queue, complete sales-based queue independent of export-row existence; status/customer/receipt/date filters and 50-row pagination. Counts apply to search/date filters, independent of status selection.
 - Selection of waiting/failed transactions revalidates IDs, current start date, completion/payment/legacy status and known sync state inside one SQLite transaction. Whole selection rejected when stale/ineligible. No implicit enabling, before-start override, synced resend, or manual-exception bypass. UI selections are current-page only. Active sessions block queue mutations.
@@ -443,7 +451,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.28** (QuickBooks transaction sync queue). Apply over v0.3.27, test and publish v0.3.28. Store Server first, then tills; no new schema migration.
+**Update prepared: v0.3.29** (serialized checkout, equipment lookup and work-order stage colors). Apply over v0.3.28, test and publish v0.3.29. Store Server first, then tills; no new schema migration.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 
