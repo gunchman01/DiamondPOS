@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.27 - 14 Nov 2026
+- **Edit quantity in the receipt grid:** type directly in the Qty box, or use the − / + buttons beside it. Enter, Tab or clicking away saves; Escape cancels. Totals update when the quantity is saved.
+- Negative sale quantities open Return details for that item. Zero removes the line. The existing F3 Change qty window remains available.
+- Return quantities can be changed directly too; original-receipt limits and one-unit serial rules still apply. Reason, restocking choice and original-price/tax information are retained.
+- Work order, credit and fee lines remain read-only for quantity. No database or dependency changes.
+
 ## v0.3.26 - 13 Nov 2026
 - **Home status at the bottom:** today's sales, cash, card and checks now sit below the Navigator, alongside QuickBooks, database backup and store-server status.
 - Shows the last successful QuickBooks sync separately from the last successful connection, plus queued exports, problems and transactions requiring manual entry. Click QuickBooks to open its settings/history.

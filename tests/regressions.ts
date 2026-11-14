@@ -11,6 +11,7 @@ import { migrations } from '../src/main/server/migrations'
 import { operationsStatus, recordBackup } from '../src/main/server/operations'
 import { createVerifiedBackup, startBackupScheduler } from '../src/main/server/backup'
 import { returnableSale } from '../src/main/server/returns'
+import { parseQuantity, quantityError } from '../src/renderer/src/quantity'
 import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlineReturn'
 import { getProduct } from '../src/main/server/products'
 import { returnAmount } from '../src/shared/returns'
@@ -25,6 +26,28 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
 let checks = 0
 const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`PASS ${name}`) }
 async function main() {
+  check('quantity typing accepts explicit signs and rejects blank, decimal and scanner-like input', () => {
+    assert.equal(parseQuantity(' +3 '), 3)
+    assert.equal(parseQuantity('-2'), -2)
+    assert.equal(parseQuantity('0'), 0)
+    for (const text of ['', ' ', '1.5', '1e3', 'Infinity', '12abc', '--2']) assert.equal(parseQuantity(text), null)
+    assert.ok(quantityError(10000)); assert.ok(quantityError(-10000)); assert.ok(quantityError(null))
+  })
+  check('quantity rules permit zero removal and negative return conversion but restrict serialized units', () => {
+    assert.equal(quantityError(0, { serialized: true }), null)
+    assert.equal(quantityError(-1, { serialized: true }), null)
+    assert.equal(quantityError(1, { serialized: true }), null)
+    assert.ok(quantityError(2, { serialized: true }))
+    assert.ok(quantityError(-2, { serialized: true }))
+    assert.equal(quantityError(-3), null)
+  })
+  check('editing return quantity respects original-receipt availability and cannot become a sale', () => {
+    assert.equal(quantityError(-2, { returning: true, maxReturn: 2 }), null)
+    assert.ok(quantityError(-3, { returning: true, maxReturn: 2 }))
+    assert.ok(quantityError(1, { returning: true }))
+    assert.equal(quantityError(0, { returning: true, maxReturn: 0 }), null)
+    assert.equal(quantityError(-10, { returning: true }), null)
+  })
   const file = path.join(dir, 'store.db')
   // Start at the uploaded v21 schema, with an enabled existing integration.
   let db = new Database(file)

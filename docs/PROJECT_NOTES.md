@@ -71,6 +71,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 14 Nov 2026: v0.3.27 direct receipt quantity editing
+- Main d5968288 (latest installed release v0.3.26) matched local source except previous package metadata. Added Qty editors and −/+ controls to sale and return rows. Saves on Enter/Tab/blur, Escape restores, invalid values leave saved state unchanged. Numeric input key events stay isolated from scanner/F-key handlers.
+- New quantity parsing/rules reject fractional/nonfinite/scientific/scanner-like input and enforce ±9999, one serialized unit, negative return signs and receipt availability including other pending return lines. Zero always removes. Negative sale edits enter existing return details and cancellation preserves the original cart line.
+- Return edits retain reason/restock and original-tax snapshots. Work order/credit/fee quantities remain read-only. Existing toolbar +1 now adjusts the selected line through the same rules, preserving its serial/price context.
+- User confirmed actual QuickBooks test sales transfer and no duplicates on repeated sync. Broader accounting validation remains separate.
+- 35 regression checks (32 existing plus 3 quantity validation groups), TypeScript checks and production build. Windows visual/keyboard/scanner validation remains local. No schema/dependency changes.
+
+
 ### 13 Nov 2026: v0.3.26 Home bottom status
 - Based on main baf0195f (Greg reports installed v0.3.25). Home now places a responsive status strip below the Navigator: sales/tenders, QuickBooks, verified backups and server reachability. Independent 30-second polling uses settled requests and ignores updates after unmount; no overlapping refreshes.
 - New authenticated `/api/operations/status` returns only operational metrics, never connector credentials. QuickBooks history and backup history persist in settings; no schema migration. Defaults are unknown, not fabricated from old files/logs.
@@ -428,7 +436,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.26** (bottom Home totals and operational status). Greg's installed version is v0.3.25. Apply changed source files over main, test and publish the v0.3.26 tag. Update Store Server then tills; no new schema migration.
+**Update prepared: v0.3.27** (direct receipt quantity editing). Apply over v0.3.26 source, test and publish the v0.3.27 tag. No schema/dependency/server API changes.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 

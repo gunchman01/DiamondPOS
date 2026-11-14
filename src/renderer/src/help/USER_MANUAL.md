@@ -39,6 +39,13 @@ Home is where every area of the app starts.
 - Press **F1** on any screen, or click **? Help** at the top, to open this manual.
 
 ## Making a sale
+**Quantity directly on the receipt:** each item row has a Qty box with − and + buttons. Click the box and type a whole quantity. Enter, Tab or clicking away saves; Escape restores the previous value. Totals update after saving. Zero removes the line; a negative sale quantity opens Return details. Invalid quantities are shown beside the box without changing the saved quantity.
+
+Serialized equipment stays at one unit per line. Return rows show negative quantities: − increases the number coming back and + reduces it toward zero. Receipt-linked returns cannot exceed the units still available, including other return lines already on this checkout. Editing a return retains its reason, stock choice, original price and tax. To sell an item instead of returning it, remove the return and scan it again. Work order/credit/fee quantities are not edited from this grid.
+
+F3 / Change qty and its + Sale / − Return sign buttons are still available.
+
+
 Open **Make a Sale**.
 1. **Scan** the barcode, or start typing an item number or description: matching items pop up as you type. Click one, or use **↑ ↓** and **Enter** to add it. Typing a full item number and pressing Enter adds it straight away.
 2. Tap a **Quick Pick** button for items that are often sold (if any are set up).
@@ -99,7 +106,7 @@ Use a held receipt when a sale is built ahead of time, for example when a custom
 **Quick return on the Sale screen (like QuickBooks POS):**
 
 1. Scan or add the item as usual. Enter its serial number when prompted for serialized equipment.
-2. Select the line and choose **Change qty / F3**. Click **− Return** to make the quantity negative (or type **-1** / another negative quantity), then OK. **+ Sale** makes it positive again. The buttons keep the quantity magnitude; an empty or zero quantity becomes 1 or -1. Zero still removes the sale line.
+2. Type a negative quantity directly into the row’s Qty box and press Enter. Alternatively, select the line and choose **Change qty / F3**. Click **− Return** to make the quantity negative (or type **-1** / another negative quantity), then OK. **+ Sale** makes it positive again. The buttons keep the quantity magnitude; an empty or zero quantity becomes 1 or -1. Zero still removes the sale line.
 3. In Return item, choose a reason and **Back to stock** or **Damaged — do not restock**.
 4. If you have the original receipt, enter or scan its number, click **Find receipt**, and choose the matching line if more than one is shown. This uses the original paid price and tax, and checks the quantity still available to return.
 5. Leave the receipt number blank to use today's regular price plus applicable tax. A price override on the scanned sale line is ignored, and the transaction is flagged as no receipt.

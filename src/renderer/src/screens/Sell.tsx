@@ -21,6 +21,7 @@ import ReturnDialog, { type ReturnLine } from './ReturnDialog'
 import { ColumnMenu, visibleColumns, type GridRow } from '../saleColumns'
 import { HeldPicker, HoldDialog } from './HeldReceipts'
 import { heldNumber } from '../../../shared/held'
+import { quantityError } from '../quantity'
 import { returnAmount } from '../../../shared/returns'
 
 interface CartLine {
@@ -342,6 +343,8 @@ export default function Sell({
       tags: l.serial && !cols.some((c) => c.id === 'serial') ? [<span key="sn" className="serial-tag">S/N {l.serial}</span>] : [],
       serial: l.serial ?? null,
       qty: l.qty,
+      onQty: (qty: number) => setQty(l.key, qty),
+      quantityRules: { serialized: !!l.serial || l.product.useSerial },
       unitCents: priced.lines[i].unitPriceCents,
       extCents: priced.lines[i].lineTotalCents,
       regCents: l.product.priceCents,
@@ -396,6 +399,9 @@ export default function Sell({
       ],
       serial: l.serial,
       qty: l.qty,
+      onQty: (qty: number) => setReturnQty(l.key, qty),
+      quantityRules: { returning: true, serialized: !!l.serial,
+        maxReturn: l.originalTax ? l.originalTax.qtySold - l.originalTax.qtyReturned - returns.filter((other) => other.key !== l.key && other.saleItemId === l.saleItemId).reduce((n, other) => n + other.qty, 0) : undefined },
       unitCents: l.unitCents,
       extCents: retPriced[k].netCents
     })),
@@ -459,22 +465,33 @@ export default function Sell({
     focusScan()
   }
 
-  function setQty(key: string, qty: number) {
+  function setQty(key: string, qty: number): boolean {
     const line = cart.find((l) => l.key === key)
-    if (line && qty < 0) {
-      if (wo) { setMessage({ kind: 'error', text: 'Finish the work order payment before starting a return.' }); return }
-      if (!Number.isInteger(qty) || qty < -9999 || ((line.serial || line.product.useSerial) && qty !== -1)) {
-        setMessage({ kind: 'error', text: 'Use a negative whole quantity. Serialized equipment is returned one unit per line.' }); return
-      }
+    if (!line) return false
+    const error = quantityError(qty, { serialized: !!line.serial || line.product.useSerial })
+    if (error) { setMessage({ kind: 'error', text: error }); return false }
+    if (qty < 0) {
+      if (wo) { setMessage({ kind: 'error', text: 'Finish the work order payment before starting a return.' }); return false }
       setInlineReturn({ line, qty })
-      return
-    }
-    if (line?.serial && qty > 1) {
-      setMessage({ kind: 'error', text: 'Serial-numbered items are one per line. Add the item again for the next serial number.' })
-      return
+      return true
     }
     setCart((c) => c.map((l) => (l.key === key ? { ...l, qty } : l)).filter((l) => l.qty > 0))
-    if (qty <= 0) setSelectedId(null)
+    setSelectedId(qty === 0 ? null : key)
+    setLastSale(null)
+    return true
+  }
+
+  function setReturnQty(key: string, signedQty: number): boolean {
+    const line = returns.find((l) => l.key === key)
+    if (!line) return false
+    const other = returns.filter((r) => r.key !== key && r.saleItemId === line.saleItemId).reduce((n, r) => n + r.qty, 0)
+    const error = quantityError(signedQty, { returning: true, serialized: !!line.serial,
+      maxReturn: line.originalTax ? line.originalTax.qtySold - line.originalTax.qtyReturned - other : undefined })
+    if (error) { setMessage({ kind: 'error', text: error }); return false }
+    if (signedQty === 0) removeReturn(key)
+    else { setReturns((r) => r.map((l) => l.key === key ? { ...l, qty: -signedQty } : l)); setSelectedId(key) }
+    setLastSale(null)
+    return true
   }
 
   /** Price clicked and changed on the receipt grid (back to the regular price = no change) */
@@ -897,7 +914,7 @@ export default function Sell({
           >
             − 1
           </button>
-          <button disabled={!selectedLine} onClick={() => selectedLine && addToCart(selectedLine.product)}>
+          <button disabled={!selectedLine} onClick={() => selectedLine && setQty(selectedLine.key, selectedLine.qty + 1)}>
             + 1
           </button>
           <button disabled={!selectedLine} onClick={() => setEditingQty(true)}>

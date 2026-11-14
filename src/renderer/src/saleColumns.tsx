@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Product } from '../../shared/types'
 import { money, parseMoney } from './format'
+import { parseQuantity, quantityError, type QuantityRules } from './quantity'
 
 /** One row on the Sale screen's receipt grid (a scanned item, a work order line, a return…) */
 export interface GridRow {
@@ -15,6 +16,8 @@ export interface GridRow {
   tags: ReactNode[]
   serial: string | null
   qty: number
+  onQty?: (quantity: number) => boolean
+  quantityRules?: QuantityRules
   unitCents: number
   extCents: number
   /** Price differs from the shelf price because the sale is tax exempt */
@@ -79,6 +82,41 @@ export function PriceCell(props: { value: number; reg?: number; disabled?: boole
   )
 }
 
+/** Always-visible quantity editor; saves on Enter/Tab/blur, Escape restores the row value. */
+export function QuantityCell({ value, rules, onSave }: { value: number; rules?: QuantityRules; onSave: (quantity: number) => boolean }) {
+  const [draft, setDraft] = useState(String(value))
+  const [error, setError] = useState('')
+  const cancel = useRef(false)
+  useEffect(() => { setDraft(String(value)); setError('') }, [value])
+  function apply(next: number | null) {
+    const problem = quantityError(next, rules)
+    if (problem) { setError(problem); return }
+    if (next !== value && !onSave(next!)) { setError('Quantity was not changed. See the message above the receipt.'); return }
+    setError('')
+    // A negative sale quantity opens Return details; keep the existing row until applied.
+    setDraft(String(value))
+  }
+  function step(amount: number) {
+    const next = parseQuantity(draft)
+    apply((next ?? value) + amount)
+  }
+  return <div className="quantity-cell" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+    <div className="quantity-controls">
+      <button type="button" aria-label="Decrease quantity" title="Decrease quantity" onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)}>−</button>
+      <input aria-label="Item quantity" className="quantity-input" value={draft} aria-invalid={!!error}
+        title={error || 'Type quantity. Negative = return; zero removes. Enter or Tab saves; Escape cancels.'}
+        onFocus={(e) => { cancel.current = false; e.target.select() }} onChange={(e) => { setDraft(e.target.value); setError('') }}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+          if (e.key === 'Escape') { cancel.current = true; setDraft(String(value)); setError(''); e.currentTarget.blur() }
+        }} onBlur={() => { if (!cancel.current) apply(parseQuantity(draft)); cancel.current = false }} />
+      <button type="button" aria-label="Increase quantity" title="Increase quantity" onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)}>+</button>
+    </div>
+    {error && <span className="quantity-error" role="alert">{error}</span>}
+  </div>
+}
+
 export interface SaleColumn {
   id: string
   label: string
@@ -112,7 +150,7 @@ export const SALE_COLUMNS: SaleColumn[] = [
   { id: 'taxable', label: 'Tax', width: 50, cell: (r) => p(r, (x) => (x.taxable ? 'Tax' : 'Non')) },
   { id: 'cost', label: 'Cost', width: 85, num: true, dim: true, cell: (r) => p(r, (x) => (x.costCents !== null && x.costCents !== undefined ? money(x.costCents) : '')) },
   { id: 'regPrice', label: 'Reg Price', width: 90, num: true, cell: (r) => p(r, (x) => money(x.priceCents)) },
-  { id: 'qty', label: 'Qty', required: true, width: 60, num: true, cell: (r) => (r.kind === 'return' ? `−${r.qty}` : r.qty) },
+  { id: 'qty', label: 'Qty', required: true, width: 128, num: true, cell: (r) => r.onQty ? <QuantityCell value={r.kind === 'return' ? -r.qty : r.qty} rules={r.quantityRules} onSave={r.onQty} /> : (r.kind === 'return' ? `−${r.qty}` : r.qty) },
   {
     id: 'price',
     label: 'Price',
