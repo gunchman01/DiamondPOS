@@ -1,3 +1,4 @@
+import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 /** QuickBooks settings, cached lists, export rows and the sync log (all in the store database). */
 import crypto from 'crypto'
 import type { DB } from '../db'
@@ -27,6 +28,7 @@ function writeJson(db: DB, key: string, value: unknown) {
 export function getQbConfig(db: DB): QbConfig {
   const saved = readJson<QbConfig>(db, 'qb_config')
   const cfg: QbConfig = {
+    cardBrands: Object.fromEntries(Object.keys(CARD_BRANDS).map((brand) => [brand, saved.cardBrands?.[brand as CardBrand] ?? ''])) as QbConfig['cardBrands'],
     enabled: saved.enabled ?? false,
     username: saved.username ?? 'diamondpos',
     password: saved.password ?? '',
@@ -57,6 +59,7 @@ export function saveQbConfig(db: DB, changes: Partial<QbConfig>): QbConfig {
   const next: QbConfig = {
     ...cur,
     ...changes,
+    cardBrands: { ...cur.cardBrands, ...changes.cardBrands },
     // never let the UI blank the login
     username: (changes.username ?? cur.username).trim() || cur.username,
     password: cur.password,

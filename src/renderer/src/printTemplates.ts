@@ -1,3 +1,4 @@
+import { paymentLabel } from '../../shared/types'
 /**
  * Printable pages: full-page (Letter) sales receipt / invoice, full-page work order, and item price tags.
  * The 80 mm receipt is in receipt.ts.
@@ -83,7 +84,7 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
     .join('')
   const pays = sale.payments
     .map((p) => {
-      const label = p.method === 'check' ? 'Check' : p.method === 'cash' ? 'Cash' : 'Card'
+      const label = paymentLabel(p)
       const ref = p.reference ? (p.method === 'check' ? ` #${esc(p.reference)}` : ` (${esc(p.reference)})`) : ''
       return `<tr><td>${label}${p.amountCents < 0 ? ' refund' : ''}${ref}</td><td class="r">${money(p.amountCents)}</td></tr>`
     })

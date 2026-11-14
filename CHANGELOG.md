@@ -14,6 +14,15 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.30 - 14 Nov 2026
+> Update the Store Server PC first.
+- **Item scanning at the top:** the Sale screen's item/barcode search is directly below the sale header, above the receipt. Suggestions open downward. Selected-line actions remain below the receipt.
+- **Optional card brand:** choose Visa, Mastercard, Discover, American Express, Other or Unknown for card sales/refunds. The brand appears in sale history and receipts. Card checkout no longer asks for a terminal reference; checks still require a check number. Existing references remain in history.
+- **QuickBooks card mappings:** optionally map each card brand to a QuickBooks payment method. Blank mappings use the general Card method and the same deposit account. The brand is included in the sale memo; already-synced transactions are not changed.
+- **Cash Drawer button:** enable and configure per PC under Settings → Printing → Cash drawer. Defaults match the COM3 / hello trigger. A manual test button and optional in-app shortcut are provided; nothing opens automatically after a sale.
+- Drawer shortcuts default to Button only. If assigning F1, remove F1 from the old Windows shortcut first to avoid duplicate signals. The Help button remains available.
+- Migration 23 adds the optional card-brand field to payments. Payment processing remains on the standalone terminal; no card-reader/payment-gateway integration was added.
+
 ## v0.3.29 - 14 Nov 2026
 - **Serialized sales require a customer and serial number.** Checkout checks are enforced on the Store Server as well as at the till. Serialized equipment stays one unit per line.
 - Blocks duplicate serials on the same checkout or already sold on an unreturned completed receipt. A receipt-linked return permits legitimate resale while retaining previous customer/unit history.

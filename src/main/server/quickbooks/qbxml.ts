@@ -1,3 +1,4 @@
+import { CARD_BRANDS } from '../../../shared/types'
 /**
  * qbXML messages for QuickBooks Desktop (US editions, qbXML 13.0, which Enterprise
  * 13 and later support). Element ORDER matters in qbXML, so the builders follow
@@ -37,10 +38,12 @@ export const rq = {
     `<SalesReceiptQueryRq requestID="1"><RefNumber>${esc(refNumber)}</RefNumber></SalesReceiptQueryRq>`,
   addSalesReceipt: (s: QbDailySummary, cfg: QbConfig) => {
     const m = cfg.methods[s.method]
+    const paymentMethod = s.method === 'card' ? cfg.cardBrands?.[s.cardBrand ?? 'unknown'] || m.paymentMethod : m.paymentMethod
     const memo =
       `DiamondPOS receipt #${s.saleId}; ${s.method} ${s.saleDate}: ${s.customerName ?? cfg.customerName}, ${s.saleCount} receipt(s) ` +
       `#${s.firstSaleId}-#${s.lastSaleId}` +
-      (s.taxExemptCount ? `, ${s.taxExemptCount} tax exempt` : '')
+      (s.taxExemptCount ? `, ${s.taxExemptCount} tax exempt` : '') +
+      (s.method === 'card' ? `; Card brand: ${CARD_BRANDS[s.cardBrand ?? 'unknown']}` : '')
     const lines = s.lines
       .map(
         (l) =>
@@ -56,7 +59,7 @@ export const rq = {
       ref('CustomerRef', s.customerName ?? cfg.customerName) +
       `<TxnDate>${s.saleDate}</TxnDate>` +
       `<RefNumber>${esc(s.refNumber)}</RefNumber>` +
-      (m.paymentMethod ? ref('PaymentMethodRef', m.paymentMethod) : '') +
+      (paymentMethod ? ref('PaymentMethodRef', paymentMethod) : '') +
       ref('ItemSalesTaxRef', cfg.salesTaxItem) +
       `<Memo>${esc(memo.slice(0, 4095))}</Memo>` +
       ref('DepositToAccountRef', m.depositAccount) +

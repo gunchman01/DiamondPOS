@@ -558,7 +558,8 @@ export const migrations: Migration[] = [
       UPDATE settings SET value = json_set(value, '$.enabled', json('false'))
         WHERE key = 'qb_config' AND json_valid(value);
     `
-  }
+  },
+  { version: 23, name: 'optional card brand on payments', up: `ALTER TABLE payments ADD COLUMN card_brand TEXT CHECK(card_brand IS NULL OR card_brand IN ('unknown','visa','mastercard','discover','amex','other'));` }
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

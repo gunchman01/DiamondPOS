@@ -1,12 +1,12 @@
-# DiamondPOS v0.3.29 — serialized equipment and work-order stage colors
+# DiamondPOS v0.3.30 — card brands, cash drawer and top scan bar
 
-Apply over your working v0.3.28 project. Baseline: main c3e58baa. No new dependency or database schema migration is required. Receiving remains quantity-only; serials are entered when sold.
+Apply over your current v0.3.29 source. Baseline: main 448319e1. Migration 23 adds an optional card-brand column; no new dependencies. Update the Store Server first, then tills.
 
-## Apply and run locally
+## Apply and test locally
 
-Close the installed POS and any development app. Extract the ZIP. Copy everything **inside** `DiamondPOS-update-v0.3.29` into your existing Git project folder, merging folders and replacing files. Preserve `.git` and other existing project files.
+Close the installed POS and development instance. Extract this ZIP. Copy everything **inside** `DiamondPOS-update-v0.3.30` into your existing Git project, merging folders and replacing files. Keep `.git` and all other project files.
 
-In PowerShell from that project folder:
+In PowerShell from the project folder:
 
 ```powershell
 npm run typecheck
@@ -15,33 +15,44 @@ npm run build
 npm run dev
 ```
 
-Use `npm.cmd` if PowerShell blocks npm scripts. The tests intentionally log one simulated backup failure.
+Use `npm.cmd` if needed. Database upgrade makes its normal pre-migration backup. The test suite intentionally logs a simulated backup failure. Development-mode version may still show the source package version; installed release version comes from the tag.
 
-## Serialized checkout checks
+## Scan bar at the top
 
-- A product marked **Use Serial #** needs a serial number. Every sale line carrying a serial requires a customer, even if Use Serial # was not set on that product. One serialized unit per line, maximum 80 characters.
-- The Store Server enforces these independently of the till. Old held receipts missing a serial should be corrected by removing/rescanning that item before payment.
-- Duplicate matching is store-wide, ignores letter case and trims leading/trailing spaces. Internal spaces/punctuation remain meaningful. Duplicates within the same cart or against completed, unreturned sales are blocked.
-- A receipt-linked return permits resale and retains the previous customer/equipment record as inactive while creating the new sale/customer association. A linked return and resale can occur on one exchange.
-- A no-receipt return cannot identify/release an original sold serial. If resale is blocked, find the original receipt and reconcile the return; do not bypass by editing equipment activity flags. Historical transactions are not rewritten.
+Item # / Barcode now sits directly below the sale header, above the receipt. Suggestions open downward over the receipt. Selected-line actions remain below. Test scan-and-Enter, type-ahead arrows/Enter, and layouts with/without Quick Picks at your usual window size.
 
-Test a serialized item without a customer, a valid customer/serial sale, a duplicate serial (including different case), and return/resale. Existing checkout retries remain idempotent.
+## Optional card brand / no terminal reference
 
-## Equipment lookup
+Card sales and refunds offer Unknown, Visa, Mastercard, Discover, American Express or Other. Leave Unknown if not known. There is no terminal-reference field in new card checkout. Check payments still require their check number. Historical saved references remain visible.
 
-Open **Work Orders → Find equipment by serial**. Scan/type the full serial. The results show associated customer, linked sale receipt, and recent service tickets. Previous/inactive equipment records remain visible. Limits: up to 100 matching unit records and 50 recent tickets per unit. Click a receipt or ticket to inspect it.
+The brand appears in receipt/history. Card totals still aggregate all brands. In QuickBooks mapping, Optional card-brand payment methods lets you map brands to existing QuickBooks methods; create missing methods in QuickBooks and re-read lists first. Blank mappings fall back to general Card. Deposit accounts do not change. The brand is also recorded in the QuickBooks sale memo. Already-synced transactions are not rewritten. Refunds remain manual exceptions for QuickBooks.
 
-## Stage colors
+Payment processing stays on the standalone terminal: no reader or processor connection was added. Complete the sale only after terminal approval as before.
 
-Open **Work Orders → Work order settings → Stage colors**. Each stage has a color picker and preview. Save settings to apply. Reset stage colors restores defaults when saved.
+## Configure the drawer on each PC
 
-Colors apply to Work Orders list/filter badges and ticket current-stage indicators. Text automatically chooses black/white for readability; names remain visible. Settings are shared on the server. Other tills refresh these colors within 30 seconds while the list/ticket is open, or when reopened. Workflow stages, stock rules, printed documents and email templates are not changed by choosing a color.
+1. Open **Settings → Printing → Cash drawer**.
+2. Enable Cash Drawer button.
+3. Keep **COM3** and **hello** for your current drawer. They match the effect of your working `cmd.exe /c echo hello>com3` shortcut (line ending included). Change them if a future COM-port trigger needs it. Serial port speed/protocol setup is not changed by this feature.
+4. Keep **Button only** initially. Save drawer settings.
+5. Click **Test saved drawer setup** and confirm the physical drawer opens. The status says signal sent only; software does not receive physical drawer-position feedback.
+6. Use **Cash drawer** in the app's top bar. This is manual; cash sales do not automatically pop it.
 
-Test a very light and very dark color, Save, reopen the list and ticket, and verify a second till sees the setting. Run the color picker and scanner workflow on Windows; that visual/hardware check has not been performed here.
+Optional app-focused shortcuts: F1, F10, F11 or F12. **If choosing F1, first remove F1 from the old Windows shortcut's Properties → Shortcut key**, otherwise both could send a signal. F1 then opens the drawer instead of Help, but the Help button remains available. Windows/app shortcut behavior and actual drawer hardware must be verified locally. Settings are per PC, not shared across tills. The feature starts disabled.
 
-## Commit and release from main
+Only a COM port and constrained plain trigger text can be configured; this is not an arbitrary command launcher. The operation is Windows-only, times out after three seconds and blocks overlapping/rapid requests.
 
-In MobaXterm in your actual project folder, review:
+## Local checklist
+
+- Drawer enabled/save/test on COM3; old F1 shortcut disabled before assigning in-app F1.
+- Check-number entry still works; card-reference entry is absent for both sales and refunds.
+- Visa sale shows Visa in sale history/receipt; Unknown still works.
+- Configure a Visa QuickBooks payment method, sync a new Visa test sale, verify method/memo/deposit account, then repeat the connector run and check for duplicates.
+- Scan/search at the top works with suggestions and normal scanner Enter.
+
+## Commit and release on main
+
+Review branch and changes:
 
 ```bash
 git branch --show-current
@@ -49,20 +60,20 @@ git status --short
 git diff
 ```
 
-After checks pass, on main:
+After local checks pass:
 
 ```bash
 git add -A
-git commit -m "v0.3.29: serialized checkout safeguards and work-order stage colors"
+git commit -m "v0.3.30: card brands, configurable cash drawer and top scan bar"
 git push origin main
-git tag v0.3.29
-git push origin v0.3.29
+git tag v0.3.30
+git push origin v0.3.30
 ```
 
-Do not overwrite an existing release tag. If v0.3.29 exists, choose the next unused version and match the changelog heading before tagging.
+Do not overwrite an existing tag. If v0.3.30 exists, choose the next unused version and match the changelog heading first.
 
-Wait for GitHub Release to finish. Update **Store Server first, then every till** via POS Updates. The serial checks, lookup endpoint and shared color settings require the new server.
+Wait for Release workflow success, then update **Store Server first, then tills** from POS Updates. Reconfigure/enable drawer separately on each physical till.
 
 ## Validation
 
-56 regression checks passed with Electron and real SQLite, including all previous checkout/backup/sync queue checks. New checks cover serial/customer requirements, duplicate rejection, linked unit/receipt records, legitimate resale/exchanges, color validation/defaults/contrast/persistence, settings sharing and authenticated serial lookup. TypeScript checks and production build passed. Real Windows visuals, scanner and cross-till color refresh still need your local checks.
+65 regression checks, TypeScript checks and production build passed. Card data/model/XML and migration preservation were tested with Electron/SQLite. Drawer execution used a mock runner: no real Windows COM device was opened here. Real drawer/shortcut, Windows visual/scanner and QuickBooks brand mapping still need your local validation.

@@ -1,3 +1,4 @@
+import CashDrawerSettings from './CashDrawerSettings'
 import { useEffect, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
 import { printSettings, type PrinterInfo, type PrintSettings as PS } from '../../../shared/printing'
@@ -62,6 +63,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
 
   return (
     <div className="print-settings">
+      <CashDrawerSettings boot={boot} onChange={onChange} />
       <p className="muted">
         These settings are for <b>this computer</b> ({boot.config.tillName}), because each till has its own printers.
         {printers && printers.length === 0 && ' No printers were found: install the printer drivers in Windows first.'}

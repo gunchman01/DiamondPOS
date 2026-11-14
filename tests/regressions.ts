@@ -23,6 +23,10 @@ import { individualSummaries } from '../src/main/server/quickbooks/summary'
 import { rq, parseResponse } from '../src/main/server/quickbooks/qbxml'
 import { parseXml, child, text, esc } from '../src/main/server/quickbooks/xml'
 import { api, configureApi } from '../src/renderer/src/api'
+import { CARD_BRANDS, paymentLabel } from '../src/shared/types'
+import { DEFAULT_DRAWER, drawerConfig, drawerCommand } from '../src/shared/drawer'
+import { openCashDrawer } from '../src/main/drawer'
+import { receiptHtml } from '../src/renderer/src/receipt'
 import type { SaleRequest } from '../src/shared/types'
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
@@ -51,6 +55,27 @@ async function main() {
     assert.equal(quantityError(0, { returning: true, maxReturn: 0 }), null)
     assert.equal(quantityError(-10, { returning: true }), null)
   })
+  check('drawer defaults match the existing COM3 hello trigger and start disabled', () => {
+    assert.equal(drawerConfig().enabled, false)
+    assert.equal(drawerConfig({ port: 'com3' }).port, 'COM3')
+    assert.equal(drawerCommand(), 'echo(hello>COM3')
+    assert.equal(drawerCommand({ port: 'COM10' }), 'echo(hello>\\\\.\\COM10')
+  })
+  check('drawer validation rejects executable paths, shell operators and reserved POS keys', () => {
+    for (const port of ['COM0','COM257','COM3 & whoami','C:\\file']) assert.throws(() => drawerConfig({ port }))
+    for (const triggerText of ['hello&whoami','%PATH%','a>file','x\nshutdown','a|b','"quoted"']) assert.throws(() => drawerConfig({ triggerText }))
+    assert.throws(() => drawerConfig({ shortcut: 'F7' as any }))
+  })
+  await assert.rejects(openCashDrawer(), /Enable/)
+  await assert.rejects(openCashDrawer({ ...DEFAULT_DRAWER, enabled: true }, { platform: 'linux', run: async () => {} }), /Windows/)
+  let finishSignal: (() => void) | undefined
+  let emittedCommand = ''
+  const signal = openCashDrawer({ ...DEFAULT_DRAWER, enabled: true }, { platform: 'win32', run: async (command) => {
+    emittedCommand = command; await new Promise<void>((resolve) => { finishSignal = resolve })
+  } })
+  await assert.rejects(openCashDrawer({ ...DEFAULT_DRAWER, enabled: true }, { platform: 'win32', run: async () => {} }), /wait/)
+  finishSignal!(); await signal
+  check('drawer command is gated by enable/platform and blocks overlapping open requests', () => assert.equal(emittedCommand, 'echo(hello>COM3'))
   const file = path.join(dir, 'store.db')
   // Start at the uploaded v21 schema, with an enabled existing integration.
   let db = new Database(file)
@@ -59,10 +84,12 @@ async function main() {
     db.exec(m.up); db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(m.version, m.name)
   }
   db.prepare("INSERT INTO settings VALUES ('qb_config', ?)").run(JSON.stringify({ enabled: true, startDate: '2026-01-01', customerName: 'DiamondPOS Daily Sales' }))
+  const legacyCardSale = Number(db.prepare("INSERT INTO sales (till_name,total_cents,tax_cents,status) VALUES ('Legacy',10,0,'void')").run().lastInsertRowid)
+  db.prepare("INSERT INTO payments (sale_id,method,amount_cents,reference) VALUES (?,'card',10,'OLD-CARD-REF')").run(legacyCardSale)
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 22)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 23)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
@@ -70,6 +97,40 @@ async function main() {
   db.prepare('UPDATE products SET price_cents = 5, on_hand = 100, taxable = 1 WHERE id = 1').run()
   const request = (extra: Partial<SaleRequest> = {}): SaleRequest => ({ requestId: crypto.randomUUID(), tillName: 'Till A',
     items: [{ productId: 1, qty: 2 }], payments: [{ method: 'cash', amountCents: 11 }], ...extra })
+  check('migration preserves legacy card references without inventing historical brands', () => {
+    const row = db.prepare('SELECT reference,card_brand FROM payments WHERE sale_id = ?').get(legacyCardSale)
+    assert.equal(row.reference, 'OLD-CARD-REF'); assert.equal(row.card_brand, null)
+  })
+  const visaRequest = request({ payments: [{ method: 'card', amountCents: 11, cardBrand: 'visa' }] })
+  const visaSale = createSale(db, visaRequest)
+  const unknownSale = createSale(db, request({ payments: [{ method: 'card', amountCents: 11 }] }))
+  check('optional card brands persist and checkout retries retain the original receipt', () => {
+    assert.equal(visaSale.payments[0].cardBrand, 'visa')
+    assert.equal(visaSale.payments[0].reference, undefined)
+    assert.equal(createSale(db, visaRequest).id, visaSale.id)
+    assert.equal(unknownSale.payments[0].cardBrand, 'unknown')
+    assert.equal(paymentLabel(visaSale.payments[0]), 'Card · Visa')
+    assert.ok(receiptHtml(visaSale, readSettings(db), 80).includes('Card · Visa'))
+  })
+  const visaReturnInfo = returnableSale(db, visaSale.id)!
+  const visaRefund = createSale(db, request({ items: [], returns: [{ saleItemId: visaReturnInfo.lines[0].saleItemId, qty: 2, reason: 'Other', restock: true }], payments: [{ method: 'card', amountCents: -11, cardBrand: 'visa' }] }))
+  check('card refunds and original returnable receipts retain brand without requiring terminal reference', () => {
+    assert.equal(visaReturnInfo.payments[0].cardBrand, 'visa')
+    assert.equal(visaRefund.payments[0].cardBrand, 'visa')
+    assert.equal(visaRefund.payments[0].reference, undefined)
+  })
+  const checkSale = createSale(db, request({ payments: [{ method: 'check', amountCents: 11, reference: 'CHECK123' }] }))
+  check('check payments still store check numbers with no card brand', () => {
+    assert.equal(checkSale.payments[0].reference, 'CHECK123')
+    assert.equal(checkSale.payments[0].cardBrand, undefined)
+  })
+  check('invalid brands and brands on noncard payments are rejected without recording a sale', () => {
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 11, cardBrand: 'invalid' as any }] })), /valid card brand/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'cash', amountCents: 11, cardBrand: 'visa' }] })), /valid card brand/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 5, cardBrand: 'visa' }, { method: 'card', amountCents: 6, cardBrand: 'mastercard' }] })), /one card brand/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'check', amountCents: 11 }] })), /check number/)
+  })
+  db.prepare('UPDATE products SET on_hand = 100 WHERE id = 1').run()
   const original = request()
   const sale = createSale(db, original)
   check('lost-response retry returns the original receipt and only reduces stock once', () => {
@@ -262,6 +323,21 @@ async function main() {
   saveQbConfig(db, { enabled: true, startDate: date, defaultIncomeAccount: 'Sales', salesTaxItem: 'State Tax', refreshLists: false })
   saveQbLists(db, { fetchedAt: new Date().toISOString(), salesTaxItems: [{ name: 'State Tax', rate: 7.25 }], otherChargeItems: ['POS General', 'POS Tax Rounding'] })
   const cfg = getQbConfig(db)
+  check('card-brand mappings preserve defaults and survive old-client partial updates', () => {
+    assert.equal(getQbConfig(db).cardBrands.visa, '')
+    saveQbConfig(db, { cardBrands: { ...getQbConfig(db).cardBrands, visa: 'Visa Payment' }, methods: { ...getQbConfig(db).methods, card: { ...getQbConfig(db).methods.card, paymentMethod: 'General Card' } } })
+    saveQbConfig(db, { refreshLists: false })
+    const mapping = getQbConfig(db)
+    assert.equal(mapping.cardBrands.visa, 'Visa Payment')
+    const dateSummaries = individualSummaries(db, date, mapping, 0.0725, 0.0725)
+    const v = dateSummaries.find((s) => s.saleId === visaSale.id)!
+    assert.equal(v.cardBrand, 'visa')
+    const xml = rq.addSalesReceipt(v, mapping)
+    assert.ok(xml.includes('<FullName>Visa Payment</FullName>'))
+    assert.ok(xml.includes('Card brand: Visa'))
+    const fallback = rq.addSalesReceipt(dateSummaries.find((s) => s.saleId === unknownSale.id)!, mapping)
+    assert.ok(fallback.includes('<FullName>General Card</FullName>'))
+  })
   let summaries = individualSummaries(db, date, cfg, 0.0725, 0.0725)
   const summary = summaries.find((s) => s.saleId === named.id)!
   check('individual exports preserve customer identity, sale totals and XML escaping', () => {

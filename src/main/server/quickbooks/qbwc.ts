@@ -1,3 +1,4 @@
+import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 /**
  * QUICKBOOKS DESKTOP SYNC (via Intuit's QuickBooks Web Connector)
  *
@@ -448,6 +449,15 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       clean.departmentAccounts = Object.fromEntries(
         Object.entries(b.departmentAccounts).map(([k, v]) => [k, str(v)]).filter(([, v]) => v)
       )
+    if (b.cardBrands !== undefined) {
+      if (!b.cardBrands || typeof b.cardBrands !== 'object' || Array.isArray(b.cardBrands)) return res.status(400).json({ error: 'Card mappings must be an object' })
+      const mappings = { ...getQbConfig(db).cardBrands }
+      for (const [brand, name] of Object.entries(b.cardBrands)) {
+        if (!Object.hasOwn(CARD_BRANDS, brand) || typeof name !== 'string' || name.length > 159) return res.status(400).json({ error: 'Invalid card-brand payment mapping' })
+        mappings[brand as CardBrand] = name.trim()
+      }
+      clean.cardBrands = mappings
+    }
     if (b.methods) {
       // A method the screen didn't send (e.g. an older till without "check") keeps its saved mapping
       const cur = getQbConfig(db).methods

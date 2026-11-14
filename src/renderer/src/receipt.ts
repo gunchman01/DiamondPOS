@@ -1,3 +1,4 @@
+import { paymentLabel } from '../../shared/types'
 import type { Sale, StoreSettings } from '../../shared/types'
 import { defaultDesigns, type ReceiptBlock, type ReceiptElement, type ReceiptLayout, type ReceiptZone } from '../../shared/printDesigns'
 import { code128Svg } from './code128'
@@ -128,7 +129,7 @@ export function receiptHtml(
       case 'payments':
         return `<table style="${style(b)}">${sale.payments
           .map((p) => {
-            const label = PAY_LABEL[p.method] ?? p.method
+            const label = paymentLabel(p)
             const ref = p.reference ? (p.method === 'check' ? ' #' + esc(p.reference) : ' (' + esc(p.reference) + ')') : ''
             return row(`${p.amountCents < 0 ? `${label} refund` : label}${ref}`, money(p.amountCents))
           })

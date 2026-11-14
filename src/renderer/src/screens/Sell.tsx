@@ -1,3 +1,4 @@
+import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type SaleRequest, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
@@ -646,7 +647,7 @@ export default function Sell({
     addToCart(p)
   }
 
-  async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string) {
+  async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string, cardBrand?: CardBrand) {
     if (checkoutBusy.current) return
     checkoutBusy.current = true
     setCheckoutWaiting(true)
@@ -663,7 +664,7 @@ export default function Sell({
             ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
             : { productId: l.productId!, qty: l.qty, serial: l.serial ?? undefined, reason: l.reason, restock: l.restock }
         ),
-        payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
+        payments: method ? [{ method, amountCents, reference: method === 'check' ? reference || undefined : undefined, ...(method === 'card' ? { cardBrand: cardBrand ?? 'unknown' } : {}) }] : [],
         workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
         heldId: held?.id ?? null,
         taxRateId: taxChoice?.id ?? null
@@ -829,6 +830,63 @@ export default function Sell({
         {message && <div className={`msg ${message.kind}`}>{message.text}</div>}
       </div>
 
+      {/* ---------- Scan/search before the receipt ---------- */}
+      <section className="panel sale-scan" aria-label="Scan or search items">
+        <form className="scanbar" onSubmit={onScan}>
+          <label htmlFor="scan">Item # / Barcode</label>
+          <div className="scan-wrap">
+            <input
+              id="scan"
+              ref={scanRef}
+              autoFocus
+              autoComplete="off"
+              placeholder="Scan, or type an item # or description"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onBlur={() => setTimeout(() => setSugs([]), 150)}
+              onKeyDown={(e) => {
+                if (!sugs.length) return
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setSugIdx((i) => Math.min(i + 1, sugs.length - 1))
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setSugIdx((i) => Math.max(i - 1, -1))
+                } else if (e.key === 'Escape') {
+                  setSugs([])
+                  setSugIdx(-1)
+                }
+              }}
+            />
+            {sugs.length > 0 && code.trim().length >= 2 && (
+              <div className="scan-sugs down">
+                {sugs.map((p, i) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    className={i === sugIdx ? 'active' : ''}
+                    onMouseEnter={() => setSugIdx(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      pickSuggestion(p)
+                    }}
+                  >
+                    <span className="dim">{p.sku ?? ''}</span>
+                    <span className="sug-name">{p.name}</span>
+                    {p.type === 'inventory' && <span className="dim small">{p.onHand} on hand</span>}
+                    <b>{money(p.priceCents)}</b>
+                  </button>
+                ))}
+                <div className="sug-hint">↑ ↓ to choose · Enter to add · Esc to close</div>
+              </div>
+            )}
+          </div>
+          <button type="submit" className="primary">
+            Add
+          </button>
+        </form>
+      </section>
+
       {/* ---------- Receipt (current sale) ---------- */}
       <section className="panel receipt">
         <div className="panel-title">
@@ -904,14 +962,14 @@ export default function Sell({
           </table>
           {!hasLines && (
             <div className="grid-empty">
-              Scan a barcode or type an item # below{hasQuickPicks ? ', or tap a Quick Pick' : ''}. Press F2 to search
+              Scan a barcode or type an item # above{hasQuickPicks ? ', or tap a Quick Pick' : ''}. Press F2 to search
               for any item.
             </div>
           )}
         </div>
       </section>
 
-      {/* ---------- Entry bar: line buttons + scan box ---------- */}
+      {/* ---------- Selected-line actions ---------- */}
       <section className="panel entry">
         <div className="line-actions">
           <button
@@ -937,59 +995,7 @@ export default function Sell({
             </span>
           </div>
         )}
-        <form className="scanbar" onSubmit={onScan}>
-          <label htmlFor="scan">Item # / Barcode</label>
-          <div className="scan-wrap">
-            <input
-              id="scan"
-              ref={scanRef}
-              autoFocus
-              autoComplete="off"
-              placeholder="Scan, or type an item # or description"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              onBlur={() => setTimeout(() => setSugs([]), 150)}
-              onKeyDown={(e) => {
-                if (!sugs.length) return
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault()
-                  setSugIdx((i) => Math.min(i + 1, sugs.length - 1))
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  setSugIdx((i) => Math.max(i - 1, -1))
-                } else if (e.key === 'Escape') {
-                  setSugs([])
-                  setSugIdx(-1)
-                }
-              }}
-            />
-            {sugs.length > 0 && code.trim().length >= 2 && (
-              <div className="scan-sugs">
-                {sugs.map((p, i) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    className={i === sugIdx ? 'active' : ''}
-                    onMouseEnter={() => setSugIdx(i)}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      pickSuggestion(p)
-                    }}
-                  >
-                    <span className="dim">{p.sku ?? ''}</span>
-                    <span className="sug-name">{p.name}</span>
-                    {p.type === 'inventory' && <span className="dim small">{p.onHand} on hand</span>}
-                    <b>{money(p.priceCents)}</b>
-                  </button>
-                ))}
-                <div className="sug-hint">↑ ↓ to choose · Enter to add · Esc to close</div>
-              </div>
-            )}
-          </div>
-          <button type="submit" className="primary">
-            Add
-          </button>
-        </form>
+
       </section>
 
       {/* ---------- Quick Picks (only when some items are ticked) ---------- */}
@@ -1380,7 +1386,7 @@ export default function Sell({
             setPaying(null)
             focusScan()
           }}
-          onConfirm={(m, ref) => completeSale(m, total, ref)}
+          onConfirm={(m, ref, brand) => completeSale(m, total, ref, brand)}
         />
       )}
 
@@ -1523,11 +1529,12 @@ function PaymentDialog(props: {
   method: PaymentMethod
   totalCents: number
   onCancel: () => void
-  onConfirm: (method: PaymentMethod, amountCents: number, reference: string) => Promise<void>
+  onConfirm: (method: PaymentMethod, amountCents: number, reference: string, cardBrand?: CardBrand) => Promise<void>
 }) {
   const { method, totalCents } = props
   const [tendered, setTendered] = useState((totalCents / 100).toFixed(2))
   const [reference, setReference] = useState('')
+  const [cardBrand, setCardBrand] = useState<CardBrand>('unknown')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -1540,7 +1547,7 @@ function PaymentDialog(props: {
     setBusy(true)
     setError('')
     try {
-      await props.onConfirm(method, tenderedCents, reference.trim())
+      await props.onConfirm(method, tenderedCents, method === 'check' ? reference.trim() : '', cardBrand)
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -1602,11 +1609,13 @@ function PaymentDialog(props: {
                 Enter <b>{money(totalCents)}</b> on the card terminal.
               </li>
               <li>Wait for the terminal to show APPROVED.</li>
-              <li>Enter the approval / reference number (optional) and confirm.</li>
+              <li>Optionally choose the card brand, then confirm.</li>
             </ol>
             <label>
-              Terminal reference
-              <input autoFocus value={reference} onChange={(e) => setReference(e.target.value)} />
+              Card brand (optional)
+              <select autoFocus value={cardBrand} onChange={(e) => setCardBrand(e.target.value as CardBrand)}>
+                {Object.entries(CARD_BRANDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+              </select>
             </label>
           </>
         )}
@@ -1665,10 +1674,10 @@ function RefundDialog(props: {
   method: PaymentMethod
   refundCents: number
   onCancel: () => void
-  onConfirm: (method: PaymentMethod, reference: string) => Promise<void>
+  onConfirm: (method: PaymentMethod, reference: string, cardBrand?: CardBrand) => Promise<void>
 }) {
   const { method, refundCents } = props
-  const [reference, setReference] = useState('')
+  const [cardBrand, setCardBrand] = useState<CardBrand>('unknown')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function confirm() {
@@ -1676,7 +1685,7 @@ function RefundDialog(props: {
     setBusy(true)
     setError('')
     try {
-      await props.onConfirm(method, reference.trim())
+      await props.onConfirm(method, '', cardBrand)
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -1705,11 +1714,13 @@ function RefundDialog(props: {
                 On the card terminal, choose <b>Refund</b> and enter <b>{money(refundCents)}</b>.
               </li>
               <li>Have the customer tap or insert the card they paid with.</li>
-              <li>When it shows APPROVED, enter the terminal's reference number.</li>
+              <li>When it shows APPROVED, optionally choose the card brand and confirm.</li>
             </ol>
             <label>
-              Terminal reference
-              <input autoFocus value={reference} onChange={(e) => setReference(e.target.value)} />
+              Card brand (optional)
+              <select autoFocus value={cardBrand} onChange={(e) => setCardBrand(e.target.value as CardBrand)}>
+                {Object.entries(CARD_BRANDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+              </select>
             </label>
           </>
         )}

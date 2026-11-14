@@ -71,6 +71,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 14 Nov 2026: v0.3.30 card brands, drawer and top scan bar
+- Baseline main 448319e1 / v0.3.29. Moved Sale scan/search DOM and grid area above receipt with downward suggestions in all Quick Pick/responsive layouts; line actions stay below.
+- Migration 23 adds optional payments.card_brand with enum check. Server validates card-only brands; absent card brands become unknown. Card brand round-trips through sale/refund history and receipts. New checkout sends reference only for checks; legacy references remain in DB/history. One card brand per transaction (different-brand split-card payloads rejected; existing cash/card split behavior unchanged).
+- QuickBooks per-brand PaymentMethod mappings fall back to general Card; same deposit account and brand memo, no changes to synced references/transactions. Existing config partial writes preserve mappings. No payment terminal/reader integration; user declined that separate idea.
+- Manual per-PC drawer button and Settings → Printing section. Defaults disabled, COM3/hello, Button only. IPC uses saved validated configuration and fixed cmd echo redirection; no arbitrary executable/shell text. Windows-only, timeout, concurrency/cooldown protection. Optional app-focused F1/F10/F11/F12; remove old Windows F1 shortcut binding before assigning F1 here. Signal acknowledgment is not physical drawer-state feedback. No automatic opening on cash sale.
+- 65 regression checks passed, including card brand persistence/refund/receipt/QuickBooks fallback, legacy reference preservation, check numbers, drawer configuration rejection and mocked execution/concurrency guards. TypeScript/build pass. COM3 hardware, Windows shortcuts, top scan layout and live brand-mapped QuickBooks transfers require on-PC validation.
+
+
 ### 14 Nov 2026: v0.3.29 serialized checkout and stage colors
 - Based on main c3e58baa, latest release v0.3.28. Server now requires serials for use_serial products, customer association for every item carrying a serial, one unit per line and at most 80 serial characters. Checks run inside checkout's existing transaction/idempotency boundary.
 - Duplicate detection is case-insensitive for ASCII letters with trimmed ends, store-wide: same-request duplicates or positive sold quantities not offset by completed receipt-linked returns. Valid planned receipt-linked returns on the same exchange count; no-receipt returns and manual equipment deactivation cannot bypass sold-history checks. Historical receipts remain unchanged.
@@ -451,7 +459,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.29** (serialized checkout, equipment lookup and work-order stage colors). Apply over v0.3.28, test and publish v0.3.29. Store Server first, then tills; no new schema migration.
+**Update prepared: v0.3.30** (optional card brands, manual configurable COM drawer and top item scan). Apply over v0.3.29, test and publish v0.3.30. Store Server first for migration 23, then tills. Drawer setup is local to each PC and starts disabled.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 

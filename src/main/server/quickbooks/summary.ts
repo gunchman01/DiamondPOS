@@ -1,3 +1,4 @@
+import type { CardBrand } from '../../../shared/types'
 /**
  * Daily summary for QuickBooks: one Sales Receipt per day per payment method.
  *
@@ -191,8 +192,8 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
     const suffix = ` [DP${s.customer_id}]`
     const customerName = s.exported_customer ?? (s.customer_id === null ? cfg.customerName.slice(0, 41) :
       `${(name || s.company || 'Customer').replace(/[:\x00-\x1f]/g, ' ').trim().slice(0, 41 - suffix.length)}${suffix}`)
-    const payments = db.prepare('SELECT method, SUM(amount_cents) AS amount FROM payments WHERE sale_id = ? GROUP BY method ORDER BY method')
-      .all(s.id) as { method: QbMethod; amount: number }[]
+    const payments = db.prepare('SELECT method, SUM(amount_cents) AS amount, MAX(card_brand) AS card_brand FROM payments WHERE sale_id = ? GROUP BY method ORDER BY method')
+      .all(s.id) as { method: QbMethod; amount: number; card_brand: CardBrand | null }[]
     for (const p of payments) if (p.method === 'cash') p.amount -= s.change_cents
     const tenders = payments.filter((p) => p.amount !== 0)
     const method = tenders[0]?.method ?? 'cash'
@@ -220,7 +221,7 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
     else if (tenders[0].amount !== s.total_cents) manualReason = 'Payments do not match the sale total. Review before entering this sale in QuickBooks.'
     const legacy = db.prepare('SELECT id FROM qb_exports WHERE sale_date = ? LIMIT 1').get(saleDate)
     if (legacy) manualReason = 'A daily export already exists for this date. Reconcile it in QuickBooks before entering any individual sale, to avoid duplicates.'
-    return { saleId: s.id, customerId: s.customer_id, customerName, manualReason, saleDate, method,
+    return { cardBrand: method === 'card' ? tenders[0]?.card_brand ?? 'unknown' : undefined, saleId: s.id, customerId: s.customer_id, customerName, manualReason, saleDate, method,
       refNumber: `DP${s.id.toString(36).toUpperCase()}`, saleCount: 1, firstSaleId: s.id, lastSaleId: s.id,
       taxExemptCount: s.tax_exempt ? 1 : 0, totalCents: s.total_cents, taxCents: s.tax_cents, roundingCents: rounding, lines }
   })

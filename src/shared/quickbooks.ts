@@ -1,3 +1,4 @@
+import type { CardBrand } from './types'
 // QuickBooks Desktop sync: shapes shared by the server and the QuickBooks screen.
 
 export type QbMethod = 'cash' | 'card' | 'check'
@@ -5,6 +6,7 @@ export const QB_METHODS: QbMethod[] = ['cash', 'card', 'check']
 
 /** How DiamondPOS posts into QuickBooks (set on the QuickBooks screen) */
 export interface QbConfig {
+  cardBrands: Record<CardBrand, string>
   enabled: boolean
   /** Web Connector login (the password is shown on the QuickBooks screen) */
   username: string
@@ -91,6 +93,7 @@ export interface QbSummaryLine {
 
 /** The Sales Receipt DiamondPOS will create for one day + payment method */
 export interface QbDailySummary {
+  cardBrand?: CardBrand
   saleId?: number
   customerId?: number | null
   customerName?: string

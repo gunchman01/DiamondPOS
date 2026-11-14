@@ -1,3 +1,4 @@
+import type { CashDrawerConfig } from './drawer'
 import type { ReturnRequestLine } from './returns'
 import type { PrintJob, PrinterInfo, PrintSettings } from './printing'
 // Data shapes shared between the server, the Electron main process and the UI.
@@ -8,6 +9,7 @@ export type UpdateChannel = 'stable' | 'beta'
 
 /** Saved per-computer in %APPDATA%/DiamondPOS/pos-config.json */
 export interface AppConfig {
+  cashDrawer?: CashDrawerConfig
   mode: AppMode | null
   serverUrl: string
   apiKey: string
@@ -107,10 +109,17 @@ export type PaymentMethod = 'cash' | 'card' | 'check'
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: 'Cash', card: 'Card', check: 'Check' }
 
+export const CARD_BRANDS = { unknown: 'Unknown / not specified', visa: 'Visa', mastercard: 'Mastercard', discover: 'Discover', amex: 'American Express', other: 'Other' } as const
+export type CardBrand = keyof typeof CARD_BRANDS
+export function paymentLabel(payment: { method: PaymentMethod; cardBrand?: CardBrand }): string {
+  return payment.method === 'card' && payment.cardBrand && payment.cardBrand !== 'unknown' ? `Card · ${CARD_BRANDS[payment.cardBrand]}` : PAYMENT_LABEL[payment.method]
+}
+
 export interface PaymentInput {
   method: PaymentMethod
   amountCents: number
-  /** For card: approval / reference number from the standalone terminal */
+  cardBrand?: CardBrand
+  /** Check number, or a legacy terminal reference retained in history. */
   reference?: string
 }
 
@@ -382,6 +391,7 @@ export type UpdateEvent =
 
 /** Functions the preload script exposes to the UI as window.pos */
 export interface PosBridge {
+  openCashDrawer(): Promise<void>
   getBootInfo(): Promise<BootInfo>
   saveConfig(changes: Partial<AppConfig>): Promise<BootInfo>
   printReceipt(html: string): Promise<void>

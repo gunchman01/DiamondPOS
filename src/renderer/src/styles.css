@@ -939,3 +939,15 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .wo-color-row { display: grid; grid-template-columns: minmax(100px,1fr) 48px minmax(130px,1fr); gap: 10px; align-items: center; }
 .wo-color-row input[type="color"] { width: 44px; height: 36px; padding: 2px; cursor: pointer; }
 .equipment-results { max-height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+/* Scan/search is above the receipt in every Sale layout; suggestions open downward. */
+.register { grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'head head head' 'scan scan scan' 'receipt quick totals' 'entry quick totals' 'fkeys fkeys fkeys'; }
+.register.no-quick { grid-template-areas: 'head head' 'scan scan' 'receipt receipt' 'entry totals' 'fkeys fkeys'; }
+.sale-scan { grid-area: scan; position: relative; z-index: 25; overflow: visible; }
+.sale-scan .scanbar { border-top: 0; border-radius: 7px; }
+.sale-scan .scan-wrap { min-width: 0; }
+@media (max-width: 1200px) {
+  .register:not(.no-quick) { grid-template-rows: auto auto minmax(120px, 1fr) auto auto auto;
+    grid-template-areas: 'head head' 'scan scan' 'receipt receipt' 'quick totals' 'entry totals' 'fkeys fkeys'; }
+}

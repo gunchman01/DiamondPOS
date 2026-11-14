@@ -1,3 +1,5 @@
+import { openCashDrawer } from './drawer'
+import { drawerConfig } from '../shared/drawer'
 /**
  * Electron MAIN process: the "back end" of the desktop app.
  *  - creates the window
@@ -110,9 +112,11 @@ function bootInfo(): BootInfo {
 
 function registerIpc(): void {
   ipcMain.handle('config:get', () => bootInfo())
+  ipcMain.handle('drawer:open', () => openCashDrawer(config.cashDrawer))
 
   ipcMain.handle('config:save', async (_e, changes: Partial<AppConfig>) => {
     const next: AppConfig = { ...config, ...changes }
+    if (changes.cashDrawer !== undefined) next.cashDrawer = drawerConfig(changes.cashDrawer)
 
     if (next.mode === 'server') {
       if (!next.apiKey) next.apiKey = newPairingCode()

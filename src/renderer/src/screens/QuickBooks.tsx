@@ -1,3 +1,4 @@
+import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { PAYMENT_LABEL } from '../../../shared/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
@@ -356,6 +357,14 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             ))}
           </tbody>
         </table>
+        <h4>Optional card-brand payment methods</h4>
+        <p className="small muted">Map a card brand to its QuickBooks payment method. Blank uses the general Card mapping above. Deposit accounts stay the same; the brand is also included in the sale memo.</p>
+        <table className="table qb-table"><thead><tr><th>Card brand</th><th>QuickBooks payment method</th></tr></thead><tbody>
+          {Object.entries(CARD_BRANDS).map(([brand, label]) => <tr key={brand}><td>{label}</td><td>
+            <Select value={draft.cardBrands?.[brand as CardBrand] ?? ''} placeholder="— use general Card method —" options={lists.paymentMethods}
+              onChange={(value) => set({ cardBrands: { ...draft.cardBrands, [brand]: value } })} />
+          </td></tr>)}
+        </tbody></table>
         <div className="row gap">
           <button className="primary" disabled={!dirty} onClick={() => run(() => api.qbSaveConfig(draft), 'Mapping saved')}>
             Save mapping
@@ -382,7 +391,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           <div key={s.refNumber} className="qb-preview">
             <div className="row between">
               <b>
-                Sales Receipt {s.refNumber} · {PAYMENT_LABEL[s.method]} · #{s.saleId} · {s.customerName}
+                Sales Receipt {s.refNumber} · {PAYMENT_LABEL[s.method]} · #{s.saleId} · {s.customerName}{s.method === 'card' && s.cardBrand ? ` · ${CARD_BRANDS[s.cardBrand]}` : ''}
                 {s.taxExemptCount ? ` (${s.taxExemptCount} tax exempt)` : ''}
               </b>
               <b>{money(s.totalCents)}</b>

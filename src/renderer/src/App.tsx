@@ -1,3 +1,4 @@
+import { drawerConfig } from '../../shared/drawer'
 import { useEffect, useRef, useState } from 'react'
 import type { BootInfo, Health } from '../../shared/types'
 import type { WoSaleMode } from '../../shared/workorders'
@@ -107,11 +108,31 @@ export default function App() {
     setTab('help')
   }
 
+  const [drawerBusy, setDrawerBusy] = useState(false)
+  const [drawerMessage, setDrawerMessage] = useState('')
+  const drawerBusyRef = useRef(false)
+  async function sendDrawer() {
+    if (drawerBusyRef.current) return
+    drawerBusyRef.current = true; setDrawerBusy(true); setDrawerMessage('')
+    try { await window.pos.openCashDrawer(); setDrawerMessage('Drawer signal sent') }
+    catch (e) { setDrawerMessage((e as Error).message) }
+    finally { drawerBusyRef.current = false; setDrawerBusy(false) }
+  }
+  const drawerKey = useRef<(e: KeyboardEvent) => boolean>(() => false)
+  drawerKey.current = (e) => {
+    const c = drawerConfig(boot?.config.cashDrawer)
+    if (c.enabled && c.shortcut !== 'none' && e.key === c.shortcut) {
+      e.preventDefault(); if (!e.repeat) void sendDrawer(); return true
+    }
+    return false
+  }
+
   // F1 opens Help on the section for the current screen
   const f1 = useRef(openHelp)
   f1.current = openHelp
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (drawerKey.current(e)) return
       if (e.key === 'F1') {
         e.preventDefault()
         f1.current()
@@ -170,15 +191,17 @@ export default function App() {
           </span>
           <Clock />
           <span>v{boot.appVersion}</span>
+          <button className="help-btn" disabled={drawerBusy || !boot.config.cashDrawer?.enabled} onClick={() => void sendDrawer()} title="Configure under Settings → Printing → Cash drawer">{drawerBusy ? 'Sending…' : 'Cash drawer'}</button>
           <button className="help-btn" onClick={openFeedback} title="Send an idea, request or problem">
             💬 Feedback
           </button>
-          <button className="help-btn" onClick={openHelp} title="Help (F1)">
+          <button className="help-btn" onClick={openHelp} title={boot.config.cashDrawer?.enabled && boot.config.cashDrawer.shortcut === 'F1' ? 'Help' : 'Help (F1)'}>
             ? Help
           </button>
         </div>
       </header>
 
+      {drawerMessage && <div className="banner" role="status">{drawerMessage} <button className="link" onClick={() => setDrawerMessage('')}>Dismiss</button></div>}
       {tooOld && (
         <div className="banner warn">
           This till (v{boot.appVersion}) is older than the server requires (v{health!.minClientVersion}). Please update

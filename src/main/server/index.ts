@@ -59,6 +59,7 @@ import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type 
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
 import { customerDisplayName, taxExemptState } from '../../shared/types'
 import { MAX_PRICE_CENTS, priceSale } from '../../shared/pricing'
+import { CARD_BRANDS, type CardBrand } from '../../shared/types'
 import type {
   TaxRate,
   DailyReport,
@@ -694,8 +695,10 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     if (p.method === 'check' && !String(p.reference ?? '').trim()) throw new HttpError(400, 'Enter the check number')
     if (!Number.isInteger(amountCents) || amountCents === 0 || (refund ? amountCents > 0 : amountCents < 0))
       throw new HttpError(400, refund ? 'A refund is entered as money given back (a negative amount)' : 'Payment amount must be above 0')
-    return { method: p.method, amountCents, reference: p.reference ? String(p.reference).slice(0, 60) : undefined }
+    if (p.cardBrand !== undefined && (p.method !== 'card' || !Object.hasOwn(CARD_BRANDS, p.cardBrand))) throw new HttpError(400, 'Choose a valid card brand for card payments only')
+    return { method: p.method, amountCents, cardBrand: p.method === 'card' ? p.cardBrand ?? 'unknown' : undefined, reference: p.reference ? String(p.reference).slice(0, 60) : undefined }
   })
+  if (new Set(payments.filter((p) => p.method === 'card').map((p) => p.cardBrand)).size > 1) throw new HttpError(400, 'Use one card brand per transaction')
   const paid = payments.reduce((s, p) => s + p.amountCents, 0)
   let changeCents = 0
   if (refund) {
@@ -748,8 +751,8 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
       addItem.run(saleId, r.productId, r.name, r.unitPriceCents, r.qty, r.lineTotalCents, r.department, r.taxable ? 1 : 0, r.serial || null,
         r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents, null)
     finishReturns(db, retLines)
-    const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference) VALUES (?, ?, ?, ?)')
-    for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null)
+    const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference, card_brand) VALUES (?, ?, ?, ?, ?)')
+    for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null, p.cardBrand ?? null)
     if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
     if (req.heldId) completeHeld(db, Number(req.heldId), saleId)
     return saleId
@@ -808,6 +811,7 @@ function getSale(db: DB, id: number): Sale | null {
     method: 'cash' | 'card' | 'check'
     amount_cents: number
     reference: string | null
+    card_brand: CardBrand | null
   }[]
   return {
     id: s.id,
@@ -844,6 +848,6 @@ function getSale(db: DB, id: number): Sale | null {
       serial: i.serial,
       regularPriceCents: i.regular_price_cents ?? null
     })),
-    payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, reference: p.reference ?? undefined }))
+    payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, cardBrand: p.card_brand ?? undefined, reference: p.reference ?? undefined }))
   }
 }

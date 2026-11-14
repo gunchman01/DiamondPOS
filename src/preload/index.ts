@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { PosBridge, UpdateEvent } from '../shared/types'
 
 const api: PosBridge = {
+  openCashDrawer: () => ipcRenderer.invoke('drawer:open'),
   getBootInfo: () => ipcRenderer.invoke('config:get'),
   saveConfig: (changes) => ipcRenderer.invoke('config:save', changes),
   printReceipt: (html) => ipcRenderer.invoke('receipt:print', html),

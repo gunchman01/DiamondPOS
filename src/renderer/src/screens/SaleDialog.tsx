@@ -1,3 +1,4 @@
+import { paymentLabel } from '../../../shared/types'
 import { useEffect, useState } from 'react'
 import type { Sale } from '../../../shared/types'
 import { api } from '../api'
@@ -116,7 +117,7 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
               {sale.payments.map((p, k) => (
                 <div key={k} className="tline">
                   <span>
-                    {p.method === 'check' ? 'Check' : p.method === 'cash' ? 'Cash' : 'Card'}
+                    {paymentLabel(p)}
                     {p.amountCents < 0 ? ' refund' : ''}
                     {p.reference ? (p.method === 'check' ? ` #${p.reference}` : ` (${p.reference})`) : ''}
                   </span>

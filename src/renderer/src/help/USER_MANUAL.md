@@ -39,6 +39,11 @@ Home is where every area of the app starts.
 - Press **F1** on any screen, or click **? Help** at the top, to open this manual.
 
 ## Making a sale
+The **Item # / Barcode** scan/search bar is at the top, directly below the sale header and above the receipt. Type-ahead suggestions open downward. Use the same scan-and-Enter workflow as before; line-action buttons remain below the receipt.
+
+**Card payments/refunds:** after the standalone terminal approves the payment, optionally choose the card brand (Visa, Mastercard, Discover, American Express, Other, or Unknown). No terminal reference is requested for new card checkouts. Check numbers remain required for checks. Historical references are retained. Receipts/history show the selected brand; daily Card totals still combine all brands. No card-reader or payment-gateway integration is included.
+
+
 **Serialized equipment:** select a customer for every sale containing a serial number. Items marked Use Serial # must have a serial at checkout, and every serialized unit must be on its own line. The Store Server independently checks these rules. Receiving remains quantity-only; serials are captured at sale time.
 
 Duplicate matching is store-wide, case-insensitive for ordinary serial letters, and ignores leading/trailing spaces. Duplicate serials within one checkout or an existing completed, unreturned sale are blocked. Use a receipt-linked return before reselling a returned unit. A no-receipt return records its serial but cannot release an unidentified original sale's serial/ownership link. Historical sales are not rewritten. If an older held receipt is missing its required serial, remove/rescan that item to capture the serial before payment.
@@ -60,7 +65,7 @@ Open **Make a Sale**.
 5. Take payment with **Cash (F7)**, **Card (F8)** or **Check**.
 
 **Cash:** type the amount received (or tap Exact / $10 / $20…). The change is shown.
-**Card:** enter the total on the card terminal. When it says APPROVED, type the terminal's reference number and click **Card approved – complete sale**.
+**Card:** enter the total on the card terminal. When it says APPROVED, optionally choose the card brand and click **Card approved – complete sale**.
 **Check:** check the amount and signature, type the **check number** (required) and click **Check received – complete sale**. No change is given from a check.
 
 After the sale, click **Print receipt** or **Reprint last receipt** (or set the till to print automatically, see **Printing**). A window asks where to print: the **receipt printer** or a **full page**, on any printer. The usual choice is already picked, so just press Enter. Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
@@ -129,7 +134,7 @@ You can also click **↩ Return** on the Sale screen to start from a receipt or 
 4. For an **exchange**, now scan the new items. Only the difference is paid or refunded.
 5. If the customer is owed money the total box says **Refund due**:
    - **Refund cash**: give the amount back from the drawer.
-   - **Refund card**: do a refund on the card terminal for that amount, then enter the terminal's reference.
+   - **Refund card**: do a refund on the card terminal for that amount, then optionally choose the card brand and confirm.
    - The screen suggests the same way the original sale was paid.
 
 **Good to know**
@@ -271,6 +276,9 @@ Open **Sales History** or **Reports** and pick a date.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
 
 ## QuickBooks
+
+**Card-brand mappings:** in Where sales go in QuickBooks, use Optional card-brand payment methods to select existing QuickBooks methods for Visa, Mastercard and other brands. Create missing methods in QuickBooks and refresh lists first. Blank mappings fall back to the general Card payment method. All brands retain the configured Card deposit account. The recorded brand also appears in the sale memo even when its mapping is blank; Unknown is never guessed from historical card references. Previously synced sales are not resent or rewritten.
+
 The **Transaction sync queue** near the top of the QuickBooks screen lists all POS sales, including ones that have not created an export record yet. It refreshes every 15 seconds. Filter by status, POS receipt/customer/QuickBooks number, or date range; each page contains up to 50 transactions.
 
 - **Waiting:** eligible for an automatic run. “Queued” means an export record is already prepared; a waiting sale without one is still picked up automatically.
@@ -327,6 +335,11 @@ Open **Settings** and click the area you want to change. Click **← Settings** 
 - **Customer Kiosk**: pair iPads and upload the store logo.
 
 ## Printing
+**Cash drawer:** open Settings → Printing → Cash drawer on each till. Enable the button, set the COM port (default COM3) and trigger text (default hello), then Save drawer settings. Test saved drawer setup sends the same style of line-ending trigger as the existing Windows shortcut. Confirm the drawer physically opens; “signal sent” is not a hardware-open confirmation.
+
+The Cash drawer button is in the top bar. Opening is manual, not automatic after a sale. Settings stay on this PC. Shortcut defaults to Button only; optional F1/F10/F11/F12 shortcuts work while DiamondPOS is focused. If selecting F1, remove the shortcut key from the existing Windows drawer shortcut first, otherwise both may send a signal. F1 then triggers the drawer instead of Help, while the Help button still works. Configuration permits a COM port and plain trigger text, not arbitrary executable commands. Device protocol/port speed are unchanged from the working Windows setup.
+
+
 Each computer has its own printers, so set this up on every till (**Settings → Printing**). Install the printers in Windows first.
 - **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Tick **Print the receipt automatically** to print as soon as a sale is completed. **Ask which printer every time** (on by default) shows a window each time a receipt prints, so you can send a small sale to the laser printer as a full page. Untick it to always print on the usual printer without asking.
 - **Full-page printer (laser)**: prints on Letter paper. Choose what prints here instead of the receipt printer:
