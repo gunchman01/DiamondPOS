@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 14 Nov 2026: v0.3.28 transaction sync queue
+- Based on main 4ec86549 (latest release v0.3.27). New authenticated GET/POST /api/qb/queue, complete sales-based queue independent of export-row existence; status/customer/receipt/date filters and 50-row pagination. Counts apply to search/date filters, independent of status selection.
+- Selection of waiting/failed transactions revalidates IDs, current start date, completion/payment/legacy status and known sync state inside one SQLite transaction. Whole selection rejected when stale/ineligible. No implicit enabling, before-start override, synced resend, or manual-exception bypass. UI selections are current-page only. Active sessions block queue mutations.
+- Selected existing export records keep their reference/identity; prepared records are picked up by the unchanged automatic planner and remote duplicate query. Summary builder accepts a bounded sale-ID subset for queue preparation. Reading queue creates no export rows. Manual confirmations display Entered by hand rather than claiming remote confirmation.
+- 47 regression checks cover unexamined rows, idempotent preparation, failed retry, stale sent state, mixed-selection atomicity, start dates, filters, sending-off preservation, authorization/session lock, change-only cash tender, old daily overlaps, pagination and queued connector completion. TypeScript/build and on-PC visual checks described in package instructions. No schema/dependency changes.
+
+
 ### 14 Nov 2026: v0.3.27 direct receipt quantity editing
 - Main d5968288 (latest installed release v0.3.26) matched local source except previous package metadata. Added Qty editors and −/+ controls to sale and return rows. Saves on Enter/Tab/blur, Escape restores, invalid values leave saved state unchanged. Numeric input key events stay isolated from scanner/F-key handlers.
 - New quantity parsing/rules reject fractional/nonfinite/scientific/scanner-like input and enforce ±9999, one serialized unit, negative return signs and receipt availability including other pending return lines. Zero always removes. Negative sale edits enter existing return details and cancellation preserves the original cart line.
@@ -436,7 +443,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.27** (direct receipt quantity editing). Apply over v0.3.26 source, test and publish the v0.3.27 tag. No schema/dependency/server API changes.
+**Update prepared: v0.3.28** (QuickBooks transaction sync queue). Apply over v0.3.27, test and publish v0.3.28. Store Server first, then tills; no new schema migration.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 

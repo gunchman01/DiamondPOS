@@ -16,6 +16,7 @@ import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlin
 import { getProduct } from '../src/main/server/products'
 import { returnAmount } from '../src/shared/returns'
 import { getQbConfig, saveQbConfig, saveQbLists, listExports } from '../src/main/server/quickbooks/store'
+import { transactionQueue, queueTransactions } from '../src/main/server/quickbooks/queue'
 import { individualSummaries } from '../src/main/server/quickbooks/summary'
 import { rq, parseResponse } from '../src/main/server/quickbooks/qbxml'
 import { parseXml, child, text, esc } from '../src/main/server/quickbooks/xml'
@@ -241,6 +242,92 @@ async function main() {
     assert.equal(unauthorizedStatus.status, 401)
     assert.ok(!JSON.stringify(statusPayload).includes(cfg.password))
   })
+  const exportCountBeforeQueue = db.prepare('SELECT COUNT(*) AS n FROM qb_sale_exports').get().n
+  const initialQueue = transactionQueue(db)
+  check('queue includes unexamined POS sales and classifies manual exceptions without modifying exports', () => {
+    assert.equal(initialQueue.rows.find((r) => r.saleId === named.id)!.status, 'waiting')
+    assert.equal(initialQueue.rows.find((r) => r.saleId === named.id)!.exportId, null)
+    assert.equal(initialQueue.rows.find((r) => r.saleId === split.id)!.status, 'manual')
+    assert.equal(initialQueue.rows.find((r) => r.saleId === refund1.id)!.status, 'manual')
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM qb_sale_exports').get().n, exportCountBeforeQueue)
+  })
+  check('selected waiting sales are queued idempotently, preserving stable export references', () => {
+    assert.equal(queueTransactions(db, [named.id, other.id], 0.0725, 0.0725), 2)
+    const first = transactionQueue(db, { ids: [named.id] }).rows[0]
+    assert.equal(first.queued, true)
+    queueTransactions(db, [named.id], 0.0725, 0.0725)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].exportId, first.exportId)
+  })
+  db.prepare("UPDATE qb_sale_exports SET status = 'error', error = 'Network interrupted' WHERE sale_id = ?").run(named.id)
+  check('failed exports can be selected and retried with the same reference', () => {
+    const row = transactionQueue(db, { ids: [named.id] }).rows[0]
+    assert.equal(row.status, 'failed'); assert.equal(row.eligible, true)
+    queueTransactions(db, [named.id], 0.0725, 0.0725)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].refNumber, row.refNumber)
+  })
+  check('mixed invalid selection rolls back instead of queuing its eligible subset', () => {
+    db.prepare("UPDATE qb_sale_exports SET status = 'error', error = 'Keep this' WHERE sale_id = ?").run(named.id)
+    assert.throws(() => queueTransactions(db, [named.id, split.id], 0.0725, 0.0725), /Selection/)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].status, 'failed')
+    queueTransactions(db, [named.id], 0.0725, 0.0725)
+  })
+  check('synced transactions are protected even when selected using a stale page', () => {
+    db.prepare("UPDATE qb_sale_exports SET status = 'sent', txn_id = 'TEMP' WHERE sale_id = ?").run(named.id)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].eligible, false)
+    assert.throws(() => queueTransactions(db, [named.id], 0.0725, 0.0725), /Selection/)
+    db.prepare("UPDATE qb_sale_exports SET status = 'pending', txn_id = NULL WHERE sale_id = ?").run(named.id)
+  })
+  check('start-date exclusions cannot be bypassed by queue selection', () => {
+    saveQbConfig(db, { startDate: '2099-01-01' })
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].status, 'excluded')
+    assert.throws(() => queueTransactions(db, [named.id], 0.0725, 0.0725), /Selection/)
+    saveQbConfig(db, { startDate: date })
+  })
+  check('queue filtering and counts include waiting and failed transactions correctly', () => {
+    const page = transactionQueue(db, { status: 'waiting', search: String(named.id), from: date, to: date })
+    assert.ok(page.rows.some((r) => r.saleId === named.id))
+    assert.ok(page.rows.every((r) => r.status === 'waiting'))
+    assert.ok(page.counts.waiting >= 1)
+  })
+  saveQbConfig(db, { enabled: false })
+  check('preparing a queue never enables automatic sending', () => {
+    queueTransactions(db, [other.id], 0.0725, 0.0725)
+    assert.equal(getQbConfig(db).enabled, false)
+  })
+  saveQbConfig(db, { enabled: true })
+  const changeSale = createSale(db, request({ payments: [{ method: 'card', amountCents: 11 }, { method: 'cash', amountCents: 20 }] }))
+  check('queue agrees with export eligibility when cash is entirely given back as change', () => {
+    assert.equal(transactionQueue(db, { ids: [changeSale.id] }).rows[0].status, 'waiting')
+    assert.equal(queueTransactions(db, [changeSale.id], 0.0725, 0.0725), 1)
+  })
+  check('legacy daily overlap remains manual even when an individual export previously failed', () => {
+    db.prepare("INSERT INTO qb_exports (sale_date, method, ref_number, total_cents, sale_count) VALUES (?, 'cash', 'QUEUETEST', 11, 1)").run(date)
+    db.prepare("UPDATE qb_sale_exports SET status = 'error', error = 'Interrupted' WHERE sale_id = ?").run(named.id)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].status, 'manual')
+    assert.throws(() => queueTransactions(db, [named.id], 0.0725, 0.0725), /Selection/)
+    db.prepare("DELETE FROM qb_exports WHERE ref_number = 'QUEUETEST'").run()
+    queueTransactions(db, [named.id], 0.0725, 0.0725)
+  })
+  const pageDb = openDatabase(path.join(dir, 'queue-pages.db'))
+  pageDb.transaction(() => { for (let n = 0; n < 55; n++) pageDb.prepare("INSERT INTO sales (till_name,total_cents,tax_cents,status) VALUES ('Page test',0,0,'void')").run() })()
+  check('queue paginates all POS transactions, including excluded noncompleted receipts', () => {
+    const first = transactionQueue(pageDb, { status: 'excluded' })
+    const second = transactionQueue(pageDb, { status: 'excluded', page: 2 })
+    assert.equal(first.total, 55); assert.equal(first.rows.length, 50); assert.equal(second.rows.length, 5)
+    assert.ok(second.rows.every((r) => !first.rows.some((f) => f.saleId === r.saleId)))
+  })
+  pageDb.close()
+  const queueUnauthorized = await fetch(`${base}/api/qb/queue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saleIds: [named.id] }) })
+  const queueBad = await fetch(`${base}/api/qb/queue`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Api-Key': 'test' }, body: JSON.stringify({ saleIds: [] }) })
+  const heldLogin = await soap('authenticate', { strUserName: cfg.username, strPassword: cfg.password })
+  const heldTicket = child(child(heldLogin, 'authenticateResult'), 'string')!.text
+  const queueDuringSync = await fetch(`${base}/api/qb/queue`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Api-Key': 'test' }, body: JSON.stringify({ saleIds: [named.id] }) })
+  await soap('closeConnection', { ticket: heldTicket })
+  check('queue API requires pairing, valid IDs and no active connector session', () => {
+    assert.equal(queueUnauthorized.status, 401)
+    assert.equal(queueBad.status, 400)
+    assert.equal(queueDuringSync.status, 409)
+  })
   const receiptIds = new Map<string,string>()
   const receiptDetails = new Map<string,string>()
   const customers = new Set<string>()
@@ -303,6 +390,7 @@ async function main() {
   check('completed connector session records successful connection and sync separately', () => {
     assert.ok(lastSync)
     assert.ok(operationsStatus(db).quickbooks.lastConnectionAt)
+    assert.equal(transactionQueue(db, { ids: [named.id] }).rows[0].status, 'synced')
   })
   const before = added
   await sync()

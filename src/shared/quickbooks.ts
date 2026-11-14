@@ -119,3 +119,14 @@ export const QB_ROUNDING_ITEM = 'POS Tax Rounding'
 export function qbRefNumber(saleDate: string, method: QbMethod): string {
   return `POS${saleDate.slice(2, 4)}${saleDate.slice(5, 7)}${saleDate.slice(8, 10)}${method === 'cash' ? 'C' : method === 'check' ? 'K' : 'D'}`
 }
+
+export type QbQueueState = 'waiting' | 'synced' | 'failed' | 'manual' | 'excluded'
+export interface QbQueueRow {
+  saleId: number; saleDate: string; createdAt: string; customerName: string; totalCents: number
+  status: QbQueueState; reason: string; exportId: number | null; refNumber: string | null
+  txnId: string | null; sentAt: string | null; eligible: boolean; queued: boolean
+}
+export interface QbQueuePage {
+  rows: QbQueueRow[]; total: number; page: number; pageSize: number
+  counts: Record<QbQueueState, number>
+}

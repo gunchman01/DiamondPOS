@@ -1,8 +1,13 @@
 CHANGELOG.md
 docs/PROJECT_NOTES.md
+docs/QUICKBOOKS_SETUP.md
+src/main/server/quickbooks/qbwc.ts
+src/main/server/quickbooks/queue.ts
+src/main/server/quickbooks/summary.ts
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/quantity.ts
-src/renderer/src/saleColumns.tsx
-src/renderer/src/screens/Sell.tsx
+src/renderer/src/screens/QuickBooks.tsx
+src/renderer/src/screens/QuickBooksQueue.tsx
 src/renderer/src/styles.css
+src/shared/quickbooks.ts
 tests/regressions.ts

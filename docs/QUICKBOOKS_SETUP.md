@@ -48,3 +48,9 @@ These changes have automated mocked Web Connector coverage, but have not been te
 5. Confirm a refund is listed as Enter by hand, and practice the reconciliation workflow.
 
 Reference: [Intuit QuickBooks Desktop SDK guide](https://static.developer.intuit.com/resources/QBSDK_ProGuide.pdf).
+
+## Transaction sync queue (v0.3.28)
+
+The QuickBooks screen now shows all POS transactions, including sales without an export record, with status/search/date filters and 50-row pages. Waiting sales are still automatic. Select Waiting or Failed rows and click Queue selected for sync to prepare a retry for the next Web Connector run. Rows already synced or marked entered by hand cannot be selected; excluded and manual-entry transactions cannot bypass their restrictions. The server rechecks eligibility and rejects a stale/mixed invalid selection without partially queuing it. Queue changes are blocked during a connector session.
+
+Queueing never turns sending on. Use Update Selected in Web Connector or its Auto-Run schedule to transfer. Existing stable references and duplicate checks still apply. The queue does not implement an intentional hold/release feature. For manual exceptions, reconcile in QuickBooks and use the existing manual-entry confirmation in the export history once the connector has created that export record.

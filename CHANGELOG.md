@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.28 - 14 Nov 2026
+- **QuickBooks transaction sync queue:** see every POS transaction, including sales the connector has not examined yet. Filter by status, date, receipt number or customer; browse 50 rows per page.
+- Select Waiting or Failed transactions and choose **Queue selected for sync**. Web Connector performs the normal duplicate-checked transfer on its next run. Normal sales remain automatic.
+- Synced transactions, manually entered transactions, excluded sales and manual-entry exceptions cannot be queued through this action. Selections are rechecked on the server and queue changes wait until an active sync session finishes.
+- Shows reasons for failures, start-date exclusions, refunds/split payments and old daily-export overlaps. Transactions marked by hand are labelled separately from QuickBooks-confirmed syncs.
+- Sending stays off if it was off; queuing does not enable it or bypass account mapping/start dates. Update the Store Server first, then tills for the new queue endpoints. No schema or dependency changes.
+
 ## v0.3.27 - 14 Nov 2026
 - **Edit quantity in the receipt grid:** type directly in the Qty box, or use the − / + buttons beside it. Enter, Tab or clicking away saves; Escape cancels. Totals update when the quantity is saved.
 - Negative sale quantities open Return details for that item. Zero removes the line. The existing F3 Change qty window remains available.

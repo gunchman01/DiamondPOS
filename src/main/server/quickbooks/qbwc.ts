@@ -19,6 +19,7 @@
  */
 import type express from 'express'
 import crypto from 'crypto'
+import { registerQueueRoutes } from './queue'
 import { recordQbCompletion, recordQbFailure } from '../operations'
 import type { DB } from '../db'
 import type { StoreSettings } from '../../../shared/types'
@@ -93,6 +94,11 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     const d = new Date(); d.setDate(d.getDate() + 1)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
+
+  registerQueueRoutes(app, db, readSettings, () => qbTaxRate(getQbConfig(db)), () => {
+    for (const [id, session] of sessions) if (Date.now() - session.touchedAt > 30 * 60000) sessions.delete(id)
+    return sessions.size > 0
+  })
 
   // ---------- Export bookkeeping ----------
   const upsertExport = (s: QbDailySummary) => {

@@ -1,12 +1,12 @@
-# DiamondPOS v0.3.27 — direct receipt quantity editing
+# DiamondPOS v0.3.28 — QuickBooks transaction sync queue
 
-Apply this source update over your current v0.3.26 project. It is based on main d5968288, which matches the last delivered source. No dependencies, database migration or server API changes are required.
+Apply this source update over your working v0.3.27 project. Baseline: main 4ec86549. No database migration or new dependencies are required.
 
-## Apply and run locally
+## Apply and test locally
 
-Close the installed POS and development app. Extract this ZIP and copy everything **inside** `DiamondPOS-update-v0.3.27` into your existing Git project folder. Merge folders and replace matching files; keep `.git` and all other project files.
+Close the POS and any development instance. Extract this ZIP. Copy everything **inside** `DiamondPOS-update-v0.3.28` into your existing Git project folder, merge folders and replace matching files. Keep `.git` and all other project files.
 
-In PowerShell in that project folder:
+In PowerShell from your actual project folder:
 
 ```powershell
 npm run typecheck
@@ -15,24 +15,32 @@ npm run build
 npm run dev
 ```
 
-Use `npm.cmd` if PowerShell blocks npm scripts.
+Use `npm.cmd` if required by PowerShell policy.
 
-## What to test
+## Using the queue
 
-1. Scan an ordinary item. Type 3 directly into its Qty box and press Enter: quantity and total should update.
-2. Try the row's + and − buttons. They add/subtract one from the displayed quantity. Zero removes the line.
-3. Type a different value and press Escape: it must leave the saved quantity unchanged. Tab or clicking away saves a valid value.
-4. Type an invalid quantity (blank, decimal, oversized): an error should appear without changing the saved quantity or total.
-5. Type -1 on a sale row. Return details should open. Cancel must keep the original sale line; applying a reason/restocking choice converts it to a return.
-6. Adjust a return's negative quantity. Original receipt limits still apply. − increases the amount coming back; + moves it toward zero. A positive return quantity is rejected; remove and rescan the item to sell it instead.
-7. Try a serialized unit: quantities greater than one per line must be rejected. Work order, credit and fee quantities remain read-only.
-8. Confirm scanner Enter, F3, pricing, checkout and the persistent left menu still behave normally.
+Open **Sync with QuickBooks**. Transaction sync queue is near the top, above the connection/account setup sections.
 
-The original F3 Change qty window and its sign buttons remain available. Return reason, stock choice and original receipt price/tax are retained when only quantity changes. No payment is taken by these controls; checkout still saves the transaction.
+- Every POS transaction is represented, including those not yet examined by Web Connector.
+- Filter by Waiting, Synced/entered, Failed, Manual entry needed or Excluded; search by receipt/customer/QB number or date range.
+- Each page has 50 rows. Select eligible Waiting/Failed rows, then click **Queue selected for sync**. Select-all only selects eligible rows on the current page. Changing page/filters clears the selection.
+- This prepares the next connector run. Click **Update Selected** in Web Connector or wait for Auto-Run. Normal sales remain automatic.
+- Queueing does not enable sending or fix missing mappings. If sending is off, it stays off until you enable it.
+- Synced/entered-by-hand transactions cannot be resent with this action. Refunds, zero-total exchanges, split/missing/mismatched payments and legacy daily overlaps remain manual reconciliation cases. Before-start, future-dated and noncompleted sales stay excluded. There is no new hold/release feature.
+- Queue changes are blocked during an active connector session. If a selection became synced or ineligible, the whole action is rejected; refresh and select again.
+- Existing export reference numbers and remote duplicate checks remain in place. Marked-by-hand transactions are labelled Entered by hand rather than claiming QuickBooks confirmed them.
 
-## Commit and release from main
+The existing export history, Retry/manual-entry controls and connector log remain below. A manual exception without an export record will appear in that history after the connector examines it; until then the queue explains its restriction.
 
-In MobaXterm in your existing project folder, review branch and changes first:
+## On-PC checks
+
+Create a small test sale and confirm it appears as Waiting before the connector examines it. Select it and queue it, then run Web Connector: it should become Synced. Run the connector again and confirm no duplicate. Check that synced and refund rows cannot be selected. Try search/date filters and confirm failed transfers can be queued after fixing their cause.
+
+Automated tests cover the data/action safeguards and mocked connector behavior; visual operation of the new screen in Windows and a live queue-to-QuickBooks run still require your checks.
+
+## Commit and publish on main
+
+Review first:
 
 ```bash
 git branch --show-current
@@ -40,20 +48,20 @@ git status --short
 git diff
 ```
 
-After local checks pass, on main:
+After checks pass, on main:
 
 ```bash
 git add -A
-git commit -m "v0.3.27: edit quantities directly in receipt grid"
+git commit -m "v0.3.28: QuickBooks transaction sync queue"
 git push origin main
-git tag v0.3.27
-git push origin v0.3.27
+git tag v0.3.28
+git push origin v0.3.28
 ```
 
-If that tag already exists, do not overwrite it. Choose the next unused version and update the changelog heading before tagging.
+Do not overwrite an existing tag. If v0.3.28 already exists, choose the next unused version and match the changelog heading before tagging.
 
-Wait for the GitHub Release workflow to finish, then install via the POS Updates screen. Use the usual server-first, then tills update order to keep PCs on the same release.
+Wait for the GitHub Release workflow to finish. Update **Store Server first, then tills** via POS Updates: the new screen needs the new server endpoints.
 
 ## Validation
 
-35 regression checks passed (including all existing SQLite/checkout/QuickBooks checks and new quantity parsing/rule checks). TypeScript checks and production build passed. The controls still need visual, keyboard and scanner testing on your Windows PC; these are not claimed as tested here.
+47 Electron/SQLite regression checks passed, plus TypeScript checks and the production build. These include all prior checkout/backup/sync checks and new queue eligibility, idempotency, stale selection, transaction atomicity, date/filter/pagination, session-lock and authorization checks. The backup suite deliberately logs one simulated failure.

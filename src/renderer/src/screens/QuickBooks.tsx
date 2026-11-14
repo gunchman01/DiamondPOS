@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
 import type { QbConfig, QbDailySummary, QbExport, QbLogEntry, QbStatus } from '../../../shared/quickbooks'
 import { api } from '../api'
+import QuickBooksQueue from './QuickBooksQueue'
 import { dateTime, money, today } from '../format'
 
 const yesterday = () => {
@@ -135,6 +136,8 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
       </div>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
+
+      <QuickBooksQueue enabled={st.config.enabled} syncing={st.syncing} />
 
       {/* ---------- Connect ---------- */}
       <div className="card form">

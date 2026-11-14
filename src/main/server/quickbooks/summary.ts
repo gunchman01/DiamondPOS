@@ -175,13 +175,13 @@ export function dailySummaries(
 }
 
 /** One accounting receipt per POS sale. Inventory and equipment stay in DiamondPOS. */
-export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, storeTaxRate: number, qbTaxRate: number | null): QbDailySummary[] {
+export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, storeTaxRate: number, qbTaxRate: number | null, saleIds?: number[]): QbDailySummary[] {
   const sales = db.prepare(`SELECT s.*, c.first_name, c.last_name, c.company, c.track_as_company,
       COALESCE(e.customer_name, (SELECT old.customer_name FROM qb_sale_exports old
         JOIN sales old_sale ON old_sale.id = old.sale_id WHERE old_sale.customer_id = s.customer_id ORDER BY old.id LIMIT 1)) AS exported_customer
     FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
     LEFT JOIN qb_sale_exports e ON e.sale_id = s.id
-    WHERE s.status = 'completed' AND date(s.created_at, 'localtime') = ? ORDER BY s.id`).all(saleDate) as
+    WHERE s.status = 'completed' AND date(s.created_at, 'localtime') = ? ${saleIds?.length ? `AND s.id IN (${saleIds.map(() => '?').join(',')})` : ''} ORDER BY s.id`).all(saleDate, ...(saleIds ?? [])) as
     (SaleRow & { customer_id: number | null; first_name: string | null; last_name: string | null; company: string | null;
       track_as_company: number; change_cents: number; exported_customer: string | null })[]
   return sales.map((s) => {

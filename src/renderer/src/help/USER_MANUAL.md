@@ -261,6 +261,18 @@ Open **Sales History** or **Reports** and pick a date.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
 
 ## QuickBooks
+The **Transaction sync queue** near the top of the QuickBooks screen lists all POS sales, including ones that have not created an export record yet. It refreshes every 15 seconds. Filter by status, POS receipt/customer/QuickBooks number, or date range; each page contains up to 50 transactions.
+
+- **Waiting:** eligible for an automatic run. “Queued” means an export record is already prepared; a waiting sale without one is still picked up automatically.
+- **Synced:** QuickBooks confirmed the transaction. **Entered by hand** identifies an operator's manual-entry confirmation instead. Neither can be selected to resend.
+- **Failed:** an export needs attention. Read its error, fix the cause and select it for retry.
+- **Manual entry needed:** refunds, zero-total exchanges, split/missing/mismatched payments, or old daily-export overlap require reconciliation rather than automatic sending.
+- **Excluded:** before the sync start date, future-dated, or not a completed sale. The reason is shown. This view does not add an intentional hold/release feature.
+
+Tick eligible Waiting/Failed rows (or select all eligible rows on the current page), then **Queue selected for sync**. Selection is limited to that page. This prepares a retry; it does not connect to QuickBooks immediately. Run **Update Selected** in Web Connector or wait for Auto-Run. If sending is off or account mapping is incomplete, fix that before expecting transfers. The action never enables sending or bypasses the start date. Original reference/duplicate checks remain in use.
+
+Queue changes are blocked during an active connector session. A selection that became synced/excluded/manual is rejected as a whole; refresh and select eligible transactions again. Use the existing Sent to QuickBooks history/manual-entry controls and log below for reconciliation.
+
 Diamond POS sends **individual Sales Receipts with customer names** to QuickBooks Desktop Enterprise. Inventory, equipment serial records, service work, kiosk sign-ups and marketing stay in DiamondPOS. Receipt descriptions include the sold items and any serial numbers; QuickBooks uses accounting items rather than inventory items.
 
 1. On the **QuickBooks** screen, download the connector file and add it in QuickBooks Web Connector using the password shown. On a separate back-office PC, run DiamondPOS as a Till with the QuickBooks bridge enabled.
