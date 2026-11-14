@@ -1,3 +1,4 @@
+import VendorEditor from './VendorEditor'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo, Product } from '../../../shared/types'
 import {
@@ -30,8 +31,9 @@ const num = (s: string) => {
 }
 
 /** Receiving: list of receivings (drafts first) and the receiving editor. */
-export default function Receiving({ boot, startNew, onIntentDone }: { boot: BootInfo; startNew?: boolean; onIntentDone?: () => void }) {
+export default function Receiving({ boot, startNew, onIntentDone, receiptToLoad, onReceiptLoaded }: { boot: BootInfo; startNew?: boolean; onIntentDone?: () => void; receiptToLoad?: number | null; onReceiptLoaded?: () => void }) {
   const [view, setView] = useState<{ kind: 'list' } | { kind: 'edit'; id: number | null }>({ kind: 'list' })
+  useEffect(() => { if (receiptToLoad) { setView({ kind: 'edit', id: receiptToLoad }); onReceiptLoaded?.() } }, [receiptToLoad])
   const [list, setList] = useState<ReceivingSummary[]>([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'' | 'draft' | 'posted'>('')
@@ -143,13 +145,14 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
   const [reviewing, setReviewing] = useState(false)
   const [tags, setTags] = useState<TagLine[] | null>(null)
   const [vendors, setVendors] = useState<string[]>([])
+  const [addingVendor, setAddingVendor] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
   const posted = rv?.status === 'posted'
 
   useEffect(() => {
     api
-      .listProducts('', true)
-      .then((ps) => setVendors([...new Set(ps.map((p) => p.vendor).filter((v): v is string => !!v))].sort()))
+      .vendors()
+      .then((vs) => setVendors(vs.map((v) => v.companyName)))
       .catch(() => {})
     if (id !== null) api.receiving(id).then(show).catch((e) => setMsg({ ok: false, text: e.message }))
   }, [id])
@@ -311,15 +314,15 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
       </h2>
 
       <div className="card rv-head">
-        <label>
-          Vendor
-          <input list="dl-rv-vendors" disabled={posted} value={head.vendor} onChange={(e) => setH({ vendor: e.target.value })} />
+        <div className="rv-vendor-field"><label htmlFor="rv-vendor">Vendor</label><div className="row gap">
+          <input id="rv-vendor" list="dl-rv-vendors" disabled={posted} value={head.vendor} onChange={(e) => setH({ vendor: e.target.value })} />
+          <button type="button" disabled={posted} onClick={() => setAddingVendor(true)}>+ Vendor</button></div>
           <datalist id="dl-rv-vendors">
             {vendors.map((v) => (
               <option key={v} value={v} />
             ))}
           </datalist>
-        </label>
+        </div>
         <label>
           Vendor invoice #
           <input disabled={posted} value={head.invoiceNo} onChange={(e) => setH({ invoiceNo: e.target.value })} />
@@ -530,6 +533,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
         </div>
       </div>
 
+      {addingVendor && <VendorEditor vendorId={null} onClose={() => setAddingVendor(false)} onSaved={(v) => { setVendors((names) => [...new Set([...names,v.companyName])].sort()); setH({vendor:v.companyName}) }} />}
       {reviewing && rv && (
         <ReceiveReview
           rv={rv}

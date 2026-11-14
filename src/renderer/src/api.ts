@@ -1,3 +1,4 @@
+import type { Vendor, VendorInput, VendorDetail } from '../../shared/vendors'
 import type { EquipmentMatch } from '../../shared/workorders'
 import type { QbQueuePage } from '../../shared/quickbooks'
 import type { OperationsStatus } from '../../shared/operations'
@@ -84,6 +85,10 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  vendors: (search = '', includeInactive = false) => request<Vendor[]>('GET', `/api/vendors?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`),
+  vendor: (id: number) => request<VendorDetail>('GET', `/api/vendors/${id}`),
+  createVendor: (value: VendorInput) => request<Vendor>('POST', '/api/vendors', value),
+  updateVendor: (id: number, value: VendorInput) => request<Vendor>('PUT', `/api/vendors/${id}`, value),
   equipmentBySerial: (serial: string) => request<EquipmentMatch[]>('GET', `/api/equipment/serial?serial=${encodeURIComponent(serial)}`),
   qbQueue: (query: string) => request<QbQueuePage>('GET', `/api/qb/queue?${query}`),
   qbQueueSelected: (saleIds: number[]) => request<{ queued: number }>('POST', '/api/qb/queue', { saleIds }),

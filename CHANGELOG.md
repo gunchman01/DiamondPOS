@@ -14,6 +14,14 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.31 - 14 Nov 2026
+> Update the Store Server PC first.
+- **Vendor List:** add, search and edit suppliers for parts and equipment. The editor follows the familiar QuickBooks POS sections: company, contact and address, payment terms, account settings, yellow notes and receiving history.
+- **Faster purchasing:** select saved vendors in Item and Receiving forms, or add a vendor directly while working. Mark unused vendors inactive instead of deleting their history.
+- Existing supplier names are converted into vendor records automatically. Renaming a vendor updates linked item records and keeps past voucher names intact.
+- Payment terms are reference information only. Vendor records do not sync to QuickBooks; the existing sales/customer sync continues unchanged.
+- Migration 24 adds vendor records and stable item/receiving links. A database backup is created before upgrading an existing store.
+
 ## v0.3.30 - 14 Nov 2026
 > Update the Store Server PC first.
 - **Item scanning at the top:** the Sale screen's item/barcode search is directly below the sale header, above the receipt. Suggestions open downward. Selected-line actions remain below the receipt.

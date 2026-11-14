@@ -436,3 +436,18 @@ If it worked before and stopped, the server's IP address probably changed. Reser
 - **QuickBooks shows a Problem**: read the message, fix the account mapping, then click **Retry**.
 - **The kiosk tablet won't connect**: see **Kiosk tablet won't connect** above.
 - **Something broke after an update**: open Updates and **Revert** to the previous version.
+
+
+## Vendor List
+
+Open **Home → Purchasing → Vendor List**, or use the Vendor List navigation button. If your menu is customized, enable Vendor List under Settings → Menus.
+
+Choose **Add vendor** and enter the required company name. Contact Info includes title, first/last name, email, website, mailing address, phone and mobile. Payment Terms records net days and early-payment discount details for reference only. Vendor Settings records your account number, alternate phone/contact and Inactive. Use the yellow Vendor Notes area for ordering instructions.
+
+**Save** closes the editor; **Save & New** saves and clears it for the next supplier. Duplicate company names (ignoring letter case) are rejected. Search the list by company, contact, phone or account number. Check **Include inactive** to find inactive suppliers; uncheck Inactive in their editor to reactivate them.
+
+Saved active vendors appear in the Vendor suggestions in Items and Receiving. The **+ Vendor** button adds a supplier without leaving either form. Free-text supplier names remain supported for existing imports. Existing names on items and vouchers are converted to basic vendor records during the update; add their missing contact details afterward.
+
+History shows the latest 100 receiving vouchers, with posted totals across all receiving history. From Vendor List, click a voucher number to open it in Receiving. Drafts appear in history but are excluded from posted totals. Renaming a vendor updates linked item vendor names; historical voucher names stay as originally recorded. Inactive hides a vendor from suggestions, but does not block manually entering its name.
+
+Vendor records, payment terms and purchases are not sent to QuickBooks. The existing sales/customer integration is unaffected.

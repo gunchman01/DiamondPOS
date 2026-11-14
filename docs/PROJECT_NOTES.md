@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 13 November 2026 (v0.3.23 negative-quantity returns)_
+_Last updated: 14 November 2026 (v0.3.31 vendor list)_
 
 ---
 
@@ -12,7 +12,7 @@ DiamondPOS is a Windows point of sale app for one store location with several ti
 
 - **One installer** for every PC. On first launch you choose **Store Server** (one PC per store, which can also be a till) or **Till**.
 - The **store server** runs inside the app: an Express API on **port 4580** plus a **SQLite** database. Tills connect over the LAN using the server's IP address and an 8-character **pairing code**.
-- **Card payments** happen on a **standalone third-party terminal**. The POS records the amount and the terminal's reference number; there's no integration.
+- **Card payments** happen on a **standalone third-party terminal**. The POS records the amount and optional card brand; there's no integration.
 - Prices **include GST** (15% by default). Tax is worked out on the server.
 - **Update and rollback:** GitHub Actions builds the installer when a version tag is pushed and publishes it to GitHub Releases. The in-app **Updates** screen can install any release, newer or older.
 - Design decision: the server must always be reachable. There's no offline mode for tills (can be added later).
@@ -485,3 +485,10 @@ Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide w
 - Version comes from the **git tag** (the workflow sets it). No need to edit `package.json` by hand.
 - **Keep the user manual current**: when a feature is added or changed, update `src/renderer/src/help/USER_MANUAL.md` (and `HELP_TOPIC` in `App.tsx` for a new screen).
 - **Every release gets a `CHANGELOG.md` section** (plain words for staff, plus the "Update the Store Server PC first" line if it has a migration). It's what people read on the Updates screen before installing.
+
+
+## v0.3.31 vendor list
+
+Adds shared vendors types, authenticated CRUD routes, list and QBPOS-style editor. Migration 24 seeds trimmed/case-insensitive supplier names from products and receivings, preserving their existing text, and attaches nullable vendor_id links. Item insert/update and Receiving create/draft updates link matching vendor names. Rename updates linked item master names, preserves voucher snapshots, and history uses stable IDs. No deletion; inactive filters suggestions. Unknown free text remains permitted for compatibility. Terms are reference only; no POs, payables or vendor QuickBooks export added.
+
+Validated with typecheck, build and 70 SQLite/API regression checks. Windows visual verification remains a local check. Release package is a changed-source overlay against main f7a82ed6bdc7d9a646a537f4a8c2bd40bfcbe0a5 / v0.3.30. User commits/tags main; no branch or push created here.

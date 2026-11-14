@@ -18,6 +18,7 @@ export type NavTarget =
   | 'feedback'
   | 'held'
   | 'receiving'
+  | 'vendors'
 
 interface Tile {
   icon: IconName
@@ -55,7 +56,7 @@ const POS: Section = {
 const PURCHASING: Section = {
   title: 'Purchasing',
   cells: [
-    { kind: 'tile', col: 1, row: 1, icon: 'vendorList', label: 'Vendor List' },
+    { kind: 'tile', col: 1, row: 1, icon: 'vendorList', label: 'Vendor List', go: 'vendors' },
     { kind: 'arrow', col: 2, row: 1, dir: 'right' },
     { kind: 'tile', col: 3, row: 1, icon: 'purchaseOrders', label: 'Purchase Orders' },
     { kind: 'arrow', col: 4, row: 1, dir: 'right' },

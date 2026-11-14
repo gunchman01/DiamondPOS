@@ -1,3 +1,4 @@
+import { vendorIdForName } from './vendors'
 /**
  * Item (product) fields and how they map to database columns.
  * Add a new item field here (plus a migration) and it is read, saved and
@@ -191,11 +192,15 @@ function label(f: Field): string {
 const toDb = (f: Field, v: unknown) => (f.kind === 'bool' ? (v ? 1 : 0) : (v ?? null))
 
 export function insertProduct(db: DB, p: ProductInput): number {
+  return db.transaction(() => {
   const cols = FIELDS.map((f) => f.col)
   const info = db
     .prepare(`INSERT INTO products (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
     .run(...FIELDS.map((f) => toDb(f, p[f.key])))
-  return Number(info.lastInsertRowid)
+  const id = Number(info.lastInsertRowid)
+  db.prepare('UPDATE products SET vendor_id = ? WHERE id = ?').run(vendorIdForName(db,p.vendor),id)
+  return id
+  })()
 }
 
 class Rollback extends Error {}
@@ -268,7 +273,10 @@ export function importProducts(
 }
 
 export function updateProduct(db: DB, id: number, p: ProductInput): void {
+  db.transaction(() => {
   db.prepare(
     `UPDATE products SET ${FIELDS.map((f) => `${f.col} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`
   ).run(...FIELDS.map((f) => toDb(f, p[f.key])), id)
+  db.prepare('UPDATE products SET vendor_id = ? WHERE id = ?').run(vendorIdForName(db,p.vendor),id)
+  })()
 }

@@ -1,3 +1,4 @@
+import { vendorIdForName } from './vendors'
 /**
  * Receiving on the store server: drafts, posting (stock up, average cost, order cost / price updates),
  * history per receiving and per item.
@@ -105,7 +106,7 @@ function clean(b: Partial<ReceivingInput>) {
   const date = b.invoiceDate ? str(b.invoiceDate, 10) : null
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new RvError(400, 'Invoice date must be a date')
   return {
-    vendor: str(b.vendor, 80),
+    vendor: str(b.vendor, 500),
     invoiceNo: str(b.invoiceNo, 40),
     poNumber: str(b.poNumber, 40),
     invoiceDate: date,
@@ -201,6 +202,7 @@ export function registerReceivingRoutes(app: express.Express, db: DB) {
           )
           .run(c.vendor, c.invoiceNo, c.poNumber, c.invoiceDate, c.receivedBy, c.freightCents, c.freightToCost ? 1 : 0, c.notes, c.tillName)
         const id = Number(info.lastInsertRowid)
+        db.prepare('UPDATE receivings SET vendor_id = ? WHERE id = ?').run(vendorIdForName(db,c.vendor),id)
         saveLines(id, c.lines)
         return id
       })()
@@ -220,6 +222,7 @@ export function registerReceivingRoutes(app: express.Express, db: DB) {
           `UPDATE receivings SET vendor = ?, invoice_no = ?, po_number = ?, invoice_date = ?, received_by = ?, freight_cents = ?, freight_to_cost = ?,
                   notes = ?, till_name = ?, updated_at = datetime('now') WHERE id = ?`
         ).run(c.vendor, c.invoiceNo, c.poNumber, c.invoiceDate, c.receivedBy, c.freightCents, c.freightToCost ? 1 : 0, c.notes, c.tillName, id)
+        if (c.vendor !== r.vendor) db.prepare('UPDATE receivings SET vendor_id = ? WHERE id = ?').run(vendorIdForName(db,c.vendor),id)
         saveLines(id, c.lines)
       })()
       res.json(need(id))

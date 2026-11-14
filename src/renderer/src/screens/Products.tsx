@@ -18,6 +18,7 @@ const TYPE_LABEL: Record<Product['type'], string> = {
 
 /** Item List: every item, with Add / Edit opening the full item window. */
 export default function Products({ startTags, onIntentDone }: { startTags?: boolean; onIntentDone?: () => void } = {}) {
+  const [vendorNames, setVendorNames] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [quickOnly, setQuickOnly] = useState(false)
@@ -58,6 +59,8 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
   useEffect(() => {
     load()
   }, [search])
+
+  useEffect(() => { if (editing) api.vendors().then((vs) => setVendorNames(vs.map((v) => v.companyName))).catch((e) => setError(e.message)) }, [editing])
 
   // Suggestions for the editor's Department / Vendor / Quick Pick Group boxes
   const lists = useMemo(() => {
@@ -181,7 +184,7 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
         <ItemEditor
           item={editing === 'new' ? null : editing}
           departments={lists.departments}
-          vendors={lists.vendors}
+          vendors={vendorNames}
           groups={lists.groups}
           onSaved={load}
           onDeleted={(msg) => {

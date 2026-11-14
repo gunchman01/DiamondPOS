@@ -21,6 +21,7 @@ export type Screen =
   | 'feedback'
   | 'held'
   | 'receiving'
+  | 'vendors'
 
 /** Something extra to do when the screen opens */
 export type Intent = 'return' | 'checkin' | 'tags' | 'receive' | null
@@ -35,6 +36,7 @@ export interface MenuEntry {
 
 /** Everything that can go in a menu */
 export const MENU_ENTRIES: MenuEntry[] = [
+  { id: 'vendors', label: 'Vendor List', icon: 'vendorList', screen: 'vendors' },
   { id: 'home', label: 'Go to the Home screen', icon: 'home', screen: 'home' },
   { id: 'sell', label: 'Make a sale', icon: 'makeSale', screen: 'sell' },
   { id: 'return', label: 'Return items', icon: 'salesHistory', screen: 'sell', intent: 'return' },
@@ -63,8 +65,8 @@ export interface MenuConfig {
 }
 
 export const DEFAULT_MENUS: MenuConfig = {
-  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'receive', 'tags', 'reports', 'settings', 'help'],
-  home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
+  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'vendors', 'receive', 'tags', 'reports', 'settings', 'help'],
+  home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'vendors', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
 }
 
 /** Saved ids -> entries (unknown ids dropped; nothing saved = defaults) */

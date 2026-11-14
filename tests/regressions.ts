@@ -15,6 +15,7 @@ import { parseQuantity, quantityError } from '../src/renderer/src/quantity'
 import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlineReturn'
 import { getWoSettings, saveWoSettings } from '../src/main/server/workorders'
 import { STAGES, DEFAULT_STAGE_COLORS, normaliseStageColors, stageStyle } from '../src/shared/workorders'
+import { cleanVendor, saveVendor, vendorDetail, vendorIdForName } from '../src/main/server/vendors'
 import { getProduct } from '../src/main/server/products'
 import { returnAmount } from '../src/shared/returns'
 import { getQbConfig, saveQbConfig, saveQbLists, listExports } from '../src/main/server/quickbooks/store'
@@ -86,12 +87,41 @@ async function main() {
   db.prepare("INSERT INTO settings VALUES ('qb_config', ?)").run(JSON.stringify({ enabled: true, startDate: '2026-01-01', customerName: 'DiamondPOS Daily Sales' }))
   const legacyCardSale = Number(db.prepare("INSERT INTO sales (till_name,total_cents,tax_cents,status) VALUES ('Legacy',10,0,'void')").run().lastInsertRowid)
   db.prepare("INSERT INTO payments (sale_id,method,amount_cents,reference) VALUES (?,'card',10,'OLD-CARD-REF')").run(legacyCardSale)
+  db.prepare("UPDATE products SET vendor = 'LEGACY SUPPLIER' WHERE id = 1").run()
+  const legacyReceiving = Number(db.prepare("INSERT INTO receivings (vendor) VALUES (' legacy supplier ')").run().lastInsertRowid)
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 23)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 24)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
+  })
+  check('vendor migration deduplicates supplier names and preserves receiving snapshots', () => {
+    const id = vendorIdForName(db,'legacy supplier')!
+    assert.ok(id)
+    assert.equal(db.prepare('SELECT vendor_id FROM products WHERE id=1').get().vendor_id,id)
+    const row=db.prepare('SELECT vendor,vendor_id FROM receivings WHERE id=?').get(legacyReceiving)
+    assert.equal(row.vendor,' legacy supplier '); assert.equal(row.vendor_id,id)
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM vendors WHERE company_name='legacy supplier' COLLATE NOCASE").get().n,1)
+  })
+  check('vendor validation rejects missing company, invalid contacts and payment terms', () => {
+    for (const value of [{}, {companyName:'A',email:'bad'}, {companyName:'A',website:'javascript:alert(1)'}, {companyName:'A',netDays:-1}, {companyName:'A',discountDays:1.5}, {companyName:'A',discountPercent:101}]) assert.throws(()=>cleanVendor(value))
+    assert.equal(cleanVendor({companyName:'A',website:'example.com'}).website,'https://example.com/')
+  })
+  const supplier=saveVendor(db,{companyName:'Diamond Parts',firstName:'Pat',postcode:'00123',netDays:30,discountPercent:2,discountDays:10,accountNumber:'AC-1',notes:'Order units here'})
+  const vendorRv=Number(db.prepare("INSERT INTO receivings (vendor,vendor_id,status,freight_cents) VALUES (?,?, 'posted',25)").run(supplier.companyName,supplier.id).lastInsertRowid)
+  db.prepare('INSERT INTO receiving_lines (receiving_id,product_id,qty,unit_cost_cents) VALUES (?,1,2,100)').run(vendorRv)
+  db.prepare('UPDATE products SET vendor=?,vendor_id=? WHERE id=1').run(supplier.companyName,supplier.id)
+  const renamed=saveVendor(db,{companyName:'Diamond Parts & Units',active:false},supplier.id)
+  check('vendor rename preserves contacts and history while updating item vendor names', () => {
+    assert.equal(renamed.postcode,'00123');assert.equal(renamed.netDays,30);assert.equal(renamed.notes,'Order units here')
+    assert.equal(db.prepare('SELECT vendor FROM products WHERE id=1').get().vendor,renamed.companyName)
+    assert.equal(db.prepare('SELECT vendor FROM receivings WHERE id=?').get(vendorRv).vendor,'Diamond Parts')
+    const detail=vendorDetail(db,supplier.id)!
+    assert.equal(detail.postedTotalCents,225);assert.equal(detail.postedCount,1);assert.equal(detail.history[0].id,vendorRv)
+    assert.equal(vendorIdForName(db,' diamond parts & units '),supplier.id)
+    assert.throws(()=>saveVendor(db,{companyName:'DIAMOND PARTS & UNITS'}),/already exists/)
+    assert.throws(()=>saveVendor(db,{companyName:'Missing'},999999),/not found/)
   })
   db.prepare("UPDATE settings SET value = '0.0725' WHERE key = 'tax_rate'").run()
   db.prepare('UPDATE products SET price_cents = 5, on_hand = 100, taxable = 1 WHERE id = 1').run()
@@ -362,6 +392,27 @@ async function main() {
   await new Promise<void>((resolve) => server.once('listening', resolve))
   const port = (server.address() as any).port
   const base = `http://127.0.0.1:${port}`
+  const vendorHeaders={'X-Api-Key':'test','Content-Type':'application/json'}
+  const activeVendors=await (await fetch(`${base}/api/vendors`,{headers:vendorHeaders})).json()
+  const allVendors=await (await fetch(`${base}/api/vendors?includeInactive=1`,{headers:vendorHeaders})).json()
+  const vendorUnauthorized=await fetch(`${base}/api/vendors`)
+  const duplicateVendor=await fetch(`${base}/api/vendors`,{method:'POST',headers:vendorHeaders,body:JSON.stringify({companyName:renamed.companyName})})
+  check('paired vendor API hides inactive suppliers by default and rejects duplicates',()=>{
+    assert.equal(vendorUnauthorized.status,401);assert.equal(duplicateVendor.status,409)
+    assert.ok(!activeVendors.some((v:any)=>v.id===supplier.id));assert.ok(allVendors.some((v:any)=>v.id===supplier.id))
+  })
+  const newVendorResponse=await fetch(`${base}/api/vendors`,{method:'POST',headers:vendorHeaders,body:JSON.stringify({companyName:'API Supplier',email:'orders@example.com'})})
+  const apiVendor=await newVendorResponse.json()
+  const newRvResponse=await fetch(`${base}/api/receivings`,{method:'POST',headers:vendorHeaders,body:JSON.stringify({vendor:apiVendor.companyName,lines:[{productId:1,qty:1,unitCostCents:50}]})})
+  const newRv=await newRvResponse.json()
+  const editVendorResponse=await fetch(`${base}/api/vendors/${apiVendor.id}`,{method:'PUT',headers:vendorHeaders,body:JSON.stringify({companyName:'API Supplier Renamed'})})
+  const vendorHistory=await (await fetch(`${base}/api/vendors/${apiVendor.id}`,{headers:vendorHeaders})).json()
+  check('vendor API creates and edits suppliers and receiving links survive renames',()=>{
+    assert.equal(newVendorResponse.status,201);assert.equal(newRvResponse.status,201);assert.equal(editVendorResponse.status,200)
+    assert.equal(db.prepare('SELECT vendor_id FROM receivings WHERE id=?').get(newRv.id).vendor_id,apiVendor.id)
+    assert.equal(vendorHistory.vendor.email,'orders@example.com');assert.equal(vendorHistory.history[0].id,newRv.id)
+    assert.equal(vendorHistory.postedCount,0)
+  })
   const soap = async (method: string, args: Record<string,string> = {}) => {
     const response = await fetch(`${base}/qbwc`, { method: 'POST', headers: { 'Content-Type': 'text/xml' }, body:
       `<Envelope><Body><${method}>${Object.entries(args).map(([k,v]) => `<${k}>${esc(v)}</${k}>`).join('')}</${method}></Body></Envelope>` })

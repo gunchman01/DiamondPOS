@@ -1,3 +1,4 @@
+import { registerVendorRoutes } from './vendors'
 /**
  * The STORE SERVER.
  *
@@ -279,6 +280,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // Receiving (items in from vendors, average cost)
   registerReceivingRoutes(app, db)
+  registerVendorRoutes(app, db)
 
   // Every customer, for Export to Excel
   app.get('/api/customers/all', (_req, res) => res.json(allCustomers(db)))

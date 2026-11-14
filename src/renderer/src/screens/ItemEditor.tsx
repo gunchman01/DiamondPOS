@@ -1,3 +1,4 @@
+import VendorEditor from './VendorEditor'
 import { useEffect, useState } from 'react'
 import type { ItemType, Product, ProductInput } from '../../../shared/types'
 import TagPrintDialog from './TagPrintDialog'
@@ -190,6 +191,8 @@ export interface ItemEditorProps {
 
 /** Add / edit item window: Basic Info, More Info, Misc & Shipping and Comments. */
 export default function ItemEditor(props: ItemEditorProps) {
+  const [addingVendor, setAddingVendor] = useState(false)
+  const [newVendorNames, setNewVendorNames] = useState<string[]>([])
   const [editing, setEditing] = useState<Product | null>(props.item)
   const [form, setForm] = useState<Form>(() => toForm(props.item))
   const [error, setError] = useState('')
@@ -357,7 +360,7 @@ export default function ItemEditor(props: ItemEditorProps) {
             <fieldset className="id-panel">
               <legend>More Info</legend>
               <Row label="Vendor">
-                <input list="dl-vendors" {...text('vendor')} />
+                <div className="row gap"><input list="dl-vendors" {...text('vendor')} /><button type="button" onClick={() => setAddingVendor(true)}>+ Vendor</button></div>
               </Row>
               <Row label="Order Cost">
                 <input className="money" placeholder="0.00" {...text('orderCost')} />
@@ -463,7 +466,7 @@ export default function ItemEditor(props: ItemEditorProps) {
           ))}
         </datalist>
         <datalist id="dl-vendors">
-          {props.vendors.map((d) => (
+          {[...new Set([...props.vendors,...newVendorNames])].map((d) => (
             <option key={d} value={d} />
           ))}
         </datalist>
@@ -473,6 +476,7 @@ export default function ItemEditor(props: ItemEditorProps) {
           ))}
         </datalist>
       </form>
+      {addingVendor && <VendorEditor vendorId={null} onClose={() => setAddingVendor(false)} onSaved={(v) => { setNewVendorNames((names) => [...names,v.companyName]); setForm((f) => ({...f,vendor:v.companyName})) }} />}
       {tagging && editing && <TagPrintDialog initial={[editing]} onClose={() => setTagging(false)} />}
     </div>
   )

@@ -1,3 +1,4 @@
+import Vendors from './screens/Vendors'
 import { drawerConfig } from '../../shared/drawer'
 import { useEffect, useRef, useState } from 'react'
 import type { BootInfo, Health } from '../../shared/types'
@@ -38,6 +39,7 @@ type Tab =
   | 'feedback'
   | 'held'
   | 'receiving'
+  | 'vendors'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
   home: 'Home',
@@ -53,7 +55,8 @@ const TITLES: Record<Tab, string> = {
   help: 'Help',
   feedback: 'Feedback & Requests',
   held: 'Held Receipts',
-  receiving: 'Receiving'
+  receiving: 'Receiving',
+  vendors: 'Vendor List'
 }
 
 /** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
@@ -71,7 +74,8 @@ const HELP_TOPIC: Record<Tab, string> = {
   help: 'getting-started',
   feedback: 'feedback-and-requests',
   held: 'held-receipts',
-  receiving: 'receiving'
+  receiving: 'receiving',
+  vendors: 'vendor-list'
 }
 
 export default function App() {
@@ -85,6 +89,7 @@ export default function App() {
   const [online, setOnline] = useState(true)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
   /** A held receipt to open on the Sale screen */
+  const [receivingToLoad, setReceivingToLoad] = useState<number | null>(null)
   const [saleHeld, setSaleHeld] = useState<number | null>(null)
   /** Something to do when a screen opens from the "I want to…" menu (e.g. start a return) */
   const [intent, setIntent] = useState<Intent>(null)
@@ -268,7 +273,8 @@ export default function App() {
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
         {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} boot={boot} />}
         {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
-        {tab === 'receiving' && <Receiving boot={boot} startNew={intent === 'receive'} onIntentDone={() => setIntent(null)} />}
+        {tab === 'vendors' && <Vendors onReceiving={(id) => { setReceivingToLoad(id); setTab('receiving') }} />}
+        {tab === 'receiving' && <Receiving receiptToLoad={receivingToLoad} onReceiptLoaded={() => setReceivingToLoad(null)} boot={boot} startNew={intent === 'receive'} onIntentDone={() => setIntent(null)} />}
         {tab === 'held' && (
           <HeldReceipts
             onOpenAtTill={(id) => {

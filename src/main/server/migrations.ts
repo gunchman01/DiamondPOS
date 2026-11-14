@@ -559,7 +559,29 @@ export const migrations: Migration[] = [
         WHERE key = 'qb_config' AND json_valid(value);
     `
   },
-  { version: 23, name: 'optional card brand on payments', up: `ALTER TABLE payments ADD COLUMN card_brand TEXT CHECK(card_brand IS NULL OR card_brand IN ('unknown','visa','mastercard','discover','amex','other'));` }
+  { version: 23, name: 'optional card brand on payments', up: `ALTER TABLE payments ADD COLUMN card_brand TEXT CHECK(card_brand IS NULL OR card_brand IN ('unknown','visa','mastercard','discover','amex','other'));` },
+  { version: 24, name: 'vendor list and stable receiving links', up: `
+    CREATE TABLE vendors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, company_name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      title TEXT NOT NULL DEFAULT '', first_name TEXT NOT NULL DEFAULT '', last_name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '', website TEXT NOT NULL DEFAULT '', street TEXT NOT NULL DEFAULT '', street2 TEXT NOT NULL DEFAULT '',
+      city TEXT NOT NULL DEFAULT '', region TEXT NOT NULL DEFAULT '', postcode TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', mobile TEXT NOT NULL DEFAULT '',
+      net_days INTEGER NOT NULL DEFAULT 0, discount_percent REAL NOT NULL DEFAULT 0, discount_days INTEGER NOT NULL DEFAULT 0,
+      account_number TEXT NOT NULL DEFAULT '', alt_phone TEXT NOT NULL DEFAULT '', alt_contact TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1, notes TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    ALTER TABLE products ADD COLUMN vendor_id INTEGER REFERENCES vendors(id);
+    ALTER TABLE receivings ADD COLUMN vendor_id INTEGER REFERENCES vendors(id);
+    INSERT INTO vendors (company_name) SELECT MIN(TRIM(v)) FROM (
+      SELECT vendor AS v FROM products UNION ALL SELECT vendor AS v FROM receivings
+    ) WHERE TRIM(COALESCE(v,'')) <> '' GROUP BY TRIM(v) COLLATE NOCASE;
+    UPDATE products SET vendor_id=(SELECT id FROM vendors WHERE company_name=TRIM(products.vendor) COLLATE NOCASE) WHERE TRIM(COALESCE(vendor,''))<>'';
+    UPDATE receivings SET vendor_id=(SELECT id FROM vendors WHERE company_name=TRIM(receivings.vendor) COLLATE NOCASE) WHERE TRIM(COALESCE(vendor,''))<>'';
+    CREATE INDEX idx_products_vendor ON products(vendor_id);
+    CREATE INDEX idx_receivings_vendor ON receivings(vendor_id);
+  ` }
+
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

@@ -951,3 +951,25 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
   .register:not(.no-quick) { grid-template-rows: auto auto minmax(120px, 1fr) auto auto auto;
     grid-template-areas: 'head head' 'scan scan' 'receipt receipt' 'quick totals' 'entry totals' 'fkeys fkeys'; }
 }
+
+/* Vendor editor: familiar company / contact / terms / settings / notes panels. */
+.vendor-editor { width: min(1120px, 96vw); max-height: 94vh; padding: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.vendor-title { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--red-dark); color: white; }
+.vendor-title h2 { margin: 0; font-size: 19px; }
+.vendor-fields { border: 0; min-height: 0; margin: 0; padding: 0 14px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.vendor-panel { border: 1px solid var(--border); background: #fff; border-radius: 5px; padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+.vendor-panel h3 { margin: -10px -10px 4px; padding: 6px 10px; background: #f0f1f4; font-size: 14px; color: var(--red-dark); }
+.vendor-columns { display: grid; grid-template-columns: 1.05fr 1fr 1fr; gap: 12px; align-items: start; }
+.vendor-middle { display: flex; flex-direction: column; gap: 12px; }
+.vendor-field { display: grid; grid-template-columns: 95px minmax(0,1fr); gap: 8px; align-items: center; font-size: 13px; }
+.vendor-field > span { text-align: right; }
+.vendor-field input { width: 100%; min-width: 0; padding: 5px 7px; }
+.vendor-company input { max-width: 650px; }
+.vendor-term { display: flex; flex-direction: row; justify-content: flex-end; align-items: center; gap: 7px; font-size: 13px; }
+.vendor-term input { width: 75px; }
+.vendor-notes textarea { background: #fffedf; min-height: 245px; resize: vertical; width: 100%; }
+.vendor-history { max-height: 200px; overflow: auto; }
+.vendor-footer { display: flex; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); background: #f5f5f5; }
+.rv-vendor-field { display: flex; flex-direction: column; gap: 5px; }
+.rv-vendor-field input { min-width: 0; }
+@media (max-width: 1000px) { .vendor-columns { grid-template-columns: 1fr 1fr; } .vendor-notes { grid-column: 1 / -1; } .vendor-notes textarea { min-height: 140px; } }
