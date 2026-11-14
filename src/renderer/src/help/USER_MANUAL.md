@@ -12,6 +12,13 @@ Diamond POS runs on every computer in the store. One computer is the **Store Ser
 **The bar at the top** shows whether the till is **Connected** to the server, the till name, the time and the version.
 > If it says **Server offline**, sales can't be saved. Check that the Store Server PC is on and connected to the network.
 
+## The left menu
+The buttons down the left remain available on every main screen. Click one to open Sale, Items, Customers, Work Orders or another shortcut. The current screen is highlighted. If the list is long, scroll the menu independently of the open screen.
+
+**Settings → Menus → Left menu buttons** chooses this computer's shortcuts and their order. Home, Settings and Updates are always available. The top “I want to…” menu remains available for additional shortcuts.
+
+An in-progress sale remains in memory while you visit other screens and return. It is not saved across closing the app unless it is held (checkout recovery is separately retained). Finish or cancel an open dialog before continuing your workflow.
+
 ## The Home screen
 Home is where every area of the app starts.
 

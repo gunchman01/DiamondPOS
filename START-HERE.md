@@ -1,4 +1,4 @@
-# DiamondPOS v0.3.23 — returns using negative quantities
+# DiamondPOS v0.3.23 — persistent left menu and negative-quantity returns
 
 Apply this source update over the v0.3.22 project you just tested. It includes only the changed files. Your backup and checkout protection improvements remain in place. No new database migration is required. This revised package stays at v0.3.23. If you already applied the earlier v0.3.23 files, merge this package over them too.
 
@@ -16,6 +16,16 @@ npm run dev
 ```
 
 No dependencies were added. Use `npm.cmd` if PowerShell blocks `npm` scripts.
+
+## Always-visible left menu
+
+The left menu remains visible on every main screen. Home, Settings and Updates are pinned; the other buttons use this computer's saved Home-button shortcuts. Customize them under **Settings → Menus → Left menu buttons**. Computers using the defaults also get Receiving, Marketing and QuickBooks. Existing customized shortcut lists stay as you saved them.
+
+The current screen is highlighted. Scroll the left menu independently if it is taller than the window. The top dropdown stays available for extra actions. Home now shows its Today totals above the Navigator instead of duplicating the shortcut column.
+
+An in-progress sale stays in memory when visiting Items, Customers or another screen. It is not a saved held receipt and does not survive app shutdown unless held; checkout recovery remains separate. Sale keyboard shortcuts only run when Sale is visible.
+
+Locally check switching from a partly entered sale to Customers/Items and back, active highlighting, menu customization, and the layout at your normal screen size (with and without Quick Picks). Windows visual/scanner testing has not been performed here.
 
 ## Try a return
 

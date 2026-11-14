@@ -114,7 +114,7 @@ export default function Home({
   const open = (t: Tile) => (t.go ? onNavigate(t.go) : setToast(`${t.label} is coming soon`))
 
   return (
-    <div className="home">
+    <div className={buttons.length ? "home" : "home with-persistent-menu"}>
       {/* ---------- Left: quick-launch buttons + today ---------- */}
       <aside className="home-left">
         {buttons.map((b) => (

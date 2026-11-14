@@ -64,7 +64,7 @@ export interface MenuConfig {
 
 export const DEFAULT_MENUS: MenuConfig = {
   top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'receive', 'tags', 'reports', 'settings', 'help'],
-  home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'help', 'feedback']
+  home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
 }
 
 /** Saved ids -> entries (unknown ids dropped; nothing saved = defaults) */

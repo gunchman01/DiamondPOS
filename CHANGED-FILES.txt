@@ -1,9 +1,14 @@
 CHANGELOG.md
 docs/PROJECT_NOTES.md
 src/main/server/returns.ts
+src/renderer/src/App.tsx
 src/renderer/src/help/USER_MANUAL.md
 src/renderer/src/inlineReturn.ts
+src/renderer/src/menus.ts
+src/renderer/src/screens/Home.tsx
 src/renderer/src/screens/InlineReturnDialog.tsx
+src/renderer/src/screens/MenuSettings.tsx
 src/renderer/src/screens/Sell.tsx
+src/renderer/src/styles.css
 src/shared/returns.ts
 tests/regressions.ts

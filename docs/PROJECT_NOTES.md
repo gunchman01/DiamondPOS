@@ -71,6 +71,11 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 13 Nov 2026: v0.3.23 persistent left navigation
+- App shell now has a left menu on every main screen, with active-screen indication, independent scrolling, pinned Home/Settings/Updates and existing home-menu configuration. Defaults include Receiving, Marketing and QuickBooks. Saved custom menus are preserved.
+- Home's duplicate shortcut column becomes a horizontal Today summary. The Sale component mounts on first visit and stays mounted while hidden so navigation retains the cart. Hidden sales do not handle global shortcuts or scanner focus. Register layout adapts to the menu width on smaller windows.
+- Version remains v0.3.23. No dependency or database changes. Visual/scanner validation on Windows remains required.
+
 ### 13 Nov 2026: v0.3.23 negative-quantity returns
 - Follow-up: + Sale / − Return sign buttons in Change quantity keep the quantity magnitude and make sale/return selection explicit. Version remains v0.3.23 as requested.
 - Change qty / F3 accepts negative whole quantities and opens InlineReturnDialog for the scanned item; no menu navigation or second item lookup. Positive cart state is untouched until Apply return, so Cancel preserves it.

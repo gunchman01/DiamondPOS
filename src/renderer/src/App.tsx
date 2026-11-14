@@ -76,6 +76,8 @@ const HELP_TOPIC: Record<Tab, string> = {
 export default function App() {
   const [boot, setBoot] = useState<BootInfo | null>(null)
   const [tab, setTab] = useState<Tab>('home')
+  const [saleVisited, setSaleVisited] = useState(false)
+  useEffect(() => { if (tab === 'sell') setSaleVisited(true) }, [tab])
   /** A work order sent from its ticket to the Sale screen to be paid */
   const [saleWo, setSaleWo] = useState<{ id: number; mode: WoSaleMode } | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
@@ -189,11 +191,31 @@ export default function App() {
         </div>
       )}
 
+      <div className="app-workspace">
+      <nav className="persistent-menu" aria-label="Main menu">
+        <div className="persistent-menu-title">Point of Sale</div>
+        {[{ id: 'home', label: 'Home', icon: 'home', screen: 'home' } as MenuEntry,
+          ...menuEntries(boot.config.menus?.home, 'home').filter((e) => !['home', 'settings', 'updates'].includes(e.id))].map((e) => (
+          <button key={e.id} className={tab === e.screen && !e.intent ? 'active' : ''}
+            aria-current={tab === e.screen && !e.intent ? 'page' : undefined} onClick={() => go(e)}>
+            <span className="persistent-menu-icon">{Icons[e.icon]}</span><span>{e.label}</span>
+          </button>
+        ))}
+        <div className="persistent-menu-footer">
+          <button className={tab === 'settings' ? 'active' : ''} onClick={() => go({ id: 'settings', label: 'Settings', icon: 'settings', screen: 'settings' })}>
+            <span className="persistent-menu-icon">{Icons.settings}</span>Settings
+          </button>
+          <button className={tab === 'updates' ? 'active' : ''} onClick={() => go({ id: 'updates', label: 'Updates', icon: 'updates', screen: 'updates' })}>
+            <span className="persistent-menu-icon">{Icons.updates}</span>Updates
+          </button>
+        </div>
+      </nav>
       <main className={tab === 'sell' || tab === 'home' || tab === 'help' ? 'content flush' : 'content'}>
         {tab === 'home' && (
-          <Home buttons={menuEntries(boot.config.menus?.home, 'home')} onGo={go} onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />
+          <Home buttons={[]} onGo={go} onNavigate={(t) => (t === 'feedback' ? openFeedback() : setTab(t))} />
         )}
-        {tab === 'sell' && <Sell
+        {(tab === 'sell' || saleVisited) && <div className="sale-screen-host" hidden={tab !== 'sell'}><Sell
+            active={tab === 'sell'}
             boot={boot}
             workOrder={saleWo}
             onWorkOrderDone={() => setSaleWo(null)}
@@ -202,7 +224,7 @@ export default function App() {
             onHeldLoaded={() => setSaleHeld(null)}
             startReturn={intent === 'return'}
             onIntentDone={() => setIntent(null)}
-          />}
+          /></div>}
         {tab === 'products' && <Products startTags={intent === 'tags'} onIntentDone={() => setIntent(null)} />}
         {tab === 'customers' && <Customers />}
         {tab === 'quickbooks' && <QuickBooks boot={boot} onBootChange={setBoot} />}
@@ -233,6 +255,7 @@ export default function App() {
           />
         )}
       </main>
+      </div>
     </div>
   )
 }

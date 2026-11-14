@@ -15,6 +15,7 @@ How to write a section (newest at the top):
 ---
 
 ## v0.3.23 - 13 Nov 2026
+- **Always-visible left menu:** switch directly between Sale, Items, Customers, Work Orders and other shortcuts. Choose shortcuts in Settings → Menus → Left menu buttons. Home, Settings and Updates are always available. The in-progress sale stays in memory when switching screens.
 - **Return from the Sale screen:** scan or add an item, choose Change qty (F3), and click **− Return** or enter a negative whole quantity. **+ Sale** makes the quantity positive again. Choose the reason and whether it goes back into stock, then apply the return.
 - Optionally enter the original receipt number to use its paid price, tax and return limits. Leave it blank for a return at today's regular price, flagged as no receipt.
 - Cancel keeps the original sale line unchanged. Positive sale lines and negative return lines can share the same receipt for an exchange.

@@ -53,11 +53,14 @@ export default function Sell({
   workOrder,
   onWorkOrderDone,
   onBootChange,
+  active = true,
   heldToLoad,
   onHeldLoaded,
   startReturn,
   onIntentDone
 }: {
+  /** Only the visible Sale screen handles scanner focus and shortcuts. */
+  active?: boolean
   /** Opened from "I want to… Return items" */
   startReturn?: boolean
   onIntentDone?: () => void
@@ -430,7 +433,7 @@ export default function Sell({
     printingSale !== null ||
     colMenu !== null
 
-  const focusScan = () => setTimeout(() => scanRef.current?.focus(), 0)
+  const focusScan = () => { if (active) setTimeout(() => scanRef.current?.focus(), 0) }
 
   // ----- cart actions -----
   function addToCart(p: Product, qty = 1, serial?: string) {
@@ -695,7 +698,7 @@ export default function Sell({
   // ----- keyboard shortcuts (F-keys) -----
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {})
   keyHandler.current = (e: KeyboardEvent) => {
-    if (dialogOpen) return
+    if (!active || dialogOpen) return
     const inInput = (e.target as HTMLElement)?.tagName === 'INPUT'
     const actions: Record<string, () => void> = {
       F2: () => setFindQuery(''),

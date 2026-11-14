@@ -91,7 +91,7 @@ export default function MenuSettings({ boot, onChange }: { boot: BootInfo; onCha
       </p>
       <div className="menu-cols">
         <List which="top" title='"I want to…" menu (top left)' text="The drop-down at the top of every screen." />
-        <List which="home" title="Home screen buttons" text="The big buttons down the left of the Home screen." />
+        <List which="home" title="Left menu buttons" text="Always visible on the left of every screen. Home, Settings and Updates remain available automatically." />
       </div>
       {msg && <div className={msg.ok ? 'ok-text' : 'error-text'}>{msg.text}</div>}
       <div className="row gap">
