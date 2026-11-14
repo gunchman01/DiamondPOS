@@ -33,6 +33,7 @@ interface ItemRow {
   department: string | null
   serial: string | null
   kind: string
+  tax_cents: number | null
   sku: string | null
   ptype: string | null
   ptaxable: number | null
@@ -84,6 +85,20 @@ export function returnableSale(db: DB, saleId: number, fallbackRate = 0): Return
     .all(saleId) as ItemRow[]
   const sold = items.filter((i) => i.kind !== 'return' && i.kind !== 'feekept')
   const done = returnedQty(db, sold.map((i) => i.id))
+  // Allocate the tax actually charged across the original positive taxable lines.
+  // This also handles receipts created before line-level tax was stored.
+  const taxableSold = sold.filter((i) => i.qty > 0 && (i.taxable ?? i.ptaxable ?? 1) === 1 && s.tax_exempt !== 1)
+  const originalTax = Number(s.tax_cents) - items.filter((i) => i.kind === 'return').reduce((n, i) => n + (i.tax_cents ?? 0), 0)
+  const weight = taxableSold.reduce((n, i) => n + i.line_total_cents, 0)
+  const shares = taxableSold.map((i) => weight > 0 ? Math.floor(originalTax * i.line_total_cents / weight) : 0)
+  const order = taxableSold.map((i, n) => ({ n, fraction: weight > 0 ? originalTax * i.line_total_cents / weight - shares[n] : 0 }))
+    .sort((a, b) => b.fraction - a.fraction || a.n - b.n)
+  let pennies = originalTax - shares.reduce((n, v) => n + v, 0)
+  for (const { n } of order) { if (pennies <= 0) break; shares[n]++; pennies-- }
+  const lineTax = new Map(taxableSold.map((i, n) => [i.id, shares[n]]))
+  const refundedTax = new Map((db.prepare(`SELECT return_of_item_id AS id, COALESCE(SUM(-tax_cents), 0) AS n
+    FROM sale_items WHERE kind = 'return' AND return_of_sale_id = ? GROUP BY return_of_item_id`).all(saleId) as
+    { id: number; n: number }[]).map((row) => [row.id, row.n]))
   const lines: ReturnableLine[] = sold.map((i) => {
     const qtyReturned = done.get(i.id) ?? 0
     let whyNot: string | null = null
@@ -100,6 +115,8 @@ export function returnableSale(db: DB, saleId: number, fallbackRate = 0): Return
       qtySold: i.qty,
       qtyReturned,
       unitPaidCents: i.unit_price_cents,
+      taxPaidCents: lineTax.get(i.id) ?? 0,
+      taxRefundedCents: refundedTax.get(i.id) ?? 0,
       taxable: (i.taxable ?? i.ptaxable ?? 1) === 1,
       tracksStock: i.ptype === 'inventory',
       returnable: whyNot === null,
@@ -172,6 +189,7 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
   const out: PreparedReturnLine[] = []
   let customerId: number | null = null
   let noReceipt = false
+  const requestedTax = new Map<number, number>()
   const want = new Map<number, number>() // saleItemId -> qty asked for in this request
   const bySale = new Map<number, { info: ReturnableSale; amount: number }>()
 
@@ -209,7 +227,10 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
         customerId = info.customerId
       }
       // Refund at what was paid: the original receipt's price, tax way and rate
-      const { amountCents, taxCents, netCents } = returnAmount(line.unitPaidCents, qty, line.taxable, info.taxExempt, info.taxRate, info.taxMode)
+      const { amountCents, taxCents, netCents } = returnAmount(line.unitPaidCents, qty, line.taxable, info.taxExempt, info.taxRate, info.taxMode,
+        { taxCents: line.taxPaidCents ?? 0, qtySold: line.qtySold, qtyReturned: line.qtyReturned + asked - qty,
+          taxRefundedCents: (line.taxRefundedCents ?? 0) + (requestedTax.get(line.saleItemId) ?? 0) })
+      requestedTax.set(line.saleItemId, (requestedTax.get(line.saleItemId) ?? 0) + taxCents)
       entry.amount += amountCents
       const dept = db.prepare('SELECT department FROM sale_items WHERE id = ?').get(line.saleItemId) as { department: string | null }
       out.push({

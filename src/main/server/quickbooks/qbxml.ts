@@ -31,21 +31,21 @@ export const rq = {
     `<CustomerAddRq requestID="1"><CustomerAdd><Name>${esc(name.slice(0, 41))}</Name></CustomerAdd></CustomerAddRq>`,
   addOtherChargeItem: (name: string, account: string) =>
     `<ItemOtherChargeAddRq requestID="1"><ItemOtherChargeAdd><Name>${esc(name)}</Name>` +
-    `<SalesOrPurchase><Desc>${esc('DiamondPOS daily sales')}</Desc>${ref('AccountRef', account)}</SalesOrPurchase>` +
+    `<SalesOrPurchase><Desc>${esc('DiamondPOS sales')}</Desc>${ref('AccountRef', account)}</SalesOrPurchase>` +
     `</ItemOtherChargeAdd></ItemOtherChargeAddRq>`,
   findSalesReceipt: (refNumber: string) =>
     `<SalesReceiptQueryRq requestID="1"><RefNumber>${esc(refNumber)}</RefNumber></SalesReceiptQueryRq>`,
   addSalesReceipt: (s: QbDailySummary, cfg: QbConfig) => {
     const m = cfg.methods[s.method]
     const memo =
-      `DiamondPOS ${s.method} sales ${s.saleDate}: ${s.saleCount} receipt(s) ` +
+      `DiamondPOS receipt #${s.saleId}; ${s.method} ${s.saleDate}: ${s.customerName ?? cfg.customerName}, ${s.saleCount} receipt(s) ` +
       `#${s.firstSaleId}-#${s.lastSaleId}` +
       (s.taxExemptCount ? `, ${s.taxExemptCount} tax exempt` : '')
     const lines = s.lines
       .map(
         (l) =>
           `<SalesReceiptLineAdd>${ref('ItemRef', l.itemName)}` +
-          `<Desc>${esc(l.itemName === 'POS Tax Rounding' ? 'Sales tax rounding' : `${l.department || 'General'} - ${l.taxable ? 'taxable' : 'non-taxable'} sales`)}</Desc>` +
+          `<Desc>${esc(l.description ?? (l.itemName === 'POS Tax Rounding' ? 'Sales tax rounding' : `${l.department || 'General'} - ${l.taxable ? 'taxable' : 'non-taxable'} sales`))}</Desc>` +
           `<Amount>${money(l.amountCents)}</Amount>` +
           ref('SalesTaxCodeRef', l.taxable ? cfg.taxableCode : cfg.nonTaxableCode) +
           `</SalesReceiptLineAdd>`
@@ -53,7 +53,7 @@ export const rq = {
       .join('')
     return (
       `<SalesReceiptAddRq requestID="1"><SalesReceiptAdd>` +
-      ref('CustomerRef', cfg.customerName) +
+      ref('CustomerRef', s.customerName ?? cfg.customerName) +
       `<TxnDate>${s.saleDate}</TxnDate>` +
       `<RefNumber>${esc(s.refNumber)}</RefNumber>` +
       (m.paymentMethod ? ref('PaymentMethodRef', m.paymentMethod) : '') +
@@ -83,7 +83,8 @@ export function parseResponse(qbxml: string): QbResult {
   const statusCode = rs.attrs.statusCode ?? '0'
   return {
     name: rs.name,
-    ok: statusCode === '0' || (statusCode === '1' && rs.name.includes('Query')),
+    ok: statusCode === '0' || (statusCode === '1' && rs.name.includes('Query')) ||
+      (statusCode === '500' && (rs.name === 'CustomerQueryRs' || rs.name === 'SalesReceiptQueryRs') && rs.children.length === 0),
     statusCode,
     message: rs.attrs.statusMessage ?? '',
     node: rs

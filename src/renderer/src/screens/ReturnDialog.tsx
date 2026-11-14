@@ -17,6 +17,7 @@ export interface ReturnLine {
   serial: string | null
   qty: number
   /** Refund per unit: price paid on the receipt (or today's price with no receipt) */
+  originalTax?: { taxCents: number; qtySold: number; qtyReturned: number; taxRefundedCents: number }
   unitCents: number
   taxable: boolean
   /** The original receipt was tax exempt (no tax in the refund) */
@@ -115,7 +116,11 @@ export default function ReturnDialog(props: {
       const left = l.qtySold - l.qtyReturned - onSale(l.saleItemId)
       if (!Number.isInteger(q) || q <= 0) problems.push(`${l.name}: enter how many are coming back`)
       else if (q > left) problems.push(`${l.name}: only ${left} can be returned`)
-      else refund += returnAmount(l.unitPaidCents, q, l.taxable, receipt.taxExempt, receipt.taxRate, receipt.taxMode).amountCents
+      else refund += returnAmount(l.unitPaidCents, q, l.taxable, receipt.taxExempt, receipt.taxRate, receipt.taxMode,
+        { taxCents: l.taxPaidCents ?? 0, qtySold: l.qtySold, qtyReturned: l.qtyReturned + onSale(l.saleItemId),
+          taxRefundedCents: (l.taxRefundedCents ?? 0) + returnAmount(l.unitPaidCents, onSale(l.saleItemId), l.taxable,
+            receipt.taxExempt, receipt.taxRate, receipt.taxMode,
+            { taxCents: l.taxPaidCents ?? 0, qtySold: l.qtySold, qtyReturned: l.qtyReturned, taxRefundedCents: l.taxRefundedCents ?? 0 }).taxCents }).amountCents
       if (!p.reason) problems.push(`${l.name}: choose a reason`)
     }
     const kept = Math.max(0, refund - receipt.refundableCents)
@@ -133,6 +138,8 @@ export default function ReturnDialog(props: {
             serial: l.serial,
             qty: Number(p.qty),
             unitCents: l.unitPaidCents,
+            originalTax: { taxCents: l.taxPaidCents ?? 0, qtySold: l.qtySold, qtyReturned: l.qtyReturned,
+              taxRefundedCents: l.taxRefundedCents ?? 0 },
             taxable: l.taxable,
             origExempt: receipt.taxExempt,
             origTaxMode: receipt.taxMode,

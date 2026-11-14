@@ -173,3 +173,55 @@ export function dailySummaries(
   }
   return result
 }
+
+/** One accounting receipt per POS sale. Inventory and equipment stay in DiamondPOS. */
+export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, storeTaxRate: number, qbTaxRate: number | null): QbDailySummary[] {
+  const sales = db.prepare(`SELECT s.*, c.first_name, c.last_name, c.company, c.track_as_company,
+      COALESCE(e.customer_name, (SELECT old.customer_name FROM qb_sale_exports old
+        JOIN sales old_sale ON old_sale.id = old.sale_id WHERE old_sale.customer_id = s.customer_id ORDER BY old.id LIMIT 1)) AS exported_customer
+    FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+    LEFT JOIN qb_sale_exports e ON e.sale_id = s.id
+    WHERE s.status = 'completed' AND date(s.created_at, 'localtime') = ? ORDER BY s.id`).all(saleDate) as
+    (SaleRow & { customer_id: number | null; first_name: string | null; last_name: string | null; company: string | null;
+      track_as_company: number; change_cents: number; exported_customer: string | null })[]
+  return sales.map((s) => {
+    const name = s.track_as_company ? s.company : [s.first_name, s.last_name].filter(Boolean).join(' ')
+    // QB names are 41 characters. The POS ID distinguishes people with identical names
+    // and prevents an automatic merge into an unrelated back-office customer.
+    const suffix = ` [DP${s.customer_id}]`
+    const customerName = s.exported_customer ?? (s.customer_id === null ? cfg.customerName.slice(0, 41) :
+      `${(name || s.company || 'Customer').replace(/[:\x00-\x1f]/g, ' ').trim().slice(0, 41 - suffix.length)}${suffix}`)
+    const payments = db.prepare('SELECT method, SUM(amount_cents) AS amount FROM payments WHERE sale_id = ? GROUP BY method ORDER BY method')
+      .all(s.id) as { method: QbMethod; amount: number }[]
+    for (const p of payments) if (p.method === 'cash') p.amount -= s.change_cents
+    const tenders = payments.filter((p) => p.amount !== 0)
+    const method = tenders[0]?.method ?? 'cash'
+    const items = db.prepare(`SELECT name, serial, qty, line_total_cents AS amount,
+      COALESCE(department, '') AS department, COALESCE(taxable, 1) AS taxable
+      FROM sale_items WHERE sale_id = ? ORDER BY id`).all(s.id) as
+      { name: string; serial: string | null; qty: number; amount: number; department: string; taxable: number }[]
+    const taxed = items.filter((it) => it.taxable && !s.tax_exempt)
+    const taxShares = s.tax_mode === 'added' ? taxed.map(() => 0) : allocate(s.tax_cents, taxed.map((it) => it.amount))
+    let taxIndex = 0
+    const lines: QbSummaryLine[] = items.map((it) => {
+      const taxable = !!it.taxable && !s.tax_exempt
+      const net = it.amount - (taxable ? taxShares[taxIndex++] : 0)
+      return { department: it.department, itemName: qbItemName(it.department),
+        account: cfg.departmentAccounts[it.department] || cfg.defaultIncomeAccount, taxable,
+        amountCents: net, description: `${it.name} (qty ${it.qty})${it.serial ? ` S/N ${it.serial}` : ''}` }
+    })
+    const qbTax = Math.round(lines.filter((l) => l.taxable).reduce((sum, l) => sum + l.amountCents, 0) * (qbTaxRate ?? storeTaxRate))
+    const rounding = s.tax_cents - qbTax
+    if (rounding) lines.push({ department: '', itemName: QB_ROUNDING_ITEM, account: cfg.defaultIncomeAccount,
+      taxable: false, amountCents: rounding, description: 'Sales tax reconciliation' })
+    let manualReason: string | undefined
+    if (s.total_cents <= 0) manualReason = 'Refund or zero-total exchange: enter the matching transaction in QuickBooks by hand, then mark it entered here.'
+    else if (tenders.length !== 1) manualReason = 'Split payment: enter this sale in QuickBooks by hand so each payment goes to the correct account.'
+    else if (tenders[0].amount !== s.total_cents) manualReason = 'Payments do not match the sale total. Review before entering this sale in QuickBooks.'
+    const legacy = db.prepare('SELECT id FROM qb_exports WHERE sale_date = ? LIMIT 1').get(saleDate)
+    if (legacy) manualReason = 'A daily export already exists for this date. Reconcile it in QuickBooks before entering any individual sale, to avoid duplicates.'
+    return { saleId: s.id, customerId: s.customer_id, customerName, manualReason, saleDate, method,
+      refNumber: `DP${s.id.toString(36).toUpperCase()}`, saleCount: 1, firstSaleId: s.id, lastSaleId: s.id,
+      taxExemptCount: s.tax_exempt ? 1 : 0, totalCents: s.total_cents, taxCents: s.tax_cents, roundingCents: rounding, lines }
+  })
+}

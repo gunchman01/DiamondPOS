@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 5 November 2026 (register-style Sale screen)_
+_Last updated: 13 November 2026 (v0.3.22 checkout, backups and individual QuickBooks exports)_
 
 ---
 
@@ -70,6 +70,16 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### 13 Nov 2026: v0.3.22 update package
+- Restored the Phase 1 verified SQLite online backup scheduler from PR #1 (startup + 15 minutes, waits before DB close). Added `npm run verify:backup` using Electron's SQLite ABI.
+- Migration 22 adds checkout request IDs/hashes and separate per-sale QuickBooks export records. Existing daily export records remain intact. Migration disables QuickBooks sending once so the new start date/mapping can be reviewed.
+- Checkout writes the pending request to localStorage before submission and recovers it across retries/restarts. Server repeats the original receipt for the same ID and rejects a changed payload under that ID. Held receipt completion checks row count and rolls back conflicts.
+- Refund tax uses an allocation of the original charged tax and cumulative returned quantity; server and till share the calculation.
+- QuickBooks uses individual receipts, customer-specific names with POS ID suffixes, item/serial descriptions and existing department accounting items. Today's sales are eligible. Refunds/zero totals/split payments/legacy daily overlaps are manual exceptions. Customer names already exported are reused after a local rename.
+- Connector sessions serialize; receipt checks compare identifying memo, customer and total before recognizing a previous export. Missing/failed prerequisites stop dependent posting. Lists can load while sending is disabled.
+- Regression checks run with Electron's Node runtime through `npm test`; CI/release workflows now run them. The Windows installer and real QuickBooks Enterprise connection still require Greg's local validation.
+
 
 ### 4–5 Nov 2026: setup and first releases
 - [x] Scaffolded the app (server/till modes, Sell, Products, Reports, Settings, Updates screens)
@@ -398,7 +408,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Latest release: v0.3.20** (receiving). Next release: **v0.3.21** click-to-change price (DB migration 21: update the Store Server PC first). Idea: a "price changes" report from `sale_items.regular_price_cents`; a staff PIN/reason for price changes.
+**Update prepared: v0.3.22** (migration 22). Copy the update files into the existing main checkout, run the included checks, then commit and tag to publish. Update Store Server first and all tills before selling.
+
+Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 
 0. Build out the "coming soon" tiles as needed: End of Day, Purchasing (POs and a vendor list; receiving done in v0.3.20; next: build a receiving from a PO, print a receiving report), Departments, QuickBooks sync
    - ~~Tax-inclusive vs tax-added~~ (tax added at checkout since v0.3.16). Still to do: apply customer Discount % and Custom Price levels (from QB POS) by customer type; selling by case (Unit of Measure 1); QuickBooks tax item per tax rate
@@ -406,7 +418,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 1. Staff PINs and an audit log (who rang up each sale)
 2. ~~Refunds~~ (done). Still to do: **void** a sale the same day (the `sales.status` column already exists); manager PIN to approve no-receipt returns; print a barcode on receipts so scanning finds them instantly; a "no-receipt returns" report
 3. ~~Receipt printer~~ (printing setup done in v0.3.11). Still to do: cash drawer kick (most drawers open from the receipt printer; needs a raw ESC/POS command)
-4. Automatic daily database backups
+4. Off-PC backup destination and retention (local verified backups restored in v0.3.22)
 5. Windows code-signing certificate (removes the SmartScreen warning)
 6. ~~App icon~~ (done in v0.3.10)
 7. Later: offline mode for tills, multi-store / cloud reporting

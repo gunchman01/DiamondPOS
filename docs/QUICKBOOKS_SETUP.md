@@ -1,70 +1,50 @@
-# Connecting DiamondPOS to QuickBooks Desktop
+# Connecting DiamondPOS to QuickBooks Desktop Enterprise
 
-DiamondPOS sends **one Sales Receipt per day for each payment type** (cash, card) to QuickBooks Enterprise, using Intuit's free **QuickBooks Web Connector**. Items, prices and stock stay in DiamondPOS; QuickBooks only gets the daily totals.
+Version 0.3.22 sends one Sales Receipt for each eligible POS sale, including its customer name, item descriptions, serial numbers when present, amount and payment method. Inventory quantities and equipment records stay in DiamondPOS. The connector does not update QuickBooks inventory.
 
-## What appears in QuickBooks
+## One-time connection
 
-For each closed day (today is sent tomorrow):
+1. If QuickBooks is on the Store Server PC, use the direct connector file on Home → Sync w/ QuickBooks.
+2. If QuickBooks is on another PC, install/run DiamondPOS there as a Till, turn on **Run the QuickBooks bridge on this computer**, and use the connector file for QuickBooks on another PC. Keep that app running.
+3. Open QuickBooks Enterprise as Admin in the intended company file. Open File → Update Web Services and add the downloaded DiamondPOS.qwc file. Grant the required access and enter the password shown in DiamondPOS.
+4. Run the connector once to load accounts, tax items, tax codes and payment methods. Sending can remain off while lists are read.
+5. Select the start date, sales tax item, taxable/non-taxable codes, income account mappings and deposit/payment accounts. Save the mapping.
+6. Preview a day in DiamondPOS. Confirm the customer, items, tax and receipt total.
+7. Switch on **Send individual sales to QuickBooks**, and run the connector again. Today's sales are eligible immediately.
 
-| Field | Value |
-|---|---|
-| Customer | `DiamondPOS Daily Sales` (created automatically) |
-| Sales Receipt No. | `POS261105C` (cash) / `POS261105D` (card): year-month-day + C/D |
-| Date | the day of the sales |
-| Deposit to / Payment method | as chosen on the QuickBooks screen (e.g. Undeposited Funds / Cash) |
-| Lines | one **taxable** and one **non-taxable** line per department, using items called `POS <Department>` (created automatically with the income account you chose) |
-| Sales tax | added by QuickBooks from your sales tax item. Any cents difference from the tax actually collected goes on a `POS Tax Rounding` line, so the total always equals the money taken. |
-| Memo | e.g. `DiamondPOS card sales 2026-11-05: 41 receipt(s) #880-#921, 2 tax exempt` |
+## Customer handling
 
-- **Tax-exempt sales** and **non-taxable items** go on the non-taxable lines, so QuickBooks' Sales Tax Liability report is correct.
-- **Nothing is sent twice.** Before adding a receipt, DiamondPOS checks whether that Sales Receipt No. already exists in QuickBooks.
-- Days before the **start date** are never sent.
+A selected customer's displayed name receives a short POS identifier, for example `Greg Barnes [DP123]`. It distinguishes two people with the same name and avoids automatically merging an unrelated existing accounting customer. The complete QuickBooks name is limited to 41 characters, so long names are shortened before adding the identifier. Colons and control characters are removed. Once a name has been recorded for export, later sales reuse it after a local rename. Customer contact/address details are not transferred.
 
-## One-time setup
+The connector queries that exact name and creates it if missing. Existing unsuffixed QuickBooks customers are not automatically matched or merged. Sales with no customer selected use the configured walk-in customer name.
 
-### 1. Which PC has QuickBooks?
+## Transactions and retries
 
-- **QuickBooks is on the store server PC:** nothing extra to install.
-- **QuickBooks is on another PC (e.g. back office):** install DiamondPOS on that PC as a **Till**. In **Home → Sync w/ QuickBooks**, tick **"Run the QuickBooks bridge on this computer"**. Keep DiamondPOS running on that PC (it can be minimised).
-  - The Web Connector only allows connections to `localhost`, so the bridge relays them to the store server.
+- Each sale gets its own stable QuickBooks reference, such as DP1 or DP2 (base-36 POS receipt ID). The memo contains the ordinary POS receipt number.
+- POS items use Other Charge accounting items by department, not QuickBooks inventory items. The item description identifies what was sold and any serial number.
+- The configured QuickBooks tax item calculates tax. A non-taxable reconciliation line accounts for the difference from the tax actually collected by DiamondPOS; inspect your tax reports as part of the first connection test.
+- The connector checks for the reference before adding it. A previous receipt is recognized only when its POS identifying memo, customer and total match. A conflicting reference is flagged for reconciliation.
+- If an add response is lost, the next sync checks for the existing receipt. Do not also enter that sale by hand while its outcome is unknown.
+- Problems are shown in Sent to QuickBooks and the sync log. Fix the mapping/problem and choose Retry.
 
-### 2. Download the connector file
+## Exceptions requiring entry by hand
 
-In DiamondPOS go to **Home → Sync w/ QuickBooks** and click the matching **Connector file** button. It saves `DiamondPOS.qwc`.
+Refunds, zero-total exchanges and split-tender sales are explicitly flagged. They are not silently skipped or sent to an incorrect deposit account. Enter the appropriate refund, credit or split-payment accounting transaction in QuickBooks, then mark the receipt **Entered by hand** in DiamondPOS.
 
-### 3. Add it to the Web Connector (on the QuickBooks PC)
+## Upgrading from daily exports
 
-1. Open QuickBooks Enterprise and the company file, **signed in as Admin**, in single-user mode for this one-time step.
-2. **File → Update Web Services** opens the Web Connector. Click **Add an application** and choose `DiamondPOS.qwc`.
-3. QuickBooks asks for permission. Choose **"Yes, always; allow access even if QuickBooks is not running"**, continue and **Done**.
-4. In the Web Connector, type the **password** shown on the DiamondPOS QuickBooks screen into the Password box and save it.
-5. Tick **Auto-Run** (every 30 minutes), then click **Update Selected** to run it now.
+Migration 22 turns sending off once and keeps the original `qb_exports` history. Review the start date and mapping before enabling individual sending. If any old daily export record exists for a date, individual receipts on that date are flagged for reconciliation, even if the old export is pending or errored: a request might already have reached QuickBooks. Do not enter those receipts again if the daily export already included them. Old daily history remains in the database; the screen lists the new individual exports.
 
-The DiamondPOS QuickBooks screen should now say **Connected to <your company>**.
+Avoid running an older server version after switching to individual exports: it still knows the old daily-export format. If rollback is necessary, turn sync off first and reconcile before resuming exports.
 
-### 4. Map the accounts (DiamondPOS QuickBooks screen)
+## First connection check on Greg's PC
 
-1. **Start sending from:** usually today, so old sales aren't posted.
-2. **Sales tax item:** your QuickBooks sales tax item. Its rate should match the tax rate in DiamondPOS Settings.
-3. **Taxable / non-taxable codes:** normally `Tax` and `Non`.
-4. **Default income account**, plus an income account for any department that should post separately.
-5. **Payments:** the deposit account (usually *Undeposited Funds*) and payment method for cash and card.
-6. Click **Save mapping**, then tick **Send daily sales to QuickBooks**.
+These changes have automated mocked Web Connector coverage, but have not been tested against a running QuickBooks Enterprise company file here.
 
-Use **Preview a day** to see exactly what will be posted before switching it on.
+1. Use the company's intended test setup and confirm the correct company is open.
+2. Preview a small named-customer cash sale and a card sale, then sync them.
+3. In QuickBooks, verify the customer names, item descriptions, totals, taxes and deposit accounts.
+4. Run the connector a second time and confirm no additional receipts appear.
+5. Confirm a refund is listed as Enter by hand, and practice the reconciliation workflow.
 
-## Day to day
-
-- Nothing to do. Make sure the QuickBooks PC (and the bridge, if used) is on overnight or in the morning.
-- **Problems** show in red under *Sent to QuickBooks* with QuickBooks' own message (e.g. an account that was renamed). Fix the mapping and click **Retry**.
-- Added a new department or account in QuickBooks? Click **Re-read lists from QuickBooks**. Lists also refresh daily.
-- Changing a department's income account later affects new `POS <Department>` items only. For an existing item, change its account in QuickBooks (Lists → Item List).
-
-## Troubleshooting
-
-| Message | Fix |
-|---|---|
-| Web Connector: "authentication failed" | The password was changed. Download the connector file again, or re-enter the password. |
-| "Could not open QuickBooks" (connectionError) | QuickBooks isn't installed on that PC, the company file moved, or permission wasn't set to "even if QuickBooks is not running". |
-| "invalid reference to QuickBooks Account/Item…" | The name in the mapping doesn't exist in QuickBooks (renamed or inactive). Re-read lists, re-select, Save, Retry. |
-| Bridge PC: "store server could not be reached" | That PC lost the network, or the store server PC is off. |
+Reference: [Intuit QuickBooks Desktop SDK guide](https://static.developer.intuit.com/resources/QBSDK_ProGuide.pdf).

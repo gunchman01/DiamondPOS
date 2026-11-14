@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "postinstall": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder --win --publish never",
-    "release": "npm run build && electron-builder --win --publish always"
+    "release": "npm run build && electron-builder --win --publish always",
+    "test": "node scripts/test.cjs",
+    "verify:backup": "node scripts/verify-backup.cjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",

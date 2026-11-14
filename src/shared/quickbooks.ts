@@ -11,7 +11,7 @@ export interface QbConfig {
   password: string
   /** Days before this date are never sent (YYYY-MM-DD) */
   startDate: string
-  /** QuickBooks customer used on the daily summary Sales Receipts */
+  /** QuickBooks customer used only when a sale has no selected customer */
   customerName: string
   /** QuickBooks sales tax item (e.g. "State Sales Tax") */
   salesTaxItem: string
@@ -47,13 +47,15 @@ export interface QbLists {
 }
 
 export interface QbExport {
+  saleId?: number
+  customerName?: string
   id: number
   saleDate: string
   method: QbMethod
   refNumber: string
   totalCents: number
   saleCount: number
-  /** manual = refunds were more than sales for this payment type that day: enter it in QuickBooks by hand */
+  /** manual = refund, zero total, split payment, or legacy overlap: reconcile in QuickBooks by hand */
   status: 'pending' | 'sent' | 'error' | 'manual'
   txnId: string | null
   error: string | null
@@ -79,6 +81,7 @@ export interface QbStatus {
 
 /** One line of a daily summary Sales Receipt */
 export interface QbSummaryLine {
+  description?: string
   department: string // '' = no department
   itemName: string // QuickBooks Other Charge item, e.g. "POS Feed"
   account: string
@@ -88,6 +91,10 @@ export interface QbSummaryLine {
 
 /** The Sales Receipt DiamondPOS will create for one day + payment method */
 export interface QbDailySummary {
+  saleId?: number
+  customerId?: number | null
+  customerName?: string
+  manualReason?: string
   saleDate: string
   method: QbMethod
   refNumber: string

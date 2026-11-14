@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type StoreSettings } from '../../../shared/types'
+import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type SaleRequest, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
 import { currentPrintSettings } from '../printing'
@@ -70,6 +70,14 @@ export default function Sell({
   workOrder?: { id: number; mode: WoSaleMode } | null
   onWorkOrderDone?: () => void
 }) {
+  const pendingKey = `diamondpos-checkout:${boot.config.serverUrl}:${boot.config.tillName}`
+  const [pendingCheckout, setPendingCheckout] = useState<SaleRequest | null>(() => {
+    const value = localStorage.getItem(pendingKey)
+    return value ? JSON.parse(value) as SaleRequest : null
+  })
+  const checkoutBusy = useRef(false)
+  const [checkoutWaiting, setCheckoutWaiting] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
   const [cart, setCart] = useState<CartLine[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** Item waiting for its serial number to be typed or scanned */
@@ -272,7 +280,16 @@ export default function Sell({
     creditAvailable
   )
   // Returned items: refunded at the price paid on the original receipt (same maths as the server)
-  const retPriced = returns.map((l) => returnAmount(l.unitCents, l.qty, l.taxable, l.origExempt, l.origTaxRate ?? rate, l.origTaxMode ?? 'added'))
+  const returnProgress = new Map<number, { qty: number; tax: number }>()
+  const retPriced = returns.map((l) => {
+    const prev = l.saleItemId === null ? undefined : returnProgress.get(l.saleItemId)
+    const original = l.originalTax ? { ...l.originalTax,
+      qtyReturned: l.originalTax.qtyReturned + (prev?.qty ?? 0),
+      taxRefundedCents: l.originalTax.taxRefundedCents + (prev?.tax ?? 0) } : undefined
+    const amount = returnAmount(l.unitCents, l.qty, l.taxable, l.origExempt, l.origTaxRate ?? rate, l.origTaxMode ?? 'added', original)
+    if (l.saleItemId !== null) returnProgress.set(l.saleItemId, { qty: (prev?.qty ?? 0) + l.qty, tax: (prev?.tax ?? 0) + amount.taxCents })
+    return amount
+  })
   /** Returned items before tax, and the tax refunded on them */
   const refundNet = retPriced.reduce((s, r) => s + r.netCents, 0)
   const refundTax = retPriced.reduce((s, r) => s + r.taxCents, 0)
@@ -570,44 +587,70 @@ export default function Sell({
   }
 
   async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string) {
-    const sale = await api.createSale({
-      tillName: boot.config.tillName,
-      customerId: customer?.id ?? null,
-      taxExempt: applyExempt,
-      items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial, ...(l.priceCents !== undefined ? { unitPriceCents: l.priceCents } : {}) })),
-      returns: returns.map((l) =>
-        l.saleItemId !== null
-          ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
-          : { productId: l.productId!, qty: l.qty, reason: l.reason, restock: l.restock }
-      ),
-      payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
-      workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
-      heldId: held?.id ?? null,
-      taxRateId: taxChoice?.id ?? null
-    })
-    if (held) {
-      setHeld(null)
-      refreshHeldCount()
+    if (checkoutBusy.current) return
+    checkoutBusy.current = true
+    setCheckoutWaiting(true)
+    setCheckoutError('')
+    try {
+      const request: SaleRequest = pendingCheckout ?? {
+        requestId: crypto.randomUUID(),
+        tillName: boot.config.tillName,
+        customerId: customer?.id ?? null,
+        taxExempt: applyExempt,
+        items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial, ...(l.priceCents !== undefined ? { unitPriceCents: l.priceCents } : {}) })),
+        returns: returns.map((l) =>
+          l.saleItemId !== null
+            ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
+            : { productId: l.productId!, qty: l.qty, reason: l.reason, restock: l.restock }
+        ),
+        payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
+        workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
+        heldId: held?.id ?? null,
+        taxRateId: taxChoice?.id ?? null
+      }
+      // If storage fails, do not submit: we must be able to recover the exact request.
+      localStorage.setItem(pendingKey, JSON.stringify(request))
+      setPendingCheckout(request)
+      setPaying(null)
+      const sale = await api.createSale(request)
+      localStorage.removeItem(pendingKey)
+      setPendingCheckout(null)
+      if (held) {
+        setHeld(null)
+        refreshHeldCount()
+      }
+      if (wo) {
+        setWo(null)
+        onWorkOrderDone?.()
+      }
+      setPaying(null)
+      setCart([])
+      setReturns([])
+      setReceipts({})
+      setSelectedId(null)
+      setCustomer(null)
+      setExempt(false)
+      setTaxRateId(null)
+      setLastSale(sale)
+      setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
+      // Print straight away if this till is set to (Settings → Printing)
+      currentPrintSettings()
+        .then((ps) => (ps.autoPrint ? printReceipt(sale) : undefined))
+        .catch(() => {})
+      focusScan()
+    } catch (error) {
+      // A 4xx response is a definite rejection; network and 5xx failures may follow a commit.
+      if ((error as { definite?: boolean }).definite) {
+        localStorage.removeItem(pendingKey)
+        setPendingCheckout(null)
+      }
+      setCheckoutError((error as Error).message)
+      setMessage({ kind: 'error', text: (error as Error).message })
+      throw error
+    } finally {
+      checkoutBusy.current = false
+      setCheckoutWaiting(false)
     }
-    if (wo) {
-      setWo(null)
-      onWorkOrderDone?.()
-    }
-    setPaying(null)
-    setCart([])
-    setReturns([])
-    setReceipts({})
-    setSelectedId(null)
-    setCustomer(null)
-    setExempt(false)
-    setTaxRateId(null)
-    setLastSale(sale)
-    setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
-    // Print straight away if this till is set to (Settings → Printing)
-    currentPrintSettings()
-      .then((ps) => (ps.autoPrint ? printReceipt(sale) : undefined))
-      .catch(() => {})
-    focusScan()
   }
 
   /** Opens the printer chooser (or prints straight away if this till doesn't ask) */
@@ -638,13 +681,20 @@ export default function Sell({
     }
   }
   useEffect(() => {
-    const listener = (e: KeyboardEvent) => keyHandler.current?.(e)
+    const listener = (e: KeyboardEvent) => { if (!localStorage.getItem(pendingKey)) keyHandler.current?.(e) }
     window.addEventListener('keydown', listener)
     return () => window.removeEventListener('keydown', listener)
   }, [])
 
   return (
     <div className={hasQuickPicks ? 'register' : 'register no-quick'}>
+      {pendingCheckout && <div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true">
+        <h2>{checkoutWaiting ? 'Saving checkout…' : 'Recover checkout'}</h2>
+        <p>Keep this checkout open until its receipt is confirmed. Do not take payment again.</p>
+        <p>Retry checks the original checkout and will not create another copy.</p>
+        {checkoutError && <p className="error-text">{checkoutError}</p>}
+        <button className="primary" disabled={checkoutWaiting} onClick={() => completeSale(null, 0, '').catch(() => {})}>Check / retry original checkout</button>
+      </div></div>}
       {/* ---------- Header strip ---------- */}
       <div className="reg-head">
         <h2>

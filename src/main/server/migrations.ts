@@ -528,6 +528,36 @@ export const migrations: Migration[] = [
     up: `
       ALTER TABLE sale_items ADD COLUMN regular_price_cents INTEGER;
     `
+  },
+  {
+    version: 22,
+    name: 'checkout recovery and individual QuickBooks exports',
+    up: `
+      CREATE TABLE checkout_requests (
+        request_id TEXT PRIMARY KEY,
+        request_hash TEXT NOT NULL,
+        sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id)
+      );
+      CREATE TABLE qb_sale_exports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id),
+        customer_name TEXT NOT NULL,
+        sale_date TEXT NOT NULL,
+        method TEXT NOT NULL,
+        ref_number TEXT NOT NULL UNIQUE,
+        total_cents INTEGER NOT NULL,
+        sale_count INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'pending',
+        txn_id TEXT,
+        error TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        sent_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      -- Review the start date before enabling the changed export format.
+      UPDATE settings SET value = json_set(value, '$.enabled', json('false'))
+        WHERE key = 'qb_config' AND json_valid(value);
+    `
   }
 ]
 

@@ -30,6 +30,8 @@ export interface ReturnableLine {
   qtySold: number
   qtyReturned: number
   /** Price per unit on the receipt (before tax on 'added' receipts; tax included on older 'inclusive' ones) */
+  taxPaidCents?: number
+  taxRefundedCents?: number
   unitPaidCents: number
   taxable: boolean
   /** Inventory item (can go back to stock) */
@@ -74,7 +76,16 @@ export type TaxMode = 'added' | 'inclusive'
  * mode = how the ORIGINAL sale was taxed: 'added' (v0.3.16+, tax on top) or 'inclusive' (older sales, tax inside the price).
  * taxRate = the rate used on the original sale.
  */
-export function returnAmount(unitPaidCents: number, qty: number, taxable: boolean, origExempt: boolean, taxRate: number, mode: TaxMode = 'added') {
+export function returnAmount(unitPaidCents: number, qty: number, taxable: boolean, origExempt: boolean, taxRate: number, mode: TaxMode = 'added', original?: { taxCents: number; qtySold: number; qtyReturned: number; taxRefundedCents: number }) {
+  if (original) {
+    const remaining = Math.max(0, original.taxCents - original.taxRefundedCents)
+    const tax = Math.max(0, Math.min(remaining,
+      qty + original.qtyReturned >= original.qtySold ? remaining :
+      Math.round(original.taxCents * (original.qtyReturned + qty) / original.qtySold) - original.taxRefundedCents))
+    const amount = unitPaidCents * qty
+    return mode === 'inclusive' ? { amountCents: amount, taxCents: tax, netCents: amount - tax } :
+      { amountCents: amount + tax, taxCents: tax, netCents: amount }
+  }
   const charged = taxable && !origExempt
   if (mode === 'inclusive') {
     const amount = unitPaidCents * qty

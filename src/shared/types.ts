@@ -115,6 +115,8 @@ export interface PaymentInput {
 }
 
 export interface SaleRequest {
+  /** Stable across retries, including a lost response. */
+  requestId: string
   tillName: string
   /** Optional customer / business the sale is for */
   customerId?: number | null

@@ -69,8 +69,14 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
   } catch {
     throw new Error('Cannot reach the store server. Check the network and that the server PC is running.')
   }
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? `Server error ${res.status}`)
+  let data: unknown
+  try { data = await res.json() }
+  catch { throw new Error('The store server reply was incomplete. Check / retry the original checkout to confirm its receipt.') }
+  if (!res.ok) {
+    const error = new Error((data as { error?: string }).error ?? `Server error ${res.status}`) as Error & { definite?: boolean }
+    error.definite = res.status >= 400 && res.status < 500
+    throw error
+  }
   return data as T
 }
 

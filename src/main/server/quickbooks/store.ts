@@ -31,7 +31,7 @@ export function getQbConfig(db: DB): QbConfig {
     username: saved.username ?? 'diamondpos',
     password: saved.password ?? '',
     startDate: saved.startDate ?? today(),
-    customerName: saved.customerName ?? 'DiamondPOS Daily Sales',
+    customerName: saved.customerName === 'DiamondPOS Daily Sales' ? 'DiamondPOS Walk-in' : saved.customerName ?? 'DiamondPOS Walk-in',
     salesTaxItem: saved.salesTaxItem ?? '',
     taxableCode: saved.taxableCode ?? 'Tax',
     nonTaxableCode: saved.nonTaxableCode ?? 'Non',
@@ -116,6 +116,8 @@ export function readQbLog(db: DB, limit = 200): QbLogEntry[] {
 
 type ExportRow = {
   id: number
+  sale_id?: number
+  customer_name?: string
   sale_date: string
   method: 'cash' | 'card' | 'check'
   ref_number: string
@@ -130,6 +132,8 @@ type ExportRow = {
 
 export const toExport = (r: ExportRow): QbExport => ({
   id: r.id,
+  saleId: r.sale_id,
+  customerName: r.customer_name,
   saleDate: r.sale_date,
   method: r.method,
   refNumber: r.ref_number,
@@ -144,7 +148,7 @@ export const toExport = (r: ExportRow): QbExport => ({
 
 export function listExports(db: DB, limit = 120): QbExport[] {
   return (
-    db.prepare('SELECT * FROM qb_exports ORDER BY sale_date DESC, method LIMIT ?').all(limit) as ExportRow[]
+    db.prepare('SELECT * FROM qb_sale_exports ORDER BY sale_id DESC LIMIT ?').all(limit) as ExportRow[]
   ).map(toExport)
 }
 

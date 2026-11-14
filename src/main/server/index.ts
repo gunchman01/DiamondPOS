@@ -9,6 +9,9 @@
  */
 import express, { NextFunction, Request, Response } from 'express'
 import type { Server } from 'http'
+import path from 'path'
+import crypto from 'crypto'
+import { startBackupScheduler } from './backup'
 import { openDatabase, getSchemaVersion, DB } from './db'
 import {
   DEFAULTS,
@@ -48,7 +51,7 @@ import { priceWithFeeCredit } from '../../shared/workorders'
 import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
 import { normaliseDesigns } from '../../shared/printDesigns'
 import { registerFeedbackRoutes } from './feedback'
-import { completeHeld, registerHeldRoutes } from './held'
+import { completeHeld, registerHeldRoutes, HeldError } from './held'
 import { registerDeleteRoutes } from './deleting'
 import { registerReceivingRoutes } from './receiving'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
@@ -82,6 +85,7 @@ class HttpError extends Error {
 
 let httpServer: Server | null = null
 let db: DB | null = null
+let stopBackups: (() => Promise<void>) | null = null
 
 export function isServerRunning(): boolean {
   return httpServer !== null
@@ -89,19 +93,39 @@ export function isServerRunning(): boolean {
 
 export async function startServer(opts: ServerOptions): Promise<void> {
   if (httpServer) return
-  db = openDatabase(opts.dbFile)
-  const app = createApp(db, opts)
-  await new Promise<void>((resolve, reject) => {
-    const s = app.listen(opts.port, opts.host ?? '0.0.0.0', () => resolve())
-    s.on('error', reject)
-    httpServer = s
-  })
-  console.log(`[server] Listening on port ${opts.port}`)
-  startMarketingSender(db, readSettings) // sends mailers in the background (and resumes after a restart)
+  const opened = openDatabase(opts.dbFile)
+  let listener: Server | null = null
+  try {
+    const app = createApp(opened, opts)
+    await new Promise<void>((resolve, reject) => {
+      listener = app.listen(opts.port, opts.host ?? '0.0.0.0')
+      listener.once('error', reject)
+      listener.once('listening', () => {
+        listener!.removeListener('error', reject)
+        resolve()
+      })
+    })
+    db = opened
+    httpServer = listener
+    stopBackups = startBackupScheduler(opened, path.join(path.dirname(opts.dbFile), 'backups'))
+    startMarketingSender(opened, readSettings)
+    console.log(`[server] Listening on port ${opts.port}`)
+  } catch (error) {
+    stopMarketingSender()
+    if (stopBackups) await stopBackups()
+    stopBackups = null
+    if (listener) await new Promise<void>((resolve) => listener!.close(() => resolve()))
+    httpServer = null
+    db = null
+    opened.close()
+    throw error
+  }
 }
 
 export async function stopServer(): Promise<void> {
   stopMarketingSender()
+  if (stopBackups) await stopBackups()
+  stopBackups = null
   if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
   httpServer = null
   db?.close()
@@ -405,6 +429,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // ----- Errors ------------------------------------------------------------
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof HeldError) return res.status(err.status).json({ error: err.message })
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message })
     if (err instanceof ReturnError) return res.status(err.status).json({ error: err.message })
@@ -486,7 +511,24 @@ export function readSettings(db: DB): StoreSettings {
  * (never trusted from the till) so every till charges the same price.
  * Shelf prices are before tax; sales tax is added at checkout at the sale's tax rate (Settings → Taxes).
  */
-function createSale(db: DB, req: SaleRequest): Sale {
+export function createSale(db: DB, req: SaleRequest): Sale {
+  return db.transaction(() => {
+    if (!req || typeof req.requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(req.requestId))
+      throw new HttpError(400, 'This till needs updating before checkout. Update all PCs to v0.3.22.')
+    const requestHash = crypto.createHash('sha256').update(JSON.stringify(req)).digest('hex')
+    const previous = db.prepare('SELECT sale_id, request_hash FROM checkout_requests WHERE request_id = ?').get(req.requestId) as
+      { sale_id: number; request_hash: string } | undefined
+    if (previous) {
+      if (previous.request_hash !== requestHash) throw new HttpError(409, 'Checkout ID was reused for a different sale')
+      return getSale(db, previous.sale_id)!
+    }
+    const sale = createSaleOnce(db, req)
+    db.prepare('INSERT INTO checkout_requests (request_id, request_hash, sale_id) VALUES (?, ?, ?)').run(req.requestId, requestHash, sale.id)
+    return sale
+  })()
+}
+
+function createSaleOnce(db: DB, req: SaleRequest): Sale {
   if (!req || !Array.isArray(req.items)) throw new HttpError(400, 'Sale has no items')
   if (!Array.isArray(req.payments)) throw new HttpError(400, 'Sale has no payment')
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)

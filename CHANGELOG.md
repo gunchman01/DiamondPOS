@@ -14,6 +14,16 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.22 - 13 Nov 2026
+> Update the Store Server PC first, then every till before taking sales.
+- Automatic database backups run at server startup and every 15 minutes. Each backup is checked before it is kept.
+- Checkout can recover a lost network response without saving the same sale twice. If Recover checkout appears, use Check / retry original checkout; do not take payment again.
+- A held receipt can only be completed once, even when two tills recall it.
+- Partial returns refund the tax pennies from the original sale consistently.
+- QuickBooks now receives individual sales and customer names, instead of daily totals. Customers include a short [DP…] identifier to keep same-name people separate; inventory stays in DiamondPOS.
+- QuickBooks sync is switched off once during this upgrade. Review the start date and account mapping before switching it back on. Refunds, zero-total exchanges, split payments and dates with old daily exports are flagged for entry by hand.
+- Fixed server startup recovery when another program is using the store port.
+
 ## v0.3.21 - 9 Nov 2026
 > Update the Store Server PC first.
 - **Change a price by clicking it**: on the Sale screen, click the price on a line, type the new price and press Enter. It's for that sale only (the item's price doesn't change). Changed prices show in red with the regular price under them, and the sale remembers the regular price.

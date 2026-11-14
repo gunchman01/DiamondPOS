@@ -9,8 +9,8 @@
  *   1. company name (proves we're connected)
  *   2. reference lists (accounts, sales tax items/codes, payment methods,
  *      Other Charge items) - daily, or when "Refresh lists" is clicked
- *   3. if the mapping is complete: make sure the summary customer and the
- *      "POS <Department>" items exist, then for every closed day not yet sent:
+ *   3. if the mapping is complete: make sure each sale customer and the
+ *      "POS <Department>" items exist, then for every individual sale not yet sent:
  *      look for the Sales Receipt No. first (never post twice), then add it.
  *
  * The Web Connector only allows plain http:// to "localhost", so it must run on
@@ -25,9 +25,8 @@ import { QB_ROUNDING_ITEM, qbItemName, type QbConfig, type QbDailySummary, type 
 import { SERVER_PORT, QB_BRIDGE_PORT } from '../../../shared/constants'
 import { child, esc, parseXml, text } from './xml'
 import { envelope, parseResponse, readList, rq, salesReceiptTxnId, type QbResult } from './qbxml'
-import { dailySummaries, salesDates } from './summary'
+import { individualSummaries, salesDates } from './summary'
 import {
-  getExportRow,
   getQbConfig,
   getQbLists,
   listExports,
@@ -50,15 +49,12 @@ interface Session {
   lastError: string
   sent: number
   failed: number
+  touchedAt: number
 }
 
 const sessions = new Map<string, Session>()
 let lastContact: string | null = null
 
-const localToday = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 /** What still needs setting up before sales can be sent */
 export function qbMissing(db: DB, cfg: QbConfig = getQbConfig(db)): string[] {
@@ -66,7 +62,7 @@ export function qbMissing(db: DB, cfg: QbConfig = getQbConfig(db)): string[] {
   const out: string[] = []
   if (!cfg.enabled) out.push('Sync is switched off')
   if (!lists.fetchedAt) out.push('Run the Web Connector once so Diamond POS can read your QuickBooks lists')
-  if (!cfg.customerName.trim()) out.push('Enter the QuickBooks customer name for daily sales')
+  if (!cfg.customerName.trim() || cfg.customerName.length > 41 || cfg.customerName.includes(':')) out.push('Enter a walk-in customer name of 1–41 characters without a colon')
   if (!cfg.salesTaxItem) out.push('Choose the QuickBooks sales tax item')
   if (!cfg.taxableCode || !cfg.nonTaxableCode) out.push('Choose the taxable and non-taxable sales tax codes')
   if (!cfg.defaultIncomeAccount) out.push('Choose the default income account')
@@ -92,37 +88,34 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     return item && item.rate !== null ? item.rate / 100 : null
   }
 
+  const tomorrow = () => {
+    const d = new Date(); d.setDate(d.getDate() + 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   // ---------- Export bookkeeping ----------
   const upsertExport = (s: QbDailySummary) => {
-    const row = getExportRow(db, s.saleDate, s.method)
-    if (!row)
-      db.prepare(
-        'INSERT INTO qb_exports (sale_date, method, ref_number, total_cents, sale_count) VALUES (?, ?, ?, ?, ?)'
-      ).run(s.saleDate, s.method, s.refNumber, s.totalCents, s.saleCount)
-    else if (row.status === 'pending')
-      db.prepare(
-        "UPDATE qb_exports SET total_cents = ?, sale_count = ?, updated_at = datetime('now') WHERE id = ?"
-      ).run(s.totalCents, s.saleCount, row.id)
-    return getExportRow(db, s.saleDate, s.method)!
+    db.prepare(`INSERT OR IGNORE INTO qb_sale_exports
+      (sale_id, customer_name, sale_date, method, ref_number, total_cents, sale_count)
+      VALUES (?, ?, ?, ?, ?, ?, 1)`).run(s.saleId!, s.customerName!, s.saleDate, s.method, s.refNumber, s.totalCents)
+    return db.prepare('SELECT id, status FROM qb_sale_exports WHERE sale_id = ?').get(s.saleId!) as { id: number; status: string }
   }
   const markSent = (id: number, txnId: string) =>
     db
       .prepare(
-        "UPDATE qb_exports SET status = 'sent', txn_id = ?, error = NULL, attempts = attempts + 1, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+        "UPDATE qb_sale_exports SET status = 'sent', txn_id = ?, error = NULL, attempts = attempts + 1, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
       )
       .run(txnId, id)
   const markError = (id: number, msg: string) =>
     db
       .prepare(
-        "UPDATE qb_exports SET status = 'error', error = ?, attempts = attempts + 1, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE qb_sale_exports SET status = 'error', error = ?, attempts = attempts + 1, updated_at = datetime('now') WHERE id = ?"
       )
       .run(msg.slice(0, 1000), id)
 
   const markManual = (id: number, sm: QbDailySummary) => {
-    const msg =
-      `Refunds were more than sales (${sm.method}) on ${sm.saleDate}: net -$${(-sm.totalCents / 100).toFixed(2)}. ` +
-      `QuickBooks can't take a negative Sales Receipt, so enter it in QuickBooks as a Refund Receipt / Credit Memo, then click "Entered by hand".`
-    db.prepare("UPDATE qb_exports SET status = 'manual', error = ?, updated_at = datetime('now') WHERE id = ?").run(msg, id)
+    const msg = `Receipt #${sm.saleId} (${sm.customerName}): ${sm.manualReason}`
+    db.prepare("UPDATE qb_sale_exports SET status = 'manual', error = ?, updated_at = datetime('now') WHERE id = ?").run(msg, id)
     qbLog(db, 'warn', msg)
   }
 
@@ -139,7 +132,8 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         onOk: (r) => {
           const company = readList.company(r)
           saveQbLists(db, company)
-        }
+        },
+        onFail: () => { s.queue = [] }
       }
     ]
     if (cfg.refreshLists || stale) {
@@ -147,7 +141,8 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         kind: 'rq',
         label,
         xml,
-        onOk: (r) => saveQbLists(db, read(r))
+        onOk: (r) => saveQbLists(db, read(r)),
+        onFail: () => { s.queue = [] }
       })
       q.push(
         listStep('Accounts', rq.accounts(), readList.accounts),
@@ -166,13 +161,6 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         }
       )
     }
-    if (cfg.customerName.trim())
-      q.push({
-        kind: 'rq',
-        label: 'Customer',
-        xml: rq.customer(cfg.customerName),
-        onOk: (r) => saveQbLists(db, { customerExists: !!child(r.node, 'CustomerRet') })
-      })
     q.push({ kind: 'plan', label: 'Plan exports', run: () => planExports(s) })
     s.queue = q
   }
@@ -188,32 +176,22 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     const rate = readSettings(db).taxRate
     const qbRate = qbTaxRate(cfg)
     const toSend: { summary: QbDailySummary; exportId: number }[] = []
-    for (const date of salesDates(db, cfg.startDate, localToday())) {
-      for (const summary of dailySummaries(db, date, cfg, rate, qbRate)) {
+    for (const date of salesDates(db, cfg.startDate, tomorrow())) {
+      for (const summary of individualSummaries(db, date, cfg, rate, qbRate)) {
         const row = upsertExport(summary)
-        if (row.status === 'pending' && summary.totalCents < 0) {
-          // More refunded than sold for this payment type: QuickBooks can't take a negative Sales Receipt
+        if (row.status === 'pending' && summary.manualReason) {
+          // Refunds, split tenders, and legacy daily exports require reconciliation
           markManual(row.id, summary)
           continue
         }
         if (row.status === 'pending') toSend.push({ summary, exportId: row.id })
+        if (toSend.length >= 40) break
       }
       if (toSend.length >= 40) break // keep each sync short; the rest go next time
     }
     if (toSend.length === 0) return
 
     const steps: Step[] = []
-    if (!lists.customerExists)
-      steps.push({
-        kind: 'rq',
-        label: `Create customer "${cfg.customerName}"`,
-        xml: rq.addCustomer(cfg.customerName),
-        onOk: () => {
-          saveQbLists(db, { customerExists: true })
-          qbLog(db, 'info', `Created QuickBooks customer "${cfg.customerName}"`)
-        }
-      })
-
     // The "POS <Department>" Other Charge items each line uses
     const have = new Set(lists.otherChargeItems.map((n) => n.toLowerCase()))
     const needed = new Map<string, string>()
@@ -227,7 +205,8 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         onOk: () => {
           saveQbLists(db, { otherChargeItems: [...getQbLists(db).otherChargeItems, name] })
           qbLog(db, 'info', `Created QuickBooks item "${name}" (income account: ${account})`)
-        }
+        },
+        onFail: () => { s.queue = [] } 
       })
 
     for (const { summary, exportId } of toSend) {
@@ -239,28 +218,42 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         onOk: (r) => {
           const existing = salesReceiptTxnId(r)
           if (existing) {
+            const receipt = child(r.node, 'SalesReceiptRet')
+            const customer = text(child(receipt, 'CustomerRef'), 'FullName')
+            const total = Math.round(Number(text(receipt, 'TotalAmount')) * 100)
+            if (!text(receipt, 'Memo').startsWith(`DiamondPOS receipt #${summary.saleId};`) ||
+                customer.toLowerCase() !== summary.customerName!.toLowerCase() || total !== summary.totalCents) {
+              markError(exportId, 'That receipt number already exists in QuickBooks with different details. Reconcile it before retrying.')
+              s.failed++
+              return
+            }
             markSent(exportId, existing)
             qbLog(db, 'info', `${label} was already in QuickBooks, so it was not sent again`)
             return
           }
-          // Not there yet: add it next
-          s.queue.unshift({
-            kind: 'rq',
-            label: `Add ${label}`,
-            xml: rq.addSalesReceipt(summary, cfg),
+          const addReceipt = () => s.queue.unshift({
+            kind: 'rq', label: `Add ${label}`, xml: rq.addSalesReceipt(summary, cfg),
             onOk: (res) => {
-              markSent(exportId, salesReceiptTxnId(res))
+              const txn = salesReceiptTxnId(res)
+              if (!txn) throw new Error('QuickBooks returned no transaction ID; retry will check before adding')
+              markSent(exportId, txn)
               s.sent++
-              qbLog(
-                db,
-                'info',
-                `Sent ${label}: ${summary.saleDate} ${summary.method}, ${summary.saleCount} sale(s), $${(summary.totalCents / 100).toFixed(2)}`
-              )
+              qbLog(db, 'info', `Sent ${label} for ${summary.customerName}: $${(summary.totalCents / 100).toFixed(2)}`)
             },
-            onFail: (msg) => {
-              markError(exportId, msg)
-              s.failed++
-            }
+            onFail: (msg) => { markError(exportId, msg); s.failed++ }
+          })
+          // Query the exact POS-specific customer name. Never merge same-name people.
+          s.queue.unshift({
+            kind: 'rq', label: `Customer ${summary.customerName}`, xml: rq.customer(summary.customerName!),
+            onOk: (customer) => {
+              if (child(customer.node, 'CustomerRet')) addReceipt()
+              else s.queue.unshift({
+                kind: 'rq', label: `Create customer ${summary.customerName}`, xml: rq.addCustomer(summary.customerName!),
+                onOk: () => addReceipt(),
+                onFail: (msg) => { markError(exportId, `Customer: ${msg}`); s.failed++ }
+              })
+            },
+            onFail: (msg) => { markError(exportId, `Customer: ${msg}`); s.failed++ }
           })
         },
         onFail: (msg) => {
@@ -309,14 +302,15 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       case 'authenticate': {
         const cfg = getQbConfig(db)
         const ticket = crypto.randomUUID()
+        for (const [id, session] of sessions) if (Date.now() - session.touchedAt > 30 * 60 * 1000) sessions.delete(id)
         let status = '' // '' = use the company file that is open in QuickBooks
         if (p('strUserName') !== cfg.username || p('strPassword') !== cfg.password) {
           status = 'nvu'
           qbLog(db, 'error', 'Web Connector login failed: wrong user name or password. Download a new connector file.')
-        } else if (!cfg.enabled) {
+        } else if (sessions.size > 0) {
           status = 'none'
         } else {
-          const s: Session = { ticket, queue: [], done: 0, lastError: '', sent: 0, failed: 0 }
+          const s: Session = { ticket, queue: [], done: 0, lastError: '', sent: 0, failed: 0, touchedAt: Date.now() }
           sessions.set(ticket, s)
           buildQueue(s)
         }
@@ -324,6 +318,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       }
       case 'sendRequestXML': {
         const s = sessions.get(p('ticket'))
+        if (s) s.touchedAt = Date.now()
         if (!s) return result(method, '')
         const step = nextRequest(s)
         if (!step || step.kind !== 'rq') return result(method, '')
@@ -333,6 +328,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       }
       case 'receiveResponseXML': {
         const s = sessions.get(p('ticket'))
+        if (s) s.touchedAt = Date.now()
         if (!s) return result(method, 100)
         const step = s.current as Extract<Step, { kind: 'rq' }> | undefined
         s.current = undefined
@@ -344,6 +340,8 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
           else {
             try {
               const r = parseResponse(p('response'))
+              const expected = step.xml.match(/^<([A-Za-z]+)Rq/)?.[1] + 'Rs'
+              if (r.name !== expected) throw new Error(`Expected ${expected}, received ${r.name}`)
               if (r.ok) step.onOk?.(r)
               else failure = `${r.message || 'QuickBooks refused the request'} (code ${r.statusCode})`
             } catch (e) {
@@ -366,10 +364,12 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       }
       case 'getLastError': {
         const s = sessions.get(p('ticket'))
+        if (s) s.touchedAt = Date.now()
         return result(method, s?.lastError || 'No error')
       }
       case 'closeConnection': {
         const s = sessions.get(p('ticket'))
+        if (s) s.touchedAt = Date.now()
         if (s) {
           sessions.delete(s.ticket)
           if (s.sent || s.failed)
@@ -401,7 +401,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
   // The Web Connector checks that the support link works
   app.get('/qbwc/support', (_req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.end('<h1>Diamond POS</h1><p>QuickBooks daily sales sync. Settings are on the QuickBooks screen in Diamond POS.</p>')
+    res.end('<h1>Diamond POS</h1><p>QuickBooks individual sales sync. Settings are on the QuickBooks screen in Diamond POS.</p>')
   })
 
   // ---------- Till-facing API (needs the store pairing code) ----------
@@ -466,7 +466,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       `<?xml version="1.0"?>\n<QBWCXML>\n` +
       `  <AppName>DiamondPOS</AppName>\n  <AppID></AppID>\n` +
       `  <AppURL>http://localhost:${port}/qbwc</AppURL>\n` +
-      `  <AppDescription>DiamondPOS daily sales summary</AppDescription>\n` +
+      `  <AppDescription>DiamondPOS individual sales and customer names</AppDescription>\n` +
       `  <AppSupport>http://localhost:${port}/qbwc/support</AppSupport>\n` +
       `  <UserName>${esc(cfg.username)}</UserName>\n` +
       `  <OwnerID>{${ids.ownerId}}</OwnerID>\n  <FileID>{${ids.fileId}}</FileID>\n` +
@@ -490,7 +490,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'date=YYYY-MM-DD is required' })
     const cfg = getQbConfig(db)
     res.json({
-      summaries: dailySummaries(db, date, cfg, readSettings(db).taxRate, qbTaxRate(cfg)),
+      summaries: individualSummaries(db, date, cfg, readSettings(db).taxRate, qbTaxRate(cfg)),
       qbTaxRate: qbTaxRate(cfg),
       roundingItem: QB_ROUNDING_ITEM
     })
@@ -499,16 +499,16 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
   app.get('/api/qb/exports', (_req, res) => res.json(listExports(db)))
 
   app.post('/api/qb/exports/:id/retry', (req, res) => {
-    db.prepare("UPDATE qb_exports SET status = 'pending', error = NULL, updated_at = datetime('now') WHERE id = ? AND status = 'error'").run(
+    db.prepare("UPDATE qb_sale_exports SET status = 'pending', error = NULL, updated_at = datetime('now') WHERE id = ? AND status = 'error'").run(
       Number(req.params.id)
     )
     res.json(listExports(db))
   })
 
-  // A day that had to be entered in QuickBooks by hand (refunds more than sales)
+  // A day that had to be entered in QuickBooks by hand (individual refunds / exceptions)
   app.post('/api/qb/exports/:id/manual-done', (req, res) => {
     db.prepare(
-      "UPDATE qb_exports SET status = 'sent', txn_id = 'MANUAL', error = NULL, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'manual'"
+      "UPDATE qb_sale_exports SET status = 'sent', txn_id = 'MANUAL', error = NULL, sent_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'manual'"
     ).run(Number(req.params.id))
     qbLog(db, 'info', `Export ${req.params.id} marked as entered in QuickBooks by hand`)
     res.json(listExports(db))

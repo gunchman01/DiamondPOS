@@ -226,14 +226,29 @@ Open **Sales History** or **Reports** and pick a date.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
 
 ## QuickBooks
-Diamond POS sends **one Sales Receipt per day per payment type** (cash and card) to QuickBooks Desktop, split by department. Items and prices stay in Diamond POS; QuickBooks doesn't track inventory.
+Diamond POS sends **individual Sales Receipts with customer names** to QuickBooks Desktop Enterprise. Inventory, equipment serial records, service work, kiosk sign-ups and marketing stay in DiamondPOS. Receipt descriptions include the sold items and any serial numbers; QuickBooks uses accounting items rather than inventory items.
 
-Setting up (done once, on the **QuickBooks** screen):
-1. **Connect the QuickBooks Web Connector**: download the connector file and add it in QuickBooks' Web Connector with the password shown.
-2. **Where sales go**: choose the income account for each department, the sales tax item and the deposit account for cash and card.
-3. **Preview a day** to check the numbers before anything is sent.
-4. **Sent to QuickBooks** lists each day. A **Problem** can be fixed and then **Retry**'d.
-> If refunds were more than sales for a payment type on one day, that day shows **Enter by hand**: enter it in QuickBooks yourself as a refund, then click **Entered by hand**.
+1. On the **QuickBooks** screen, download the connector file and add it in QuickBooks Web Connector using the password shown. On a separate back-office PC, run DiamondPOS as a Till with the QuickBooks bridge enabled.
+2. Run the Web Connector once to load the available accounts and tax settings. Lists can be read while sales sync is off.
+3. Review **Start sending from**, tax settings, income accounts and payment deposit accounts, then **Save mapping**.
+4. **Preview a day** shows each sale, customer, item descriptions and total. Selected customers use their name plus a short `[DP…]` POS identifier; same-name people are kept separate. A sale without a selected customer uses the configured walk-in customer.
+5. Enable **Send individual sales to QuickBooks**. Today's sales can transfer on the next Web Connector run; no need to wait until tomorrow.
+6. **Sent to QuickBooks** lists each receipt. A **Problem** can be fixed and then **Retry**'d. Retries look for the existing QuickBooks receipt before adding it again.
+
+**After upgrading to v0.3.22:** sync is switched off once for you to review the new format and start date. If an old daily export exists for a date, individual sales for that date require reconciliation rather than automatic transfer.
+
+**Enter by hand** means a refund, zero-total exchange, split payment, or overlap with an old daily export needs attention. Enter or reconcile the matching transaction in QuickBooks first; only then click **Entered by hand**. Do not enter a sale again if it was already included in a daily export.
+
+See `docs/QUICKBOOKS_SETUP.md` for the full setup and first-run checks.
+
+## Automatic backups and checkout recovery
+The Store Server takes an online SQLite backup at startup and every 15 minutes while running. Only backups that pass an integrity check receive a finished `.db` filename. They are in `%APPDATA%\DiamondPOS\data\backups`. Migration backups are also kept before database upgrades.
+
+These backups are kept on the server PC; copy completed backups to another drive for protection against PC or disk loss. This phase does not delete old backups automatically. Backup successes and failures are written to the server log.
+
+If **Recover checkout** appears, keep that checkout open and use **Check / retry original checkout** after the network returns. The original request is retained on that PC across app restarts. Do not take payment again: recovery checks whether the original sale was already saved. A second till cannot complete a held receipt that has already been rung up.
+
+For a developer restore check, run `npm run verify:backup` from the project folder. It verifies a temporary copy of the latest scheduled backup and never replaces the live database.
 
 ## Marketing mailers
 Open **Marketing** to email a flyer to a group of customers.

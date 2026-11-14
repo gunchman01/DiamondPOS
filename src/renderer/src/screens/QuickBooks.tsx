@@ -1,5 +1,5 @@
 import { PAYMENT_LABEL } from '../../../shared/types'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
 import type { QbConfig, QbDailySummary, QbExport, QbLogEntry, QbStatus } from '../../../shared/quickbooks'
 import { api } from '../api'
@@ -21,6 +21,7 @@ function saveFile(name: string, content: string) {
 
 /** QuickBooks Desktop: connection, account mapping, preview and sync history. */
 export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onBootChange: (b: BootInfo) => void }) {
+  const lastConfig = useRef<QbConfig | null>(null)
   const [st, setSt] = useState<QbStatus | null>(null)
   const [draft, setDraft] = useState<QbConfig | null>(null)
   const [exports, setExports] = useState<QbExport[]>([])
@@ -35,7 +36,9 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
     try {
       const [s, e, l] = await Promise.all([api.qbStatus(), api.qbExports(), api.qbLog()])
       setSt(s)
-      setDraft((d) => d ?? s.config)
+      const previous = lastConfig.current
+      setDraft((d) => !d || JSON.stringify(d) === JSON.stringify(previous) ? s.config : { ...d, enabled: s.config.enabled })
+      lastConfig.current = s.config
       setExports(e)
       setLog(l)
     } catch (err) {
@@ -100,7 +103,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               run(() => api.qbSaveConfig({ enabled: e.target.checked }), e.target.checked ? 'Sync switched on' : 'Sync switched off')
             }
           />
-          Send daily sales to QuickBooks
+          Send individual sales to QuickBooks
         </label>
       </div>
 
@@ -127,7 +130,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             ))}
           </ul>
         ) : (
-          <div className="ok-text">Ready. Each closed day is sent automatically the next time the Web Connector runs.</div>
+          <div className="ok-text">Ready. Individual sales and customer names are sent the next time the Web Connector runs.</div>
         )}
       </div>
       {msg && <div className="ok-text">{msg}</div>}
@@ -237,13 +240,15 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             in QuickBooks.
           </p>
         )}
+        <p className="small">Each sale is transferred separately. Customer names include a short [DP…] ID to distinguish people with the same name. Inventory stays in DiamondPOS.</p>
+        <p className="small">After updating, review the start date and mapping, then switch sync on. Dates with old daily exports require reconciliation. Refunds, zero-total exchanges and split payments are flagged for entry by hand.</p>
         <div className="qb-map">
           <label>
             Start sending from (earlier days are never sent)
             <input type="date" value={draft.startDate} max={today()} onChange={(e) => set({ startDate: e.target.value })} />
           </label>
           <label>
-            QuickBooks customer for daily sales (created if missing)
+            Walk-in customer (used only when no customer is selected)
             <input value={draft.customerName} onChange={(e) => set({ customerName: e.target.value })} />
           </label>
           <label>
@@ -374,16 +379,17 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           <div key={s.refNumber} className="qb-preview">
             <div className="row between">
               <b>
-                Sales Receipt {s.refNumber} · {PAYMENT_LABEL[s.method]} · {s.saleCount} sale(s)
+                Sales Receipt {s.refNumber} · {PAYMENT_LABEL[s.method]} · #{s.saleId} · {s.customerName}
                 {s.taxExemptCount ? ` (${s.taxExemptCount} tax exempt)` : ''}
               </b>
               <b>{money(s.totalCents)}</b>
             </div>
+            {s.manualReason && <p className="error-text">Enter by hand: {s.manualReason}</p>}
             <table className="table qb-table">
               <tbody>
                 {s.lines.map((l, i) => (
                   <tr key={i}>
-                    <td>{l.itemName}</td>
+                    <td>{l.description ?? l.itemName}</td>
                     <td className="muted">{l.taxable ? 'Taxable' : 'Non-taxable'}</td>
                     <td className="muted">{l.account || '(no account chosen)'}</td>
                     <td className="r">{money(l.amountCents)}</td>
@@ -412,7 +418,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               <tr>
                 <th>Day</th>
                 <th>Paid by</th>
-                <th>Sales Receipt No.</th>
+                <th>POS receipt / Customer / QuickBooks No.</th>
                 <th className="r">Total</th>
                 <th>Status</th>
                 <th />
@@ -423,7 +429,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                 <tr key={e.id}>
                   <td>{new Date(e.saleDate + 'T00:00:00').toLocaleDateString()}</td>
                   <td>{PAYMENT_LABEL[e.method]}</td>
-                  <td>{e.refNumber}</td>
+                  <td>#{e.saleId} · {e.customerName}<br />{e.refNumber}</td>
                   <td className="r">{money(e.totalCents)}</td>
                   <td>
                     <span className={`badge ${e.status === 'sent' ? 'new' : e.status === 'error' || e.status === 'manual' ? 'err' : 'upd'}`}>
@@ -438,7 +444,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                     {e.status === 'manual' && (
                       <button
                         onClick={() =>
-                          confirm(`Have you entered this ${money(e.totalCents)} refund day in QuickBooks yourself?`) &&
+                          confirm(`Have you entered receipt #${e.saleId} (${money(e.totalCents)}) in QuickBooks yourself?`) &&
                           run(() => api.qbManualDone(e.id), 'Marked as entered by hand')
                         }
                       >

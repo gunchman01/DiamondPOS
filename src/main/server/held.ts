@@ -9,7 +9,7 @@ import type { HeldItemInput, HeldReceipt, HeldReceiptInput, HeldSummary } from '
 import { toProduct, type ProductRow } from './products'
 import { MAX_PRICE_CENTS } from '../../shared/pricing'
 
-class HeldError extends Error {
+export class HeldError extends Error {
   constructor(public status: number, message: string) {
     super(message)
   }
@@ -156,5 +156,6 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
 
 /** Called inside the sale transaction: the held receipt is done */
 export function completeHeld(db: DB, heldId: number, saleId: number) {
-  db.prepare("UPDATE held_sales SET status = 'completed', sale_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'held'").run(saleId, heldId)
+  const result = db.prepare("UPDATE held_sales SET status = 'completed', sale_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'held'").run(saleId, heldId)
+  if (result.changes !== 1) throw new HeldError(409, 'That held receipt was already completed or deleted. Reload held receipts before checkout.')
 }
