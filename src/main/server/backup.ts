@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import type { DB } from './db'
+import { recordBackup } from './operations'
 
 const BACKUP_INTERVAL_MS = 15 * 60 * 1000
 
@@ -20,9 +21,14 @@ export function startBackupScheduler(db: DB, backupDirectory: string): () => Pro
   const runBackup = (): Promise<void> => {
     if (stopped || inFlight) return inFlight ?? Promise.resolve()
 
+    const record = (event: 'started' | 'verified' | 'failed', error?: string) => {
+      try { recordBackup(db, event, error) } catch (e) { console.error('[backup] Could not save backup status:', e) }
+    }
+    record('started')
     inFlight = createVerifiedBackup(db, backupDirectory)
-      .then((file) => console.info(`[backup] Verified scheduled backup: ${file}`))
+      .then((file) => { record('verified'); console.info(`[backup] Verified scheduled backup: ${file}`) })
       .catch((error: unknown) => {
+        record('failed', error instanceof Error ? error.message : String(error))
         console.error('[backup] Scheduled backup failed:', error)
       })
       .finally(() => {

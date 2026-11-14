@@ -1,12 +1,12 @@
-# DiamondPOS v0.3.23 — persistent left menu and negative-quantity returns
+# DiamondPOS v0.3.26 — Home totals and operational status at the bottom
 
-Apply this source update over the v0.3.22 project you just tested. It includes only the changed files. Your backup and checkout protection improvements remain in place. No new database migration is required. This revised package stays at v0.3.23. If you already applied the earlier v0.3.23 files, merge this package over them too.
+This source update applies over your current v0.3.25 project. It uses the current main-branch code (baf0195f) as its baseline, which matches the previous delivered navigation/return code. No database schema migration or dependency change is required.
 
-## Copy and test
+## Apply and check on your PC
 
-1. Close the POS / development app.
-2. Extract this ZIP. Copy everything **inside** the extracted `DiamondPOS-update-v0.3.23` folder into your existing Git project folder, merging folders and replacing matching files. Keep `.git` and all other existing project files.
-3. In PowerShell in your existing project folder, run:
+1. Close the POS and any development instance.
+2. Extract this ZIP. Copy everything **inside** `DiamondPOS-update-v0.3.26` into your existing Git project folder, merging folders and replacing matching files. Keep your `.git` folder and other project files.
+3. In PowerShell in that project folder:
 
 ```powershell
 npm run typecheck
@@ -15,37 +15,28 @@ npm run build
 npm run dev
 ```
 
-No dependencies were added. Use `npm.cmd` if PowerShell blocks `npm` scripts.
+Use `npm.cmd` if PowerShell blocks npm scripts. The dev package may still display an older version label; the release workflow sets the installed version from the Git tag.
 
-## Always-visible left menu
+## What to check on Home
 
-The left menu remains visible on every main screen. Home, Settings and Updates are pinned; the other buttons use this computer's saved Home-button shortcuts. Customize them under **Settings → Menus → Left menu buttons**. Computers using the defaults also get Receiving, Marketing and QuickBooks. Existing customized shortcut lists stay as you saved them.
+Sales totals now appear **below the Navigator**, with:
 
-The current screen is highlighted. Scroll the left menu independently if it is taller than the window. The top dropdown stays available for extra actions. Home now shows its Today totals above the Navigator instead of duplicating the shortcut column.
+- Today's total/receipt count, cash, card and checks. Click the title for Reports.
+- QuickBooks: last successful sync and connection, sending enabled/off, and counts of queued exports, problems and manual entries. Click the heading for QuickBooks settings/history.
+- Database backup: last verified scheduled backup, progress and latest failure. More than 30 minutes old is overdue. The backup scheduler still runs at startup and every 15 minutes on the Store Server.
+- Store-server reachability and when it was checked.
 
-An in-progress sale stays in memory when visiting Items, Customers or another screen. It is not a saved held receipt and does not survive app shutdown unless held; checkout recovery remains separate. Sale keyboard shortcuts only run when Sale is visible.
+The cards refresh every 30 seconds while Home is open. Check the layout at your usual window size. Smaller windows use two rows with a scrollable status area. The persistent left menu stays available.
 
-Locally check switching from a partly entered sale to Customers/Items and back, active highlighting, menu customization, and the layout at your normal screen size (with and without Quick Picks). Windows visual/scanner testing has not been performed here.
+Success timestamps start recording with this update. Earlier backup files and generic Web Connector contacts are not automatically treated as verified successes. QuickBooks will show “Not recorded yet” until a real clean session completes; its connection has not yet been validated against your test company. The first scheduled backup after starting the updated server should populate the backup timestamp.
 
-## Try a return
+If a refresh fails, status is labelled unavailable and any displayed last-known history is explicitly identified. A failed backup or connector session does not erase the last good timestamp. The status endpoint is pairing-code protected and does not return QuickBooks credentials.
 
-1. Scan or add an item as you normally would for a sale.
-2. Select it, click **Change qty** or press **F3**, and click **− Return** to make it negative, or enter **-1**. **+ Sale** makes it positive again. These buttons keep the quantity magnitude. Other negative whole quantities work for non-serialized items.
-3. Choose the reason and whether it goes back into stock or is damaged.
-4. Optional: enter the original receipt number and click **Find receipt**. Choose the correct item line if needed. The original price/tax and quantity limits are used. For serialized equipment the serial must match.
-5. Or leave the receipt blank to use today's regular price plus applicable tax, flagged as a no-receipt return. A sale-line price override does not change this refund price.
-6. Click **Apply return**. It replaces the scanned positive line with a negative return line. Cancel keeps the original line unchanged.
-7. Add new items on this same screen for an exchange, or choose how to give the refund.
+Backups remain on the Store Server PC. These status cards do not add an off-PC backup destination or retention policy. Refund/manual-entry behavior in QuickBooks is unchanged.
 
-Check a cancellation, a no-receipt return, a receipt-linked return, an exchange and a serialized unit. Serialized equipment must be one unit per line. The existing **Return** button remains available for starting from a receipt/customer search. Work order payments still need to be completed separately.
+## Commit and release on main
 
-The `− 1` shortcut button still decreases a positive quantity; use **Change qty / F3** to enter a negative number. To correct an applied return, remove that return line and add it again.
-
-No-receipt serials are recorded on the return, but without the original receipt the app cannot identify which customer-unit ownership record to retire.
-
-## Commit and release from main
-
-In MobaXterm in your existing Git project folder, confirm you are on main and inspect your changes:
+After your local checks pass, in MobaXterm in the project folder:
 
 ```bash
 git branch --show-current
@@ -53,22 +44,20 @@ git status --short
 git diff
 ```
 
-After local checks pass (only tag v0.3.23 if it has not already been published):
+Confirm you are on main and review the intended changes. Then:
 
 ```bash
 git add -A
-git commit -m "v0.3.23: return items using negative sale quantities"
+git commit -m "v0.3.26: bottom Home totals and backup/QuickBooks status"
 git push origin main
-git tag v0.3.23
-git push origin v0.3.23
+git tag v0.3.26
+git push origin v0.3.26
 ```
 
-The tag starts the Windows release build. If v0.3.23 was already published, commit these revised files to main but do not overwrite its existing release tag. This revision remains v0.3.23 as requested; test it locally with npm run dev. A new updater release would require a separate version decision.
+If v0.3.26 already exists, do not overwrite the tag. Use the next unused version and match the changelog heading before tagging.
 
-After the release build finishes, update the **Store Server first, then tills** through the POS Updates screen. The server update retains serial numbers for no-receipt returns. There is no new schema migration and this update does not switch QuickBooks sending on or off.
+Wait for GitHub's Release workflow to finish. Update the **Store Server first, then tills** from the POS Updates screen. Older servers do not provide this new status endpoint; tills will show unavailable details until the server is updated.
 
-## Validation
+## Validation performed
 
-23 regression checks passed using Electron and real SQLite databases. TypeScript checks and the production build passed. The actual Windows UI, scanner and printer flow still need the local checks above.
-
-QuickBooks refunds still require manual entry, as in v0.3.22. The live QuickBooks Enterprise connection remains unverified until your test company is ready.
+32 regression checks passed using Electron and real SQLite databases. New checks cover verified/failed scheduled backups, persistent history, endpoint authorization/credential exclusion, and successful vs interrupted/failed mocked QuickBooks sessions. TypeScript and production build passed. The tests intentionally log one simulated backup failure. Windows visual/scanner/printer checks and a live QuickBooks Enterprise connection remain for local testing.

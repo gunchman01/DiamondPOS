@@ -901,3 +901,22 @@ tr.rv-changed td { background: #fffbea; }
   .topbar { gap: 8px; flex-wrap: wrap; }
   .status { flex-wrap: wrap; }
 }
+
+/* Home: Navigator first, totals and operational status along the bottom. */
+.home.with-persistent-menu { grid-template-rows: minmax(0, 1fr) auto; }
+.home.with-persistent-menu > .home-left { display: none; }
+.home-status { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+  max-height: 230px; overflow-y: auto; min-width: 0; }
+.home-status-card { background: #fff; border: 1px solid var(--border); border-top: 3px solid #aeb7c2;
+  border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.home-status-card.attention { border-top-color: #ca7412; background: #fffaf0; }
+.home-status-card.unknown { background: #f5f6f8; }
+.home-status-heading { margin: 0 0 6px; padding: 0; border: none; background: transparent; color: var(--red-dark);
+  font-size: 13px; font-weight: 700; text-align: left; }
+button.home-status-heading:hover { text-decoration: underline; background: transparent; }
+.home-status-card b { display: block; }
+.home-status-state { font-weight: 600; margin-bottom: 6px; }
+.home-status-total { font-weight: 700; font-size: 21px; }
+.home-status-total > span { font-size: 12px; font-weight: 400; }
+.home-status-tenders { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; }
+@media (max-width: 1200px) { .home-status { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 230px; } }

@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { DailyReport } from '../../../shared/types'
-import { api } from '../api'
-import { money, today } from '../format'
+import HomeStatus from '../HomeStatus'
 import { IconName, Icons } from '../icons'
 import type { MenuEntry } from '../menus'
 
@@ -98,12 +96,8 @@ export default function Home({
   buttons: MenuEntry[]
   onGo: (e: MenuEntry) => void
 }) {
-  const [report, setReport] = useState<DailyReport | null>(null)
   const [toast, setToast] = useState('')
 
-  useEffect(() => {
-    api.dailyReport(today()).then(setReport).catch(() => setReport(null))
-  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -124,31 +118,7 @@ export default function Home({
           </button>
         ))}
 
-        <div className="side-card">
-          <div className="side-title">Today</div>
-          <div className="side-row">
-            <span>Sales</span>
-            <b>{report ? report.saleCount : '—'}</b>
-          </div>
-          <div className="side-row">
-            <span>Takings</span>
-            <b>{report ? money(report.totalCents) : '—'}</b>
-          </div>
-          <div className="side-row muted">
-            <span>Cash</span>
-            <span>{report ? money(report.cashCents) : '—'}</span>
-          </div>
-          <div className="side-row muted">
-            <span>Card</span>
-            <span>{report ? money(report.cardCents) : '—'}</span>
-          </div>
-          {!!report?.checkCents && (
-            <div className="side-row muted">
-              <span>Checks</span>
-              <span>{money(report.checkCents)}</span>
-            </div>
-          )}
-        </div>
+
       </aside>
 
       {/* ---------- Navigator ---------- */}
@@ -164,6 +134,7 @@ export default function Home({
         </div>
       </section>
 
+      <HomeStatus onQuickBooks={() => onNavigate('quickbooks')} onReports={() => onNavigate('reports')} />
       {toast && <div className="toast">{toast}</div>}
     </div>
   )

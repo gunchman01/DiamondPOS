@@ -19,6 +19,7 @@
  */
 import type express from 'express'
 import crypto from 'crypto'
+import { recordQbCompletion, recordQbFailure } from '../operations'
 import type { DB } from '../db'
 import type { StoreSettings } from '../../../shared/types'
 import { QB_ROUNDING_ITEM, qbItemName, type QbConfig, type QbDailySummary, type QbStatus } from '../../../shared/quickbooks'
@@ -223,6 +224,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
             const total = Math.round(Number(text(receipt, 'TotalAmount')) * 100)
             if (!text(receipt, 'Memo').startsWith(`DiamondPOS receipt #${summary.saleId};`) ||
                 customer.toLowerCase() !== summary.customerName!.toLowerCase() || total !== summary.totalCents) {
+              recordQbFailure(db, 'A QuickBooks receipt number conflicts with this POS sale')
               markError(exportId, 'That receipt number already exists in QuickBooks with different details. Reconcile it before retrying.')
               s.failed++
               return
@@ -306,6 +308,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         let status = '' // '' = use the company file that is open in QuickBooks
         if (p('strUserName') !== cfg.username || p('strPassword') !== cfg.password) {
           status = 'nvu'
+          recordQbFailure(db, 'Web Connector login failed: wrong user name or password')
           qbLog(db, 'error', 'Web Connector login failed: wrong user name or password. Download a new connector file.')
         } else if (sessions.size > 0) {
           status = 'none'
@@ -350,14 +353,19 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
           }
           if (failure) {
             s.lastError = `${step.label}: ${failure}`
+            recordQbFailure(db, s.lastError)
             qbLog(db, 'error', s.lastError)
             step.onFail?.(failure)
           }
         }
-        return result(method, progress(s))
+        const completed = progress(s)
+        if (step && completed === 100 && !s.lastError && s.failed === 0)
+          recordQbCompletion(db, qbMissing(db).length === 0)
+        return result(method, completed)
       }
       case 'connectionError': {
         const msg = p('message') || p('hresult')
+        recordQbFailure(db, `QuickBooks connection failed: ${msg}`)
         qbLog(db, 'error', `The Web Connector could not open QuickBooks: ${msg}. Is QuickBooks installed and the company file available?`)
         sessions.delete(p('ticket'))
         return result(method, 'done')

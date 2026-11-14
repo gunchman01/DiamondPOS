@@ -8,7 +8,8 @@ import Database from 'better-sqlite3'
 import { createApp, createSale, startServer, stopServer, isServerRunning, readSettings } from '../src/main/server'
 import { openDatabase } from '../src/main/server/db'
 import { migrations } from '../src/main/server/migrations'
-import { createVerifiedBackup } from '../src/main/server/backup'
+import { operationsStatus, recordBackup } from '../src/main/server/operations'
+import { createVerifiedBackup, startBackupScheduler } from '../src/main/server/backup'
 import { returnableSale } from '../src/main/server/returns'
 import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlineReturn'
 import { getProduct } from '../src/main/server/products'
@@ -140,6 +141,37 @@ async function main() {
     assert.match(verified.stdout, /Integrity check: ok/)
     assert.match(verified.stdout, /live database was not changed/)
   })
+  check('status starts unknown instead of inferring a verified backup from a file', () => {
+    assert.equal(operationsStatus(db).backup.lastVerifiedAt, null)
+    assert.equal(operationsStatus(db).quickbooks.lastSyncAt, null)
+  })
+  const stopGoodBackup = startBackupScheduler(db, path.join(dir, 'backups'))
+  await stopGoodBackup()
+  const lastGood = operationsStatus(db).backup.lastVerifiedAt
+  check('scheduled backup status is saved only after verification completes', () => {
+    assert.ok(lastGood)
+    assert.equal(operationsStatus(db).backup.running, false)
+    assert.equal(operationsStatus(db).backup.error, null)
+  })
+  const failedDb = new Proxy(db, { get(target, property) {
+    if (property === 'backup') return async () => { throw new Error('Simulated backup write failure') }
+    const value = Reflect.get(target, property)
+    return typeof value === 'function' ? value.bind(target) : value
+  } })
+  const stopBadBackup = startBackupScheduler(failedDb, path.join(dir, 'backups'))
+  await stopBadBackup()
+  check('failed backup preserves last verified time and records the actual failure', () => {
+    const state = operationsStatus(db).backup
+    assert.equal(state.lastVerifiedAt, lastGood)
+    assert.match(state.error!, /Simulated/)
+    assert.ok(state.lastFailureAt)
+    assert.equal(state.running, false)
+  })
+  db.close(); db = openDatabase(file)
+  check('backup history survives reopening the store database', () => {
+    assert.equal(operationsStatus(db).backup.lastVerifiedAt, lastGood)
+    assert.match(operationsStatus(db).backup.error!, /Simulated/)
+  })
   const cust1 = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Greg & Co','Barnes')").run().lastInsertRowid)
   const cust2 = Number(db.prepare("INSERT INTO customers (first_name,last_name) VALUES ('Greg & Co','Barnes')").run().lastInsertRowid)
   const named = createSale(db, request({ customerId: cust1 }))
@@ -178,6 +210,14 @@ async function main() {
     assert.equal(response.status, 200)
     return child(child(parseXml(await response.text()), 'Body'), `${method}Response`)!
   }
+  const statusResponse = await fetch(`${base}/api/operations/status`, { headers: { 'X-Api-Key': 'test' } })
+  const statusPayload = await statusResponse.json()
+  const unauthorizedStatus = await fetch(`${base}/api/operations/status`)
+  check('operations endpoint requires pairing and does not expose connector credentials', () => {
+    assert.equal(statusResponse.status, 200)
+    assert.equal(unauthorizedStatus.status, 401)
+    assert.ok(!JSON.stringify(statusPayload).includes(cfg.password))
+  })
   const receiptIds = new Map<string,string>()
   const receiptDetails = new Map<string,string>()
   const customers = new Set<string>()
@@ -224,7 +264,10 @@ async function main() {
     }
     await soap('closeConnection', { ticket })
   }
+  await soap('serverVersion')
+  check('generic Web Connector contact is not recorded as successful sync', () => assert.equal(operationsStatus(db).quickbooks.lastSyncAt, null))
   await sync(true)
+  check('interrupted connector session is not recorded as successful sync', () => assert.equal(operationsStatus(db).quickbooks.lastSyncAt, null))
   const firstAdded = added
   await sync()
   check('Web Connector recovers a lost add response by querying the receipt before retrying', () => {
@@ -233,9 +276,15 @@ async function main() {
     assert.equal(new Set(receiptIds.values()).size, added)
     assert.ok(listExports(db).filter((e) => e.status === 'sent').every((e) => e.txnId))
   })
+  const lastSync = operationsStatus(db).quickbooks.lastSyncAt
+  check('completed connector session records successful connection and sync separately', () => {
+    assert.ok(lastSync)
+    assert.ok(operationsStatus(db).quickbooks.lastConnectionAt)
+  })
   const before = added
   await sync()
   check('a completed second sync adds no duplicate transactions', () => assert.equal(added, before))
+  const beforeFailureSync = operationsStatus(db).quickbooks.lastSyncAt
   const collided = createSale(db, request())
   const collisionRef = `DP${collided.id.toString(36).toUpperCase()}`
   receiptIds.set(collisionRef, 'UNRELATED')
@@ -244,6 +293,13 @@ async function main() {
   check('an unrelated QuickBooks receipt number collision is flagged, not marked sent', () => {
     assert.equal(listExports(db).find((e) => e.saleId === collided.id)!.status, 'error')
     assert.equal(added, before)
+  })
+  check('failed sync retains the last successful time and shows unresolved export counts', () => {
+    const state = operationsStatus(db).quickbooks
+    assert.equal(state.lastSyncAt, beforeFailureSync)
+    assert.ok(state.error)
+    assert.ok(state.problems > 0)
+    assert.ok(state.manual > 0)
   })
   configureApi(base, 'test')
   // A valid checkout over the actual API behaves the same as the direct service.

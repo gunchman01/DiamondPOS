@@ -12,6 +12,7 @@ import type { Server } from 'http'
 import path from 'path'
 import crypto from 'crypto'
 import { startBackupScheduler } from './backup'
+import { operationsStatus } from './operations'
 import { openDatabase, getSchemaVersion, DB } from './db'
 import {
   DEFAULTS,
@@ -165,6 +166,8 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (req.header('X-Api-Key') !== opts.apiKey) throw new HttpError(401, 'Invalid pairing code')
     next()
   })
+
+  app.get('/api/operations/status', (_req, res) => res.json(operationsStatus(db)))
 
   // ----- Settings ----------------------------------------------------------
   app.get('/api/settings', (_req, res) => res.json(readSettings(db)))

@@ -1,3 +1,4 @@
+import type { OperationsStatus } from '../../shared/operations'
 import type { ItemReceipt, PostLineChoice, Receiving, ReceivingInput, ReceivingSummary } from '../../shared/receiving'
 import type { DeleteResult } from '../../shared/deleting'
 import type { ImportCustomer } from '../../shared/customerImport'
@@ -81,6 +82,7 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  operationsStatus: () => request<OperationsStatus>('GET', '/api/operations/status'),
   health: () => request<Health>('GET', '/api/health'),
   /** Used by the setup screen before the till is configured */
   testConnection: (url: string, key: string) =>

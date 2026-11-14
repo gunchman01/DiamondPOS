@@ -20,6 +20,16 @@ The buttons down the left remain available on every main screen. Click one to op
 An in-progress sale remains in memory while you visit other screens and return. It is not saved across closing the app unless it is held (checkout recovery is separately retained). Finish or cancel an open dialog before continuing your workflow.
 
 ## The Home screen
+The bottom of Home now contains four status cards:
+
+- **Today's sales:** receipt count, net takings, cash, card and checks. Click the heading to open Reports.
+- **QuickBooks:** sending enabled/off, last successful sync, last successful connection and counts of queued exports, problems and manual entries. Click QuickBooks to see its full settings and history. A generic connector contact or incomplete/failed session does not count as a successful sync.
+- **Database backup:** last verified scheduled backup, progress or latest failure. A backup more than 30 minutes old is marked overdue. Failures retain the last good backup time. These are local backups on the Store Server PC.
+- **Store server:** whether the latest Home requests reached the server and when they were checked.
+
+The cards refresh every 30 seconds while Home is open. Timestamps display in this PC's local time. Failed refreshes are labelled unavailable; any displayed older history is identified as such. “Not recorded yet” means no success has been recorded by this version, not that an older backup or sync never happened. Update the Store Server first so it can supply the new status endpoint.
+
+
 Home is where every area of the app starts.
 
 **"I want to…"**: the drop-down at the top left of every screen takes you straight to what you want to do: make a sale, return items, open held receipts, check in a repair, find a customer, look up an item, print price tags, see today's sales, go to the Home screen and more. Each computer can choose what's in it (Settings → Menus).

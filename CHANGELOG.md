@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.26 - 13 Nov 2026
+- **Home status at the bottom:** today's sales, cash, card and checks now sit below the Navigator, alongside QuickBooks, database backup and store-server status.
+- Shows the last successful QuickBooks sync separately from the last successful connection, plus queued exports, problems and transactions requiring manual entry. Click QuickBooks to open its settings/history.
+- Shows the last verified scheduled backup, any latest failure, and an overdue warning after 30 minutes. Last good timestamps remain available after a server restart.
+- Refreshes Home status every 30 seconds. If status cannot be confirmed, it is shown as unavailable rather than reporting success.
+- Update the Store Server first, then tills, to enable the new status information. No database schema migration is required. Historical success times begin recording after this update; older backups and connector contacts are not guessed to be verified successes.
+
 ## v0.3.23 - 13 Nov 2026
 - **Always-visible left menu:** switch directly between Sale, Items, Customers, Work Orders and other shortcuts. Choose shortcuts in Settings → Menus → Left menu buttons. Home, Settings and Updates are always available. The in-progress sale stays in memory when switching screens.
 - **Return from the Sale screen:** scan or add an item, choose Change qty (F3), and click **− Return** or enter a negative whole quantity. **+ Sale** makes the quantity positive again. Choose the reason and whether it goes back into stock, then apply the return.

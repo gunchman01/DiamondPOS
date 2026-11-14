@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### 13 Nov 2026: v0.3.26 Home bottom status
+- Based on main baf0195f (Greg reports installed v0.3.25). Home now places a responsive status strip below the Navigator: sales/tenders, QuickBooks, verified backups and server reachability. Independent 30-second polling uses settled requests and ignores updates after unmount; no overlapping refreshes.
+- New authenticated `/api/operations/status` returns only operational metrics, never connector credentials. QuickBooks history and backup history persist in settings; no schema migration. Defaults are unknown, not fabricated from old files/logs.
+- Backup success recorded only after integrity check and rename; failures preserve last verified timestamp. QB completion records successful connection on a clean finished session and successful sync only when mapping/sending is ready. Failed/incomplete sessions do not replace success history. Existing export counts show outstanding attention.
+- 32 Electron/SQLite regression checks passed, including actual scheduler success/failure, persisted backup history, pairing protection, credential exclusion and successful vs interrupted/failed connector sessions. Type checks and production build passed. Windows visual and real QuickBooks testing remain local.
+
+
 ### 13 Nov 2026: v0.3.23 persistent left navigation
 - App shell now has a left menu on every main screen, with active-screen indication, independent scrolling, pinned Home/Settings/Updates and existing home-menu configuration. Defaults include Receiving, Marketing and QuickBooks. Saved custom menus are preserved.
 - Home's duplicate shortcut column becomes a horizontal Today summary. The Sale component mounts on first visit and stays mounted while hidden so navigation retains the cart. Hidden sales do not handle global shortcuts or scanner focus. Register layout adapts to the menu width on smaller windows.
@@ -421,7 +428,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.23** (negative-quantity returns; no new migration). Apply over the tested v0.3.22 source, test, commit to main and tag to publish. Update Store Server then tills so no-receipt serials are retained.
+**Update prepared: v0.3.26** (bottom Home totals and operational status). Greg's installed version is v0.3.25. Apply changed source files over main, test and publish the v0.3.26 tag. Update Store Server then tills; no new schema migration.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 
