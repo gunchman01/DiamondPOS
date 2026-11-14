@@ -79,7 +79,18 @@ Use a held receipt when a sale is built ahead of time, for example when a custom
 - Receipts for tax-exempt sales print the Farm Tax ID.
 
 ## Returns, refunds and exchanges
-Click **↩ Return** on the Sale screen.
+**Quick return on the Sale screen (like QuickBooks POS):**
+
+1. Scan or add the item as usual. Enter its serial number when prompted for serialized equipment.
+2. Select the line and choose **Change qty / F3**. Click **− Return** to make the quantity negative (or type **-1** / another negative quantity), then OK. **+ Sale** makes it positive again. The buttons keep the quantity magnitude; an empty or zero quantity becomes 1 or -1. Zero still removes the sale line.
+3. In Return item, choose a reason and **Back to stock** or **Damaged — do not restock**.
+4. If you have the original receipt, enter or scan its number, click **Find receipt**, and choose the matching line if more than one is shown. This uses the original paid price and tax, and checks the quantity still available to return.
+5. Leave the receipt number blank to use today's regular price plus applicable tax. A price override on the scanned sale line is ignored, and the transaction is flagged as no receipt.
+6. Click **Apply return**. The original positive line becomes a red negative return line. **Cancel** leaves the positive line unchanged. Add new items on the same screen for an exchange, or choose how to give the refund.
+
+Serialized equipment is returned one unit per line. A receipt-linked serial must match the scanned unit. Without a receipt, the serial is retained on the return but the app cannot identify which original customer-unit record to retire. Complete a work order payment before starting a return.
+
+You can also click **↩ Return** on the Sale screen to start from a receipt or customer search.
 1. Find the original sale:
    - type or **scan** the **receipt number** (receipts can print a barcode, see Receipt Layout), or
    - click **Find by customer** and pick the receipt from their list, or
@@ -96,7 +107,7 @@ Click **↩ Return** on the Sale screen.
 - Refunds are always the price the customer actually paid on that receipt, even if the price has changed since.
 - You can't return more than was bought on a receipt. Items already returned are greyed out.
 - Work order charges (labor, parts used, estimate fees) can't be returned here.
-- A returned serial-numbered unit is removed from the customer's units.
+- A receipt-linked returned serial-numbered unit is removed from the customer's units.
 - **No receipt**: pick the item. It's refunded at today's price and the sale is marked as a no-receipt return.
 - The receipt prints **REFUND** or **EXCHANGE**, the original receipt number and a line for the customer's signature.
 

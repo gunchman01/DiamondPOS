@@ -16,6 +16,7 @@ import {
   type WorkOrder
 } from '../../../shared/workorders'
 import WoPayPicker from './WoPayPicker'
+import InlineReturnDialog from './InlineReturnDialog'
 import ReturnDialog, { type ReturnLine } from './ReturnDialog'
 import { ColumnMenu, visibleColumns, type GridRow } from '../saleColumns'
 import { HeldPicker, HoldDialog } from './HeldReceipts'
@@ -88,6 +89,7 @@ export default function Sell({
   const [findQuery, setFindQuery] = useState<string | null>(null) // null = Find dialog closed
   const [paying, setPaying] = useState<PaymentMethod | null>(null)
   const [editingQty, setEditingQty] = useState(false)
+  const [inlineReturn, setInlineReturn] = useState<{ line: CartLine; qty: number } | null>(null)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const [message, setMessage] = useState<Message>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -415,6 +417,7 @@ export default function Sell({
   const dialogOpen =
     paying !== null ||
     editingQty ||
+    inlineReturn !== null ||
     findQuery !== null ||
     pickingCustomer ||
     kioskOpen ||
@@ -455,6 +458,14 @@ export default function Sell({
 
   function setQty(key: string, qty: number) {
     const line = cart.find((l) => l.key === key)
+    if (line && qty < 0) {
+      if (wo) { setMessage({ kind: 'error', text: 'Finish the work order payment before starting a return.' }); return }
+      if (!Number.isInteger(qty) || qty < -9999 || ((line.serial || line.product.useSerial) && qty !== -1)) {
+        setMessage({ kind: 'error', text: 'Use a negative whole quantity. Serialized equipment is returned one unit per line.' }); return
+      }
+      setInlineReturn({ line, qty })
+      return
+    }
     if (line?.serial && qty > 1) {
       setMessage({ kind: 'error', text: 'Serial-numbered items are one per line. Add the item again for the next serial number.' })
       return
@@ -491,6 +502,29 @@ export default function Sell({
     if (selectedId === null) return
     if (selectedReturn) removeReturn(selectedReturn.key)
     else setQty(selectedId, 0)
+    focusScan()
+  }
+
+  function addReturnLines(lines: ReturnLine[], receipt: import('../../../shared/returns').ReturnableSale | null) {
+    setReturning(false)
+    setReturns((r) => [...r, ...lines])
+    if (receipt) {
+      setReceipts((r) => ({
+        ...r,
+        [receipt.saleId]: {
+          refundableCents: receipt.refundableCents,
+          method: receipt.payments.length
+            ? [...receipt.payments].sort((a, b) => Math.abs(b.amountCents) - Math.abs(a.amountCents))[0].method
+            : null
+        }
+      }))
+      // The return goes on the original receipt's customer
+      if (!customer && receipt.customerId)
+        api.getCustomer(receipt.customerId).then((d) => attachCustomer(d.customer, `Return for receipt #${receipt.saleId}`)).catch(() => {})
+    }
+    setLastSale(null)
+    setSelectedId(lines[lines.length - 1]?.key ?? null)
+    setMessage({ kind: 'info', text: `${lines.length} item(s) added as a return. Scan new items for an exchange, or take the refund.` })
     focusScan()
   }
 
@@ -601,7 +635,7 @@ export default function Sell({
         returns: returns.map((l) =>
           l.saleItemId !== null
             ? { saleItemId: l.saleItemId, qty: l.qty, reason: l.reason, restock: l.restock }
-            : { productId: l.productId!, qty: l.qty, reason: l.reason, restock: l.restock }
+            : { productId: l.productId!, qty: l.qty, serial: l.serial ?? undefined, reason: l.reason, restock: l.restock }
         ),
         payments: method ? [{ method, amountCents, reference: reference || undefined }] : [],
         workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
@@ -1190,28 +1224,7 @@ export default function Sell({
             setReturning(false)
             focusScan()
           }}
-          onAdd={(lines, receipt) => {
-            setReturning(false)
-            setReturns((r) => [...r, ...lines])
-            if (receipt) {
-              setReceipts((r) => ({
-                ...r,
-                [receipt.saleId]: {
-                  refundableCents: receipt.refundableCents,
-                  method: receipt.payments.length
-                    ? [...receipt.payments].sort((a, b) => Math.abs(b.amountCents) - Math.abs(a.amountCents))[0].method
-                    : null
-                }
-              }))
-              // The return goes on the original receipt's customer
-              if (!customer && receipt.customerId)
-                api.getCustomer(receipt.customerId).then((d) => attachCustomer(d.customer, `Return for receipt #${receipt.saleId}`)).catch(() => {})
-            }
-            setLastSale(null)
-            setSelectedId(lines[lines.length - 1]?.key ?? null)
-            setMessage({ kind: 'info', text: `${lines.length} item(s) added as a return. Scan new items for an exchange, or take the refund.` })
-            focusScan()
-          }}
+          onAdd={addReturnLines}
         />
       )}
 
@@ -1307,6 +1320,17 @@ export default function Sell({
         />
       )}
 
+      {inlineReturn && <InlineReturnDialog
+        product={inlineReturn.line.product} serial={inlineReturn.line.serial} negativeQty={inlineReturn.qty}
+        existing={returns} customerId={customer?.id ?? null}
+        onCancel={() => { setInlineReturn(null); focusScan() }}
+        onAdd={(line, receipt) => {
+          setCart((cart) => cart.filter((l) => l.key !== inlineReturn.line.key))
+          setInlineReturn(null)
+          addReturnLines([line], receipt)
+        }}
+      />}
+
       {editingQty && selectedLine && (
         <QtyDialog
           line={selectedLine}
@@ -1317,7 +1341,7 @@ export default function Sell({
           onSave={(qty) => {
             setQty(selectedLine.key, qty)
             setEditingQty(false)
-            focusScan()
+            if (qty >= 0) focusScan()
           }}
         />
       )}
@@ -1435,7 +1459,7 @@ function FindItemDialog(props: { initialQuery: string; onCancel: () => void; onP
 function QtyDialog(props: { line: CartLine; onCancel: () => void; onSave: (qty: number) => void }) {
   const [text, setText] = useState(String(props.line.qty))
   const qty = Number(text)
-  const valid = Number.isInteger(qty) && qty >= 0 && qty <= 9999
+  const valid = Number.isInteger(qty) && qty >= -9999 && qty <= 9999
   return (
     <div className="modal-backdrop">
       <form
@@ -1448,10 +1472,14 @@ function QtyDialog(props: { line: CartLine; onCancel: () => void; onSave: (qty: 
       >
         <h2>Change quantity</h2>
         <div>{props.line.product.name}</div>
-        <label>
-          Quantity (0 removes the line)
-          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onFocus={(e) => e.target.select()} />
-        </label>
+        <label htmlFor="quantity-value">Quantity (negative = return; 0 removes the line)</label>
+          <div className="row gap">
+            <button type="button" title="Make quantity positive (sale)" aria-label="Make quantity positive (sale)"
+              onClick={() => setText(String(Math.abs(Number.isInteger(qty) && qty !== 0 ? qty : 1)))}>+ Sale</button>
+            <input id="quantity-value" autoFocus value={text} onChange={(e) => setText(e.target.value)} onFocus={(e) => e.target.select()} />
+            <button type="button" title="Make quantity negative (return)" aria-label="Make quantity negative (return)"
+              onClick={() => setText(String(-Math.abs(Number.isInteger(qty) && qty !== 0 ? qty : 1)))}>− Return</button>
+          </div>
         <div className="row gap end">
           <button type="button" onClick={props.onCancel}>
             Cancel

@@ -10,6 +10,8 @@ import { openDatabase } from '../src/main/server/db'
 import { migrations } from '../src/main/server/migrations'
 import { createVerifiedBackup } from '../src/main/server/backup'
 import { returnableSale } from '../src/main/server/returns'
+import { inlineReturnLine, matchingReturnLines } from '../src/renderer/src/inlineReturn'
+import { getProduct } from '../src/main/server/products'
 import { returnAmount } from '../src/shared/returns'
 import { getQbConfig, saveQbConfig, saveQbLists, listExports } from '../src/main/server/quickbooks/store'
 import { individualSummaries } from '../src/main/server/quickbooks/summary'
@@ -73,6 +75,56 @@ async function main() {
   check('tax allocation across multiple receipt lines matches the charged tax', () => {
     assert.equal(returnableSale(db, twoLines.id)!.lines.reduce((n, l) => n + l.taxPaidCents!, 0), twoLines.taxCents)
     assert.equal(returnAmount(100, 1, true, false, 0.15, 'inclusive').amountCents, 100)
+  })
+  const product = getProduct(db, 1)!
+  const inlineInput = { product, negativeQty: -1, reason: 'Changed mind', restock: true, existing: [] }
+  check('negative quantity converts to a return without mutating the scanned product', () => {
+    const before = JSON.stringify(product)
+    const line = inlineReturnLine(inlineInput)
+    assert.equal(line.qty, 1)
+    assert.equal(line.saleId, null)
+    assert.equal(line.unitCents, product.priceCents)
+    assert.equal(JSON.stringify(product), before)
+    for (const negativeQty of [0, 1, -1.5, -10000]) assert.throws(() => inlineReturnLine({ ...inlineInput, negativeQty }))
+    assert.throws(() => inlineReturnLine({ ...inlineInput, reason: '' }), /reason/)
+  })
+  const linkedSale = createSale(db, request())
+  const linkedReceipt = returnableSale(db, linkedSale.id)!
+  const linkedLine = inlineReturnLine({ ...inlineInput, receipt: linkedReceipt, saleItemId: linkedReceipt.lines[0].saleItemId })
+  check('inline receipt link preserves original price, tax and quantity limits', () => {
+    assert.equal(linkedLine.unitCents, 5)
+    assert.equal(linkedLine.originalTax!.taxCents, 1)
+    assert.throws(() => inlineReturnLine({ ...inlineInput, receipt: linkedReceipt, saleItemId: 999999 }), /matching item/)
+    assert.throws(() => inlineReturnLine({ ...inlineInput, negativeQty: -2, receipt: linkedReceipt,
+      saleItemId: linkedLine.saleItemId, existing: [linkedLine] }), /already/)
+  })
+  db.prepare('UPDATE products SET price_cents = 100, taxable = 0, on_hand = 50 WHERE id = 2').run()
+  const unlinked = inlineReturnLine(inlineInput)
+  const exchange = createSale(db, request({ items: [{ productId: 2, qty: 1 }],
+    returns: [{ productId: unlinked.productId!, qty: unlinked.qty, reason: unlinked.reason, restock: unlinked.restock }],
+    payments: [{ method: 'cash', amountCents: 95 }] }))
+  check('positive sale and negative return share one exchange receipt with correct stock', () => {
+    assert.equal(exchange.totalCents, 95)
+    assert.equal(exchange.noReceiptReturn, true)
+    assert.equal(exchange.items.filter((l) => l.kind === 'return')[0].qty, -1)
+    assert.equal(db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n, 49)
+  })
+  db.prepare('UPDATE products SET use_serial = 1 WHERE id = 2').run()
+  const equipment = getProduct(db, 2)!
+  const serialSale = createSale(db, request({ items: [{ productId: 2, qty: 1, serial: 'MOWER-123' }], payments: [{ method: 'cash', amountCents: 100 }] }))
+  const serialReceipt = returnableSale(db, serialSale.id)!
+  check('serialized inline return matches its original serial and requires one unit', () => {
+    assert.equal(matchingReturnLines(serialReceipt, equipment, 'MOWER-123').length, 1)
+    assert.equal(matchingReturnLines(serialReceipt, equipment, 'WRONG').length, 0)
+    assert.throws(() => inlineReturnLine({ ...inlineInput, product: equipment, serial: 'MOWER-123', negativeQty: -2 }), /one unit/)
+  })
+  const damaged = inlineReturnLine({ ...inlineInput, product: equipment, serial: 'MOWER-123', restock: false })
+  const stockBeforeDamaged = db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n
+  const damagedSale = createSale(db, request({ items: [], returns: [{ productId: equipment.id, serial: damaged.serial!, qty: 1, reason: damaged.reason, restock: false }], payments: [{ method: 'cash', amountCents: -100 }] }))
+  check('no-receipt equipment return retains the serial and does not restock damaged equipment', () => {
+    assert.equal(damagedSale.items[0].serial, 'MOWER-123')
+    assert.equal(db.prepare('SELECT on_hand AS n FROM products WHERE id = 2').get().n, stockBeforeDamaged)
+    assert.throws(() => createSale(db, request({ items: [], returns: [{ productId: equipment.id, serial: 'MOWER-123', qty: 2, reason: 'Other', restock: false }], payments: [{ method: 'cash', amountCents: -200 }] })), /one unit/)
   })
   const backup = await createVerifiedBackup(db, path.join(dir, 'backups'))
   const restored = new Database(backup, { readonly: true, fileMustExist: true })

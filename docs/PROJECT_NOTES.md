@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 13 November 2026 (v0.3.22 checkout, backups and individual QuickBooks exports)_
+_Last updated: 13 November 2026 (v0.3.23 negative-quantity returns)_
 
 ---
 
@@ -70,6 +70,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### 13 Nov 2026: v0.3.23 negative-quantity returns
+- Follow-up: + Sale / − Return sign buttons in Change quantity keep the quantity magnitude and make sale/return selection explicit. Version remains v0.3.23 as requested.
+- Change qty / F3 accepts negative whole quantities and opens InlineReturnDialog for the scanned item; no menu navigation or second item lookup. Positive cart state is untouched until Apply return, so Cancel preserves it.
+- Uses the existing ReturnLine model and server return validation rather than negative normal sale items. Reason/restock required as applicable; optional original receipt filters by product/serial and subtracts existing pending return quantities. Preserves original price/tax snapshots and receipt/customer association.
+- No-receipt returns use the regular current product price; the API now retains the optional serial and checks one unit when serial is supplied. No DB migration. Work order payments still cannot be combined with returns.
+- Added five regression checks for conversion/validation, linked limits, exchange totals/stock, serial matching and damaged equipment. Full suite: 23 checks. Type check and build pass; on-PC visual and scanner testing remains.
+
 
 ### 13 Nov 2026: v0.3.22 update package
 - Restored the Phase 1 verified SQLite online backup scheduler from PR #1 (startup + 15 minutes, waits before DB close). Added `npm run verify:backup` using Electron's SQLite ABI.
@@ -408,7 +416,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
-**Update prepared: v0.3.22** (migration 22). Copy the update files into the existing main checkout, run the included checks, then commit and tag to publish. Update Store Server first and all tills before selling.
+**Update prepared: v0.3.23** (negative-quantity returns; no new migration). Apply over the tested v0.3.22 source, test, commit to main and tag to publish. Update Store Server then tills so no-receipt serials are retained.
 
 Next: test with QuickBooks Enterprise and actual printers on Greg's PC; decide whether to automate refund and split-payment accounting; add off-PC backup destination and retention settings. Phase 1 backups are local and do not prune history.
 

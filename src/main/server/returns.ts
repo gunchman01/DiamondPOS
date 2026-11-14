@@ -256,11 +256,13 @@ export function prepareReturns(db: DB, req: ReturnRequestLine[], taxRate: number
         | { id: number; name: string; price_cents: number; taxable: number; department: string | null; type: string }
         | undefined
       if (!p) throw new ReturnError(400, 'Returned item not found')
+      const serial = String(r.serial ?? '').trim().slice(0, 80)
+      if (serial && qty !== 1) throw new ReturnError(400, 'A serial-numbered return must be one unit per line')
       noReceipt = true
       const { taxCents, netCents } = returnAmount(p.price_cents, qty, p.taxable === 1, false, taxRate, 'added')
       out.push({
         productId: p.id,
-        serial: '',
+        serial,
         name: p.name,
         unitPriceCents: -p.price_cents,
         qty: -qty,

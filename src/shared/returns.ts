@@ -10,6 +10,8 @@ export const RETURN_REASONS = ['Defective', 'Changed mind', 'Wrong item', 'Did n
 
 /** One item coming back, as sent by the till */
 export interface ReturnRequestLine {
+  /** Serial retained for an item returned without the original receipt. */
+  serial?: string
   /** Line on the original receipt (normal return) */
   saleItemId?: number
   /** No receipt: the item being returned (refunded at today's price) */
