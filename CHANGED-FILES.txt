@@ -1,28 +1,12 @@
-DiamondPOS v0.3.34 source overlay against v0.3.32 (includes v0.3.33)
+DiamondPOS v0.3.35 source overlay against v0.3.34
 
 CHANGELOG.md
 docs/PROJECT_NOTES.md
-extras/cpanel-approval/CPANEL-SETUP.md
-extras/cpanel-approval/private/approval-config.example.php
-extras/cpanel-approval/public/.htaccess
-extras/cpanel-approval/public/index.php
-scripts/test-approval-site.cjs
-src/main/server/approvals.ts
-src/main/server/index.ts
 src/main/server/migrations.ts
-src/main/server/workorders.ts
-src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/ApprovalSettings.tsx
-src/renderer/src/screens/WorkOrderSettings.tsx
 src/renderer/src/screens/WorkOrderTicket.tsx
-src/renderer/src/screens/WorkOrders.tsx
-src/shared/approvals.ts
-src/shared/workOrderEmail.ts
 src/shared/workorders.ts
-tests/approvals.ts
 tests/regressions.ts
-tests/reporting-voids.ts
-tests/work-order-email.ts
+tests/retired-stage.ts
 START-HERE.md
 CHANGED-FILES.txt

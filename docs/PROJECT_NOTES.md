@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 14 November 2026 (v0.3.34 customer approvals and follow-up)_
+_Last updated: 14 November 2026 (v0.3.35 removed bench stage)_
 
 ---
 
@@ -527,3 +527,12 @@ extras/cpanel-approval is standalone PHP with PDO SQLite private storage outside
 Baseline overlay targets main 0b8eef0e0cb383149fce02cc591fa241e9974d41 / v0.3.32 and includes uncommitted v0.3.33 changes. Tag v0.3.34 when local checks pass. No commit, push, hosting upload, real customer email or live decision was performed here. Handoff includes a public-only cPanel ZIP plus POS update and detailed private-folder setup guide. Local PHP CLI integration tests run with a temporary private database; POS tests stub remote/SMTP transports. Windows visuals and actual cPanel/SMTP integration remain user checks.
 
 Final v0.3.34 validation: typecheck/build passed; 122 POS SQLite/API regression checks passed; 12 real PHP/HTTP integration checks passed using PHP 8.4 and a temporary private SQLite database. No staging upload, SMTP delivery or physical Windows/printing checks were performed.
+
+
+## v0.3.35 remove On the Bench
+
+Removed on_bench from WoStatus, STAGES, next-stage buttons, ticket FLOW and default template settings. Approved -> waiting_parts/ready_review; waiting_parts -> approved/ready_review; ready_review rework -> approved. Stage rendering recognizes the legacy DB value only to show truthful retired labels in history/last-email records. Settings normalization ignores the retired color/template while preserving other saved values.
+
+Migration 27 inserts one audit history entry per on_bench ticket and updates its status to approved, with no stock SQL or reconcile call. Previously deducted stock_taken and product on_hand are preserved; normal reconciliation at approved is a no-op for already-taken quantities. Existing history and last_emailed_status are not rewritten. Migration is idempotent through schema_migrations.
+
+Validated typecheck/build and 126 SQLite/API regression checks, including a v26 database with a bench ticket/allocated stock, historical events, custom colors/templates and repeat startup. No PHP/site upload or approval-service change. Source overlay against main aaf5aa0d74222e2a19260f4f564400cea0b1e987 / v0.3.34. User commits/tags main; no branch, commit, push or release created here.

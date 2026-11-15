@@ -599,6 +599,12 @@ export const migrations: Migration[] = [
       UNIQUE(work_order_id,revision)
     );
     CREATE INDEX idx_estimates_pending ON work_order_estimates(state,work_order_id);
+  ` },
+  { version: 27, name: 'retire On the Bench work order stage', up: `
+    INSERT INTO work_order_history(work_order_id,status,note,by_name)
+      SELECT id,'approved','On the Bench stage retired; moved to Approved to Fix. Existing inventory deductions preserved.','System update'
+      FROM work_orders WHERE status='on_bench';
+    UPDATE work_orders SET status='approved',updated_at=datetime('now') WHERE status='on_bench';
   ` }
 
 ]

@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.35 - 14 Nov 2026
+> Update the Store Server PC first.
+- Removed **On the Bench** from work-order stages, progress indicators, stage colors and email-template choices.
+- **Approved to Fix** now leads to **Waiting on Parts** or **Ready for Review**. Waiting on Parts can return to Approved to Fix or proceed to review; rework from review returns to Approved to Fix.
+- Existing On the Bench tickets move to Approved to Fix during the update. Parts already deducted stay deducted, and original work-order/email history is retained with the old stage clearly marked retired.
+- Migration 27 records the move in each affected ticket's history. Existing online estimate approvals and website setup continue unchanged.
+
 ## v0.3.34 - 14 Nov 2026
 > Update the Store Server PC first.
 - **Customer estimate decisions:** a separate PHP/cPanel approval page lets customers review an itemized estimate and confirm Approve or Decline. Each link belongs to one revision, expires after 30 days, and never takes payment.

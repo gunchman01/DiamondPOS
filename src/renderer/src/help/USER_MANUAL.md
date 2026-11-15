@@ -163,7 +163,8 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - **Needs Estimate**: add parts, labor and other charges. Parts are not taken from stock yet; parts not in stock show in red.
 - **Approved to Fix**: parts are taken out of stock.
 - **NOT FIXED**: the customer declined. Any parts go back into stock.
-- **Waiting on Parts**, **On the Bench**: work in progress.
+- **Waiting on Parts**: waiting for required parts. Return to **Approved to Fix** when repair work resumes, or move directly to **Ready for Review** when complete.
+- **Approved to Fix** can move directly to **Ready for Review**; there is no separate On the Bench stage.
 - **Ready for Review**: for a manager to check the ticket. No email is sent at this stage.
 - **Ready for Customer Pick Up**: the customer can collect it and pay.
 - **Picked up / Closed**: the ticket is finished and locked.
@@ -516,3 +517,8 @@ Unanswered estimates are flagged **Needs customer call** after **3 calendar days
 If the estimate changes, send a revised estimate for a fresh decision. Stale responses are marked for review instead of authorizing changed repairs. Outstanding older links are cancelled on sync or replaced by a revised estimate. Current stock arriving or a later estimate-fee payment does not invalidate the agreed repair details/total. Repairs with a recorded estimate require a matching approval before checkout. Record a phone decision using the Approved to Fix / Not Fixed stage action on an unchanged pending revision; history labels it as recorded by staff. Cancel an outstanding link from its ticket if it should no longer be used.
 
 Links expire after 30 days. The entered name is not independent identity verification: anyone with a forwarded private link could respond. Keep links, private website configuration and hosting backups private. The staging banner is a reminder, not a simulation switch—use test customer emails and work orders only. Website installation, SMTP delivery, physical Windows screens and live hosting must be checked locally before using this workflow with customers.
+
+
+### Removed work-order stage
+
+As of v0.3.35, On the Bench is no longer a selectable stage or email template. Existing tickets in that stage move to Approved to Fix automatically, preserving the parts already deducted. The update adds a history note rather than rewriting past events. Older history and last-email records may display **On the Bench (retired)** to retain their original meaning. Other stage colors and templates keep their saved values. No website upload or approval-service reconfiguration is needed for this update.

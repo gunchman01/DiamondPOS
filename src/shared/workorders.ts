@@ -67,7 +67,6 @@ export type WoStatus =
   | 'waiting_customer'
   | 'approved'
   | 'waiting_parts'
-  | 'on_bench'
   | 'ready_review'
   | 'ready_pickup'
   | 'not_fixed'
@@ -88,10 +87,9 @@ export interface StageDef {
 export const STAGES: StageDef[] = [
   { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: false, canEmail: true, next: ['waiting_customer', 'approved', 'not_fixed'] },
   { status: 'waiting_customer', label: 'Waiting on Customer', color: '#a16207', partsTaken: false, canEmail: true, next: ['approved', 'not_fixed'] },
-  { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'on_bench'] },
-  { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['on_bench'] },
-  { status: 'on_bench', label: 'On the Bench', color: '#7c3aed', partsTaken: true, canEmail: true, next: ['ready_review', 'waiting_parts'] },
-  { status: 'ready_review', label: 'Ready for Review', color: '#0e7490', partsTaken: true, canEmail: false, next: ['ready_pickup', 'on_bench'] },
+  { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'ready_review'] },
+  { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['approved', 'ready_review'] },
+  { status: 'ready_review', label: 'Ready for Review', color: '#0e7490', partsTaken: true, canEmail: false, next: ['ready_pickup', 'approved'] },
   { status: 'ready_pickup', label: 'Ready for Pick Up', color: '#15803d', partsTaken: true, canEmail: true, next: ['closed'] },
   { status: 'not_fixed', label: 'Ready for Pick Up – NOT FIXED!!', color: '#c8102e', partsTaken: false, canEmail: true, next: ['closed'] },
   { status: 'closed', label: 'Picked Up', color: '#374151', partsTaken: true, canEmail: false, next: [] }
@@ -102,8 +100,10 @@ export function normaliseStageColors(input?: Partial<Record<WoStatus, string>>):
   return Object.fromEntries(STAGES.map((s) => [s.status, /^#[0-9a-f]{6}$/i.test(input?.[s.status] ?? '') ? input![s.status]!.toLowerCase() : s.color])) as Record<WoStatus, string>
 }
 export const stage = (s: WoStatus, colors?: Partial<Record<WoStatus, string>>): StageDef => {
-  const def = STAGES.find((x) => x.status === s) ?? STAGES[0]
-  return { ...def, color: normaliseStageColors(colors)[def.status] }
+  // Retain a truthful label for old email/history records; the retired stage is never offered as a choice.
+  const retired = String(s) === 'on_bench'
+  const def = STAGES.find((x) => x.status === (retired ? 'approved' : s)) ?? STAGES[0]
+  return { ...def, label: retired ? 'On the Bench (retired)' : def.label, color: normaliseStageColors(colors)[def.status] }
 }
 export function stageStyle(s: WoStatus, colors?: Partial<Record<WoStatus, string>>): { background: string; color: string } {
   const background = stage(s, colors).color
@@ -318,11 +318,6 @@ export const DEFAULT_WO_SETTINGS: WoSettings = {
     waiting_parts: {
       subject: 'Waiting on parts for your {unit} ({wo_number})',
       body: 'Hi {first_name},\n\nWe have ordered the parts needed for your {unit}. We will start the repair as soon as they arrive and keep you posted.\n\nThank you,\n{store}',
-      includeBill: false
-    },
-    on_bench: {
-      subject: 'Your {unit} is being repaired ({wo_number})',
-      body: 'Hi {first_name},\n\nGood news: your {unit} is on the bench and our mechanic is working on it now.\n\nThank you,\n{store}',
       includeBill: false
     },
     ready_pickup: {

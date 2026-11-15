@@ -7,7 +7,7 @@ import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
-const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
+const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'ready_review', 'ready_pickup', 'closed']
 
 /** One repair ticket. */
 export default function WorkOrderTicket(props: {

@@ -1,3 +1,4 @@
+import { testRetiredStage } from './retired-stage'
 import { testReportingVoids } from './reporting-voids'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -93,7 +94,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 26)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 27)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
@@ -287,10 +288,10 @@ async function main() {
   })
   check('work-order colors default for existing settings and validate known stage hex colors', () => {
     assert.deepEqual(getWoSettings(db).stageColors, DEFAULT_STAGE_COLORS)
-    const settings = saveWoSettings(db, { stageColors: { ...DEFAULT_STAGE_COLORS, approved: '#FFFFFF', on_bench: '#000000' } })
+    const settings = saveWoSettings(db, { stageColors: { ...DEFAULT_STAGE_COLORS, approved: '#FFFFFF', ready_review: '#000000' } })
     assert.equal(settings.stageColors.approved, '#ffffff')
     assert.equal(stageStyle('approved', settings.stageColors).color, '#000000')
-    assert.equal(stageStyle('on_bench', settings.stageColors).color, '#ffffff')
+    assert.equal(stageStyle('ready_review', settings.stageColors).color, '#ffffff')
     assert.throws(() => saveWoSettings(db, { stageColors: { approved: 'red' } as any }), /valid/)
     assert.throws(() => saveWoSettings(db, { stageColors: { invented: '#ffffff' } as any }), /valid/)
     assert.equal(normaliseStageColors({ approved: 'bad' }).approved, DEFAULT_STAGE_COLORS.approved)
@@ -631,6 +632,7 @@ async function main() {
   await stopServer()
   check('server starts after a failed startup and waits for backup before closing', () => assert.equal(isServerRunning(), false))
   db.close()
+  testRetiredStage(check,dir)
   await testReportingVoids(check,dir)
   console.log(`\n${checks} regression checks passed.`)
 }
