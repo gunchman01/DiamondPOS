@@ -1,3 +1,4 @@
+import ApprovalSettings from './ApprovalSettings'
 import { useEffect, useState } from 'react'
 import {
   DEFAULT_WO_SETTINGS,
@@ -87,6 +88,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         </button>
       </div>
       <h2>Work order settings</h2>
+      <ApprovalSettings/>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
 
@@ -166,6 +168,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
 
       <div className="card form">
         <h3>Customer emails for each stage</h3>
+        <p className="muted small">Estimate and repair-approval emails automatically add a parts-availability notice when required stock is short. It names the parts that must be ordered and says they could take a week to arrive. The notice uses current inventory, including stock already allocated to the ticket, and also appears with customized templates.</p>
         <div className="placeholders small">
           <b>You can use:</b>{' '}
           {TEMPLATE_PLACEHOLDERS.map((p) => (

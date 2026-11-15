@@ -1,3 +1,5 @@
+import { testApprovals } from './approvals'
+import { testWorkOrderEmails } from './work-order-email'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import path from 'node:path'
@@ -209,6 +211,8 @@ export async function testReportingVoids(check:(name:string,fn:()=>void)=>void,d
     for(let n=0;n<21;n++){const id=Number(db.prepare("INSERT INTO receivings(vendor,status,posted_at) VALUES ('History','posted',datetime('now'))").run().lastInsertRowid);db.prepare('INSERT INTO receiving_lines(receiving_id,product_id,qty,unit_cost_cents,landed_cost_cents) VALUES (?,1,1,1000,1000)').run(id)}
     assert.equal(itemCosts(db,1)!.lifetimeQty,24);assert.equal(itemCosts(db,1)!.lifetimeInvoiceAvgCents,900)
   })
+  await testWorkOrderEmails(check,db,call)
+  await testApprovals(check,db,call)
   const capDb=openDatabase(path.join(dir,'report-cap.db'))
   try{
     capDb.prepare('UPDATE products SET active=0').run()

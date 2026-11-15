@@ -32,7 +32,7 @@ export default function WorkOrders({
 }) {
   const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [view, setView] = useState<View>({ kind: 'list' })
-  const [filter, setFilter] = useState<WoStatus | 'open' | 'all'>('open')
+  const [filter, setFilter] = useState<WoStatus | 'open' | 'all' | 'needs_call'>('open')
   const [search, setSearch] = useState('')
   const [list, setList] = useState<WoSummary[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -85,6 +85,7 @@ export default function WorkOrders({
         <button className={filter === 'open' ? 'chip active' : 'chip'} onClick={() => setFilter('open')}>
           All open <b>{openCount}</b>
         </button>
+        <button className={filter==='needs_call'?'chip active':'chip'} onClick={()=>setFilter('needs_call')}>Needs customer call</button>
         {STAGES.map((s) => (
           <button
             key={s.status}
@@ -128,7 +129,7 @@ export default function WorkOrders({
               <td>
                 <b>{w.number}</b>
               </td>
-              <td>{w.customerName}</td>
+              <td>{w.customerName}{w.estimate?.due&&<span className="pill short-pill">Needs customer call</span>}{w.estimate?.needsResend&&w.status==='waiting_customer'&&<span className="pill">Revised estimate needs sending</span>}{w.estimate?.state==='review'&&<span className="pill short-pill">Decision needs review</span>}</td>
               <td>
                 {w.unitLabel}
                 {w.shortParts > 0 && w.status !== 'closed' && <span className="pill short-pill">{w.shortParts} part(s) not in stock</span>}

@@ -1,3 +1,4 @@
+import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
 /**
  * WORK ORDERS (repairs) and CUSTOMER UNITS (equipment).
  *
@@ -34,7 +35,7 @@ import {
   woSaleProblem,
   workOrderSaleLines
 } from '../../shared/workorders'
-import { fillTemplate, woEmailHtml, woEmailText } from '../../shared/workOrderEmail'
+import { fillTemplate, partsOrderingNotice, woEmailHtml, woEmailText } from '../../shared/workOrderEmail'
 import { sendEmail } from './marketing/mailer'
 
 class WoError extends Error {
@@ -344,7 +345,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
         by_name: string
       }[]
     ).map((h) => ({ at: iso(h.at)!, status: h.status, note: h.note, by: h.by_name }))
-    return {
+    const result: WorkOrder = {
       id: r.id,
       number: woNumber(r.id),
       status: r.status,
@@ -372,6 +373,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       lastEmailedStatus: r.last_emailed_status,
       history
     }
+    return {...result,estimate:estimateInfo(db,result)}
   }
 
 
@@ -390,6 +392,7 @@ export function prepareWorkOrderSale(db: DB, woId: number, mode: WoSaleMode, tax
   if (!['fee', 'repair', 'credit'].includes(mode)) throw new WoError(400, 'Unknown work order payment type')
   const wo = loadWorkOrder(db, woId, taxRate)
   if (!wo) throw new WoError(400, 'Work order not found')
+  if(mode==='repair'&&wo.estimate&&(wo.estimate.state!=='approved'||wo.estimate.needsResend))throw new WoError(409,'Send the current estimate for approval before checking out this repair. The recorded approval must match the current repair details and total.')
   const problem = woSaleProblem(wo, mode)
   if (problem) throw new WoError(400, `${wo.number}: ${problem}`)
   const settings = getWoSettings(db)
@@ -545,6 +548,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     const params: (string | number)[] = []
     let where = '1=1'
     if (status === 'open') where += " AND w.status <> 'closed'"
+    else if (status === 'needs_call') where += " AND w.status='waiting_customer'"
     else if (status !== 'all') {
       where += ' AND w.status = ?'
       params.push(status)
@@ -561,7 +565,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         `SELECT w.*, c.first_name, c.last_name, c.company, c.track_as_company, c.tax_exempt, c.tax_exempt_id, c.tax_exempt_expires,
                 u.brand, u.model, u.unit_type, u.serial
          FROM work_orders w JOIN customers c ON c.id = w.customer_id JOIN customer_units u ON u.id = w.unit_id
-         WHERE ${where} ORDER BY w.id DESC LIMIT 500`
+         WHERE ${where} ORDER BY w.id DESC ${status === 'needs_call' ? '' : 'LIMIT 500'}`
       )
       .all(...params) as (WoRow & Record<string, unknown>)[]
     const rate = readSettings(db).taxRate
@@ -586,13 +590,14 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         createdAt: iso(r.created_at)!,
         updatedAt: iso(r.updated_at)!,
         totalCents: woTotals(lines, rate, exempt).totalCents,
+        estimate: loadWorkOrder(db,r.id,rate)?.estimate,
         shortParts: lines.filter((l) => l.short).length,
         feeCents: r.fee_cents,
         feeStatus: r.fee_status,
         balanceDueCents: Math.max(0, woTotals(lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
       }
     })
-    res.json(list)
+    res.json(status === 'needs_call' ? list.filter(w=>w.estimate?.due).slice(0,500) : list)
   })
 
   app.get('/api/workorders/counts', (_req, res) => {
@@ -675,6 +680,12 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       const to = String((req.body as Record<string, unknown>)?.status ?? '') as WoStatus
       if (!STAGES.some((s) => s.status === to)) throw new WoError(400, 'Unknown stage')
       if (to === wo.status) return res.json(wo)
+      if (wo.status==='waiting_customer' && wo.estimate && (to==='approved'||to==='not_fixed')) {
+        if(wo.estimate.state!=='pending')throw new WoError(409,'Send a fresh estimate before recording a new decision.')
+        if(wo.estimate.needsResend)throw new WoError(409,'The estimate changed. Send a revised estimate before recording a decision.')
+        applyDecision(db,{id:wo.estimate.id,hash:estimateHash(wo),decision:to==='approved'?'approved':'declined',name:`Staff: ${by(req)}`,comment:'Customer decision recorded by staff',at:new Date().toISOString()},by(req))
+        return res.json(need(wo.id))
+      }
       db.transaction(() => {
         db.prepare("UPDATE work_orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(to, wo.id)
         reconcileStock(db, wo.id)
@@ -813,8 +824,26 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     })
   )
 
+  app.get('/api/workorders/approval/config',wrap((_req,res)=>res.json(approvalView(db))))
+  app.put('/api/workorders/approval/config',wrap((req,res)=>res.json(saveApprovalConfig(db,req.body??{}))))
+  app.post('/api/workorders/approval/test',wrap(async(_req,res)=>res.json(await testApprovalConnection(db))))
+  app.post('/api/workorders/approval/sync',wrap(async(_req,res)=>res.json(await syncApprovals(db))))
+  app.post('/api/workorders/:id/follow-up',wrap((req,res)=>{
+    const wo=need(Number(req.params.id)),note=String(req.body?.note??'').trim(),days=Number(req.body?.days??approvalConfig(db).afterDays)
+    if(!note||note.length>500||!Number.isInteger(days)||days<1||days>90)throw new WoError(400,'Enter a call note and 1–90 days until the next follow-up')
+    if(wo.status!=='waiting_customer'||wo.estimate?.state!=='pending')throw new WoError(409,'This ticket is not waiting for an estimate decision')
+    db.transaction(()=>{db.prepare('UPDATE work_order_estimates SET follow_up_at=? WHERE id=?').run(new Date(Date.now()+days*86400000).toISOString(),wo.estimate!.id);hist(wo.id,`Customer follow-up: ${note}. Remind again in ${days} day(s).`,by(req))})()
+    res.json(need(wo.id))
+  }))
+  app.post('/api/workorders/:id/cancel-estimate',wrap(async(req,res)=>{
+    const wo=need(Number(req.params.id));if(!wo.estimate)throw new WoError(404,'No estimate was sent')
+    if(approvalConfig(db).enabled)await approvalRequest(approvalConfig(db),'cancel',{id:wo.estimate.id})
+    db.prepare("UPDATE work_order_estimates SET state='superseded' WHERE id=? AND state IN ('pending','prepared')").run(wo.estimate.id)
+    hist(wo.id,'Estimate link cancelled by staff',by(req));res.json(need(wo.id))
+  }))
+
   // ----- Email the customer the current stage -----
-  function buildEmail(wo: WorkOrder) {
+  function buildEmail(wo: WorkOrder, approvalLink?:string) {
     if (!isEmailable(wo.status)) throw new WoError(400, `There is no customer email for "${stage(wo.status).label}"`)
     const store = readSettings(db)
     const t = getWoSettings(db).templates[wo.status]
@@ -833,9 +862,12 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       store: store.storeName
     }
     const content = {
+      approvalLink,
+      estimatePreview: wo.status==='waiting_customer'&&!approvalLink,
       storeName: store.storeName,
       storeAddress: store.storeAddress,
       body: fillTemplate(t.body, values),
+      partsNotice: partsOrderingNotice(wo.status, wo.lines),
       bill: t.includeBill
         ? {
             lines: wo.lines,
@@ -854,7 +886,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
 
   app.get(
     '/api/workorders/:id/email-preview',
-    wrap((req, res) => res.json(buildEmail(need(Number(req.params.id)))))
+    wrap((req, res) => {const wo=need(Number(req.params.id));res.json(buildEmail(req.query.estimate==='1'?{...wo,status:'waiting_customer'}:wo))})
   )
 
   app.post(
@@ -862,6 +894,10 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     wrap(async (req, res) => {
       const wo = need(Number(req.params.id))
       if (!wo.customerEmail) throw new WoError(400, `${wo.customerName} has no email address. Add one on their customer record.`)
+      if(req.body?.estimate===true||wo.status==='waiting_customer'){
+        await sendEstimate(db,wo,by(req),async link=>{const mail=buildEmail({...wo,status:'waiting_customer'},link);await sendEmail(db,readSettings(db),{to:wo.customerEmail!,...mail})})
+        return res.json(need(wo.id))
+      }
       const mail = buildEmail(wo)
       await sendEmail(db, readSettings(db), { to: wo.customerEmail, ...mail })
       db.prepare("UPDATE work_orders SET last_emailed_at = datetime('now'), last_emailed_status = ? WHERE id = ?").run(wo.status, wo.id)

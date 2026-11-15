@@ -1,3 +1,4 @@
+import type { ApprovalConfig } from '../../shared/approvals'
 import type { SaleVoid, VoidReview, VoidRequest } from '../../shared/voids'
 import type { ReportDefinition, ReportResult, SavedReport } from '../../shared/reports'
 import type { Vendor, VendorInput, VendorDetail } from '../../shared/vendors'
@@ -173,8 +174,14 @@ export const api = {
   woUpdateLine: (id: number, lineId: number, l: Partial<WoLineInput>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}/lines/${lineId}`, l),
   woRemoveLine: (id: number, lineId: number) => request<WorkOrder>('POST', `/api/workorders/${id}/lines/${lineId}/remove`),
-  woEmailPreview: (id: number) => request<{ subject: string; html: string; text: string }>('GET', `/api/workorders/${id}/email-preview`),
-  woEmail: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by }),
+  approvalConfig: () => request<ApprovalConfig>('GET','/api/workorders/approval/config'),
+  saveApprovalConfig: (value:Partial<ApprovalConfig>&{key?:string}) => request<ApprovalConfig>('PUT','/api/workorders/approval/config',value),
+  testApprovalConnection: () => request<ApprovalConfig>('POST','/api/workorders/approval/test'),
+  syncApprovals: () => request<ApprovalConfig>('POST','/api/workorders/approval/sync'),
+  woFollowUp: (id:number,note:string,days:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/follow-up`,{note,days,by}),
+  woCancelEstimate: (id:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/cancel-estimate`,{by}),
+  woEmailPreview: (id: number, estimate=false) => request<{ subject: string; html: string; text: string }>('GET', `/api/workorders/${id}/email-preview${estimate?'?estimate=1':''}`),
+  woEmail: (id: number, by: string, estimate=false) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by, estimate }),
   woPickupNotFixed: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/pickup-not-fixed`, { by }),
 
   // Marketing mailers

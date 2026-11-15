@@ -1,3 +1,4 @@
+import type { EstimateInfo } from './approvals'
 // Work orders (repairs): shapes, stages and defaults shared by the server and the screens.
 import { priceSale } from './pricing'
 
@@ -63,6 +64,7 @@ export function unitLabel(u: Pick<CustomerUnit, 'brand' | 'model' | 'unitType'>)
 
 export type WoStatus =
   | 'needs_estimate'
+  | 'waiting_customer'
   | 'approved'
   | 'waiting_parts'
   | 'on_bench'
@@ -84,7 +86,8 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: false, canEmail: true, next: ['approved', 'not_fixed'] },
+  { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: false, canEmail: true, next: ['waiting_customer', 'approved', 'not_fixed'] },
+  { status: 'waiting_customer', label: 'Waiting on Customer', color: '#a16207', partsTaken: false, canEmail: true, next: ['approved', 'not_fixed'] },
   { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'on_bench'] },
   { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['on_bench'] },
   { status: 'on_bench', label: 'On the Bench', color: '#7c3aed', partsTaken: true, canEmail: true, next: ['ready_review', 'waiting_parts'] },
@@ -144,6 +147,7 @@ export interface WoHistory {
 export type FeeStatus = 'none' | 'unpaid' | 'paid' | 'applied' | 'kept'
 
 export interface WorkOrder {
+  estimate?: EstimateInfo | null
   id: number
   number: string // WO-000123
   status: WoStatus
@@ -176,6 +180,7 @@ export interface WorkOrder {
 }
 
 export interface WoSummary {
+  estimate?: EstimateInfo | null
   id: number
   number: string
   status: WoStatus
@@ -299,6 +304,11 @@ export const DEFAULT_WO_SETTINGS: WoSettings = {
       subject: 'We have your {unit} (work order {wo_number})',
       body: 'Hi {first_name},\n\nThanks for bringing in your {unit}. It is checked in as work order {wo_number}. Our mechanic will look it over and we will contact you with an estimate before doing any work.\n\nThank you,\n{store}',
       includeBill: false
+    },
+    waiting_customer: {
+      subject: 'Your repair estimate: {unit} ({wo_number})',
+      body: 'Hi {first_name},\n\nYour repair estimate for {unit} is {total}.\n\n{diagnosis}\n\nPlease use the approval page below to review this estimate and approve or decline the repair.\n\nThank you,\n{store}',
+      includeBill: true
     },
     approved: {
       subject: 'Repair approved: {unit} ({wo_number})',

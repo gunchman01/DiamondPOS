@@ -7,7 +7,7 @@ import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
-const FLOW: WoStatus[] = ['needs_estimate', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
+const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
 
 /** One repair ticket. */
 export default function WorkOrderTicket(props: {
@@ -21,7 +21,9 @@ export default function WorkOrderTicket(props: {
   const [notes, setNotes] = useState({ problem: '', diagnosis: '', workDone: '', internalNotes: '' })
   const [picking, setPicking] = useState(false)
   const [miscOpen, setMiscOpen] = useState(false)
-  const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null)
+  const [preview, setPreview] = useState<{ subject: string; html: string; estimate?: boolean } | null>(null)
+  const [callNote,setCallNote]=useState('')
+  const [callDays,setCallDays]=useState(3)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -56,13 +58,22 @@ export default function WorkOrderTicket(props: {
     }
   }
 
+  const notesDirty = !!wo && (notes.problem!==wo.problem||notes.diagnosis!==wo.diagnosis||notes.workDone!==wo.workDone||notes.internalNotes!==wo.internalNotes)
+  useEffect(()=>{
+    if(!wo||busy||preview||notesDirty||picking||miscOpen)return
+    let live=true
+    const timer=setInterval(()=>{
+      if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName??''))return
+      api.wo(props.id).then(fresh=>{if(live)show(fresh)}).catch(e=>{if(live)setError(e.message)})
+    },30000)
+    return()=>{live=false;clearInterval(timer)}
+  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,wo?.status])
+
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
   const st = stage(wo.status, colors)
   const closed = wo.status === 'closed'
   const shortParts = wo.lines.filter((l) => l.short)
-  const notesDirty =
-    notes.problem !== wo.problem || notes.diagnosis !== wo.diagnosis || notes.workDone !== wo.workDone || notes.internalNotes !== wo.internalNotes
   const move = (to: WoStatus) =>
     run(async () => {
       if (notesDirty) await api.woUpdate(wo.id, notes)
@@ -73,6 +84,14 @@ export default function WorkOrderTicket(props: {
 
   return (
     <div className="page wide ticket">
+      {wo.estimate&&<section className="card form"><h3>Estimate revision {wo.estimate.revision} · {wo.estimate.state}</h3><p>Estimate amount: {money(wo.estimate.amountCents)}{wo.estimate.sentAt&&` · Sent ${dateTime(wo.estimate.sentAt)}`}</p>
+        {wo.estimate.due&&<p className="error-text"><b>Needs customer call — this estimate is overdue for follow-up.</b></p>}
+        {wo.estimate.needsResend&&<p className="error-text">This ticket differs from the last sent estimate. Send a revised estimate to request approval of the current repair.</p>}
+        {wo.estimate.state==='review'&&<p className="error-text">A decision arrived for an estimate or stage that changed. Review it with the customer; the repair was not automatically approved.</p>}
+        {['pending','prepared'].includes(wo.estimate.state)&&<button disabled={busy} onClick={()=>{if(confirm('Cancel this estimate link? A revised estimate will need a new email.'))void run(()=>api.woCancelEstimate(wo.id,props.by),'Estimate link cancelled')}}>Cancel estimate link</button>}
+        {wo.estimate.decisionAt&&<p>Decision by {wo.estimate.decisionBy} · {dateTime(wo.estimate.decisionAt)} · {wo.estimate.comment}</p>}
+        {wo.status==='waiting_customer'&&wo.estimate.state==='pending'&&<><label>Call / contact note<input maxLength={500} value={callNote} onChange={e=>setCallNote(e.target.value)} placeholder="E.g. left voicemail asking customer to review estimate"/></label><label>Remind again in days<input type="number" min="1" max="90" value={callDays} onChange={e=>setCallDays(Number(e.target.value))}/></label><div className="row gap"><button disabled={busy||!callNote.trim()} onClick={()=>run(async()=>{const result=await api.woFollowUp(wo.id,callNote,callDays,props.by);setCallNote('');return result},'Call recorded and reminder updated')}>Record call &amp; remind again</button></div></>}
+      </section>}
       {/* ---------------- Header ---------------- */}
       <div className="row between">
         <button className="link" onClick={props.onBack}>
@@ -112,13 +131,14 @@ export default function WorkOrderTicket(props: {
           >
             🏷 Label
           </button>
+          {['needs_estimate','waiting_customer'].includes(wo.status)&&<button className="primary" disabled={busy} onClick={()=>run(async()=>{if(notesDirty)show(await api.woUpdate(wo.id,notes));setPreview({...await api.woEmailPreview(wo.id,true),estimate:true})})}>✉ {wo.estimate?'Send revised estimate':'Send estimate for decision'}</button>}
           {st.canEmail && (
             <button
               disabled={busy}
               onClick={() =>
                 run(async () => {
                   if (notesDirty) show(await api.woUpdate(wo.id, notes))
-                  setPreview(await api.woEmailPreview(wo.id))
+                  setPreview({...await api.woEmailPreview(wo.id),estimate:wo.status==='waiting_customer'})
                 })
               }
             >
@@ -394,13 +414,13 @@ export default function WorkOrderTicket(props: {
                 disabled={busy || !wo.customerEmail}
                 onClick={() =>
                   run(async () => {
-                    const w = await api.woEmail(wo.id, props.by)
+                    const w = await api.woEmail(wo.id, props.by,preview.estimate)
                     setPreview(null)
                     return w
                   }, `Email sent to ${wo.customerEmail}`)
                 }
               >
-                Send email
+                {preview.estimate?'Send estimate & start follow-up timer':'Send email'}
               </button>
             </div>
           </div>

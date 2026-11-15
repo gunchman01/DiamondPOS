@@ -14,6 +14,21 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.34 - 14 Nov 2026
+> Update the Store Server PC first.
+- **Customer estimate decisions:** a separate PHP/cPanel approval page lets customers review an itemized estimate and confirm Approve or Decline. Each link belongs to one revision, expires after 30 days, and never takes payment.
+- **Waiting on Customer:** a successfully sent estimate starts this stage and the follow-up timer. Parts stay in inventory until approval. The Store Server collects decisions from the website every minute while open, including responses recorded while POS was closed.
+- **Call reminders:** Work Order Settings includes an enabled-by-default customer-call flag after 3 calendar days (adjustable 1–90). Overdue tickets have a badge and filter. Record a call/contact note and schedule the next reminder. No response is automatically approved, declined or cancelled by the timer.
+- **Revision protection:** changed estimates need new approval. Conflicting/stale responses require staff review. Approved repairs with changed details/totals cannot be checked out against an older approval. Manual decisions and repeat syncs retain their audit history without duplicate stock movement.
+- **Staging setup:** the upload package targets oho.staging.tulsapickem.com/pos-approval. Online approvals stay disabled until the private configuration/key is installed, the website identity is tested, and the setting is explicitly enabled. No site files were uploaded automatically.
+- Includes the v0.3.33 shortage notice for estimate emails, including the new Waiting on Customer estimate template.
+- Migration 26 adds estimate revisions and follow-up audit data. Existing work orders/templates remain available; no previous email is assumed to be a pending online estimate.
+
+## v0.3.33 - 14 Nov 2026
+- **Estimate email parts notice:** when required stock is short, estimate and repair-approval emails automatically name the parts that will have to be ordered and explain they could take a week to arrive.
+- The notice checks the full required quantity, combines repeated lines for the same part, and counts stock already allocated to the ticket. It appears in both HTML and plain-text messages, including customized templates with the bill turned off.
+- Stock is checked again for each preview/send. When enough stock arrives, the ordering notice is omitted. Pickup/declined-repair messages keep their existing wording. No database migration or template reset is required.
+
 ## v0.3.32 - 14 Nov 2026
 > Update the Store Server PC first.
 - **Reports:** Sales, Inventory and Receiving report library with 13 ready-made reports. Build custom reports with chosen columns, filters, date periods, grouping and sorting. Save definitions for all tills, export Excel/CSV, or print full-page reports. Daily closeout and receipt reprinting remain available.

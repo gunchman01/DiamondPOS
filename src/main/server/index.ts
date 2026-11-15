@@ -1,3 +1,4 @@
+import { startApprovalScheduler } from './approvals'
 import { saleVoid } from './voids'
 import { registerReportRoutes } from './reports'
 import { registerVendorRoutes } from './vendors'
@@ -90,6 +91,7 @@ class HttpError extends Error {
 
 let httpServer: Server | null = null
 let db: DB | null = null
+let stopApprovals: (()=>Promise<void>) | null = null
 let stopBackups: (() => Promise<void>) | null = null
 
 export function isServerRunning(): boolean {
@@ -102,6 +104,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
   let listener: Server | null = null
   try {
     const app = createApp(opened, opts)
+    stopApprovals = startApprovalScheduler(opened)
     await new Promise<void>((resolve, reject) => {
       listener = app.listen(opts.port, opts.host ?? '0.0.0.0')
       listener.once('error', reject)
@@ -116,6 +119,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     startMarketingSender(opened, readSettings)
     console.log(`[server] Listening on port ${opts.port}`)
   } catch (error) {
+    await stopApprovals?.();stopApprovals=null
     stopMarketingSender()
     if (stopBackups) await stopBackups()
     stopBackups = null
@@ -128,6 +132,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 }
 
 export async function stopServer(): Promise<void> {
+  await stopApprovals?.();stopApprovals=null
   stopMarketingSender()
   if (stopBackups) await stopBackups()
   stopBackups = null

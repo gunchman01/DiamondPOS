@@ -494,3 +494,25 @@ Open an existing item. **Item costs & receiving history** shows last received in
 Lifetime average = sum(quantity × unit cost) ÷ sum(quantity) across **all posted receiving lines**. The freight-inclusive version uses each line's recorded landed cost, honoring that voucher's freight setting. Drafts, opening balances and imported stock without receiving vouchers are excluded. Sales do not change the lifetime receiving average. Current inventory average is the running saved average used to value remaining stock, so it can differ from the lifetime average. The preview lists only the latest 20 receiving lines; the summary uses all stored history.
 
 For new receiving vouchers, freight allocation starts off. Freight is still included in the voucher total; turn allocation on explicitly if wanted. Existing vouchers keep their saved preference. Tag selection opens after posting and can be reopened with the top Print tags button; it uses current item prices, with quantities prefilled from the received quantities (rounded to whole tags and editable).
+
+
+### Parts ordering notice on estimate emails
+
+Needs Estimate and Approved to Fix emails automatically add a highlighted **Parts availability** notice when required inventory parts are short. It lists the affected parts, says they will have to be ordered, and says they **could take a week to arrive**. This is a possible lead time, not a confirmed delivery date.
+
+The notice appears with existing customized templates and with the itemized bill switched off. Preview and send each check current stock, including stock already allocated to that ticket. Repeated lines for one product are combined when checking the total quantity needed. When sufficient stock arrives, the notice is omitted. Labor, miscellaneous charges and parts without tracked inventory do not trigger it. Pickup and declined-repair messages are unaffected.
+
+
+## Customer estimate approval and follow-up
+
+Configure the separate approval website using the supplied **extras/cpanel-approval/CPANEL-SETUP.md** guide. Online approvals start disabled. In Work Order Settings → Estimate approvals & customer follow-up, generate/save the private key and website URL, test the connection, then enable approvals and save. The settings card has its own Save button. The service can run on the staging site first and later morethanmowers.com.
+
+On a Needs Estimate ticket, add diagnosis and items, then **Send estimate for decision**. Review the preview and confirm sending. A successful send moves it to **Waiting on Customer**, records the exact revision/amount, and starts the follow-up timer. A normal check-in email does not start this timer. Parts stay in stock while waiting. The estimate template has its own configurable subject/body and includes the parts-ordering notice when stock is short.
+
+Customers open a private review link, read the estimate, enter their name and confirm Approve or Decline on the website. An email click alone is not a decision. No payment is taken. The Store Server polls every minute while running, or staff can use **Check customer responses now**. Responses recorded while POS is closed remain on the website until it reconnects. Matching approval moves to Approved to Fix (parts deducted once); decline moves to Not Fixed. History retains the revision, entered name, timestamp and comments. This is separate from QuickBooks sync and does not read the shop's inbox.
+
+Unanswered estimates are flagged **Needs customer call** after **3 calendar days** by default (configurable 1–90). Use the work-order filter to find them. On the ticket, enter a contact note and choose **Record call & remind again** to set another reminder. Approval/decline stops reminders. The timer only flags tickets; it never makes a decision or cancels a repair. Failed sends do not start it. Manually selecting Waiting on Customer without successfully sending an estimate creates no reminder timer.
+
+If the estimate changes, send a revised estimate for a fresh decision. Stale responses are marked for review instead of authorizing changed repairs. Outstanding older links are cancelled on sync or replaced by a revised estimate. Current stock arriving or a later estimate-fee payment does not invalidate the agreed repair details/total. Repairs with a recorded estimate require a matching approval before checkout. Record a phone decision using the Approved to Fix / Not Fixed stage action on an unchanged pending revision; history labels it as recorded by staff. Cancel an outstanding link from its ticket if it should no longer be used.
+
+Links expire after 30 days. The entered name is not independent identity verification: anyone with a forwarded private link could respond. Keep links, private website configuration and hosting backups private. The staging banner is a reminder, not a simulation switch—use test customer emails and work orders only. Website installation, SMTP delivery, physical Windows screens and live hosting must be checked locally before using this workflow with customers.

@@ -1,5 +1,5 @@
 /** Work order status emails (shared so Settings can preview a template exactly). */
-import type { WoLine, WoTotals } from './workorders'
+import type { WoLine, WoTotals, WoStatus } from './workorders'
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const money = (c: number) => `${c < 0 ? '-' : ''}$${(Math.abs(c) / 100).toFixed(2)}`
@@ -13,6 +13,9 @@ export interface WoEmailContent {
   storeName: string
   storeAddress: string
   body: string // already filled in
+  approvalLink?: string
+  estimatePreview?: boolean
+  partsNotice?: string // live stock warning, independent of customized template text
   bill: {
     lines: Pick<WoLine, 'kind' | 'description' | 'qty' | 'unitPriceCents'>[]
     totals: WoTotals
@@ -25,6 +28,24 @@ export interface WoEmailContent {
   statusLabel: string
 }
 
+/** Include stock already allocated to this ticket, and combine repeated lines for one part. */
+export function partsOrderingNotice(status: WoStatus, lines: WoLine[]): string {
+  if (status !== 'needs_estimate' && status !== 'waiting_customer' && status !== 'approved') return ''
+  const parts = new Map<number, { name: string; qty: number; taken: number; onHand: number }>()
+  for (const line of lines) {
+    if (line.kind !== 'part' || line.productId === null || line.onHand === null || line.qty <= 0) continue
+    const part = parts.get(line.productId)
+    if (part) { part.qty += line.qty; part.taken += line.stockTaken }
+    else parts.set(line.productId, {
+      name: line.description + (line.sku ? ` (${line.sku})` : ''),
+      qty: line.qty, taken: line.stockTaken, onHand: line.onHand
+    })
+  }
+  const missing = [...parts.values()].filter(p => p.onHand + p.taken < p.qty).map(p => p.name)
+  if (!missing.length) return ''
+  return `The following required ${missing.length === 1 ? 'part is' : 'parts are'} not currently in stock in the quantity needed and will have to be ordered: ${missing.join('; ')}. ${missing.length === 1 ? 'It' : 'They'} could take a week to arrive.`
+}
+
 const kindLabel = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
 
 export function woEmailHtml(c: WoEmailContent): string {
@@ -34,6 +55,10 @@ export function woEmailHtml(c: WoEmailContent): string {
     .filter(Boolean)
     .map((p) => `<p style="margin:0 0 12px">${esc(p).replace(/\n/g, '<br>')}</p>`)
     .join('')
+  const notice = c.partsNotice
+    ? `<div style="margin:0 0 14px;padding:12px;background:#fff4d6;border:1px solid #e3c677"><b>Parts availability</b><br>${esc(c.partsNotice)}</div>`
+    : ''
+  const approval = c.approvalLink ? `<p style="margin:18px 0"><a style="background:#15803d;color:white;padding:12px;text-decoration:none;display:inline-block" href="${esc(c.approvalLink+'&choice=approved')}">Review &amp; approve</a> <a style="background:#9b0c23;color:white;padding:12px;text-decoration:none;display:inline-block" href="${esc(c.approvalLink+'&choice=declined')}">Review &amp; decline</a></p><p style="font-size:12px">You will confirm your decision on the website. This link applies only to this estimate revision.</p>` : c.estimatePreview ? '<p><b>Approve / Decline links will be added when this estimate is sent.</b></p>' : ''
   const bill = c.bill
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin:6px 0 14px">
 <tr style="background:#f3f4f6"><th align="left" style="padding:6px 8px">Item</th><th align="right" style="padding:6px 8px">Qty</th><th align="right" style="padding:6px 8px">Price</th><th align="right" style="padding:6px 8px">Amount</th></tr>
@@ -59,7 +84,7 @@ ${c.bill.feeCreditCents ? `<tr><td colspan="3" align="right" style="padding:6px 
 <tr><td style="background:#9b0c23;color:#ffffff;padding:14px 20px;font-size:20px;font-weight:bold">${esc(c.storeName)}</td></tr>
 <tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151">
 Work order <b>${esc(c.woNumber)}</b> · ${esc(c.unit)}${c.serial ? ` · S/N ${esc(c.serial)}` : ''}<br>Status: <b>${esc(c.statusLabel)}</b></td></tr>
-<tr><td style="padding:18px 20px 6px;font-size:15px;line-height:1.5">${paras}${bill}</td></tr>
+<tr><td style="padding:18px 20px 6px;font-size:15px;line-height:1.5">${paras}${notice}${approval}${bill}</td></tr>
 <tr><td style="padding:12px 20px 18px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb">${esc(c.storeName)}<br>${esc(c.storeAddress).replace(/\n/g, '<br>')}</td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -79,5 +104,5 @@ export function woEmailText(c: WoEmailContent): string {
         ''
       ].join('\n')
     : ''
-  return `Work order ${c.woNumber} - ${c.unit}${c.serial ? ` - S/N ${c.serial}` : ''}\nStatus: ${c.statusLabel}\n\n${c.body}\n${bill}\n---\n${c.storeName}\n${c.storeAddress}`
+  return `Work order ${c.woNumber} - ${c.unit}${c.serial ? ` - S/N ${c.serial}` : ''}\nStatus: ${c.statusLabel}\n\n${c.body}${c.approvalLink ? '\n\nReview this estimate and approve or decline: '+c.approvalLink : c.estimatePreview ? '\n\nApproval links will be added when sent.' : ''}${c.partsNotice ? '\n\nParts availability\n' + c.partsNotice : ''}\n${bill}\n---\n${c.storeName}\n${c.storeAddress}`
 }

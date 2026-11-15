@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 14 November 2026 (v0.3.32 reports, voids and receiving costs)_
+_Last updated: 14 November 2026 (v0.3.34 customer approvals and follow-up)_
 
 ---
 
@@ -507,3 +507,23 @@ Receiving API + new-form defaults freight allocation false; draft PUT omission p
 Source overlay targets main 969294769f2be459867194827b4953ed99a8e08e / v0.3.31. All files copied over existing project; no push/tag performed here. Update server then every till. Windows UI/printing and real test-company validation are local checks.
 
 Validation for v0.3.32: npm run typecheck, npm run build and npm test passed (104 regression checks, including mocked QBWC void/recovery/error responses, report totals/caps, cost weighting and freight defaults). No physical printer or real QuickBooks Desktop run was performed here.
+
+
+## v0.3.33 estimate-email stock notice
+
+Shared partsOrderingNotice checks Needs Estimate and Approved to Fix only, aggregating tracked part lines by product and comparing total required with current on-hand plus this ticket's allocated stock. Work-order buildEmail adds the live notice separately from stored template body, so customized templates and includeBill=false cannot silently omit it. Both woEmailHtml and woEmailText include the notice; descriptions are escaped in HTML. Preview and send call the same builder and each reload the ticket. No SMTP messages were sent during validation. No schema or template migration.
+
+Source overlay baseline main 0b8eef0e0cb383149fce02cc591fa241e9974d41 / v0.3.32. Tests cover partial/exact stock, repeated item lines, allocated stock, untracked charges, custom templates, HTML/text safety and live preview after restocking. Typecheck/build/full regression validation included in update instructions.
+
+
+## v0.3.34 approvals / cPanel handoff
+
+Migration 26 creates work_order_estimates with immutable snapshots/hash/revision and sent/decision/contact state. Adds Waiting on Customer (partsTaken false), estimate email template, 3-day configurable call reminders, contact-note/snooze endpoint, badges/filter and idle-ticket refresh. Only successful explicit estimate sends start the timer. Existing check-in emails remain non-estimates.
+
+approvals.ts stores redacted approval_config with tested service identity and cursor. Requests use HTTPS and X-DiamondPOS-Key, strict host allowlist (staging or morethanmowers.com), no redirects and 15-second timeout. Server polls at 60 seconds; shutdown awaits its current check. Web decisions are transactionally matched to pending sent snapshot, live ticket hash/stage and service identity, then stock/stage/history apply once. Prepared sends defer cursor handling. Failures remain visible; unknown local IDs cannot mutate tickets. Stale/terminal remote links are cancelled once; publication replaces unanswered old links. Recorded estimates block repair checkout without a matching current approval. The hash excludes informational stock notice and remaining balance after fee payments, but binds repair lines, diagnosis, tax/total, customer/unit identity.
+
+extras/cpanel-approval is standalone PHP with PDO SQLite private storage outside document root. Public index.php path points to private configuration; no real key is shipped. 256-bit per-revision tokens are hashed on website, 30-day expiry; GET never records decisions; POST confirms name/choice with CSRF/session. Security headers/no referrers/no caches; rendered customer text escaped. API is keyed; database identity protects accidental service replacement. Decisions are append-only cursor events. No router port forwarding, external mailbox reads or payment processing. Names are customer-entered labels, not independently verified identities. Staging test_mode is a banner, not a simulation gate.
+
+Baseline overlay targets main 0b8eef0e0cb383149fce02cc591fa241e9974d41 / v0.3.32 and includes uncommitted v0.3.33 changes. Tag v0.3.34 when local checks pass. No commit, push, hosting upload, real customer email or live decision was performed here. Handoff includes a public-only cPanel ZIP plus POS update and detailed private-folder setup guide. Local PHP CLI integration tests run with a temporary private database; POS tests stub remote/SMTP transports. Windows visuals and actual cPanel/SMTP integration remain user checks.
+
+Final v0.3.34 validation: typecheck/build passed; 122 POS SQLite/API regression checks passed; 12 real PHP/HTTP integration checks passed using PHP 8.4 and a temporary private SQLite database. No staging upload, SMTP delivery or physical Windows/printing checks were performed.

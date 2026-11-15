@@ -590,6 +590,15 @@ export const migrations: Migration[] = [
       qb_txn_id TEXT,qb_error TEXT,qb_confirmed_at TEXT
     );
     CREATE INDEX idx_voids_qb_status ON sale_voids(qb_status);
+  ` },
+  { version: 26, name: 'estimate approvals and follow-up audit', up: `
+    CREATE TABLE work_order_estimates (
+      id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),revision INTEGER NOT NULL,
+      hash TEXT NOT NULL,snapshot_json TEXT NOT NULL,state TEXT NOT NULL,service_id TEXT NOT NULL,
+      sent_at TEXT,decision_at TEXT,decision_by TEXT,comment TEXT,follow_up_at TEXT,remote_cancelled INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(work_order_id,revision)
+    );
+    CREATE INDEX idx_estimates_pending ON work_order_estimates(state,work_order_id);
   ` }
 
 ]
