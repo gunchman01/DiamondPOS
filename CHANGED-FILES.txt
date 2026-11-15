@@ -1,12 +1,12 @@
-DiamondPOS v0.3.35 source overlay against v0.3.34
+DiamondPOS v0.3.36 source overlay against v0.3.35
 
 CHANGELOG.md
 docs/PROJECT_NOTES.md
-src/main/server/migrations.ts
+src/main/server/workorders.ts
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/WorkOrderTicket.tsx
-src/shared/workorders.ts
-tests/regressions.ts
-tests/retired-stage.ts
+src/renderer/src/screens/NewWorkOrder.tsx
+tests/initial-fee.ts
+tests/reporting-voids.ts
 START-HERE.md
 CHANGED-FILES.txt

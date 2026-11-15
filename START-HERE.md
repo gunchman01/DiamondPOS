@@ -1,10 +1,10 @@
-# DiamondPOS v0.3.35 — Remove On the Bench
+# DiamondPOS v0.3.36 — Editable estimate fee at initial check-in
 
-Source update overlay over v0.3.34 / main aaf5aa0d74222e2a19260f4f564400cea0b1e987. No dependency or approval website files changed.
+Source overlay over main v0.3.35 / e1a153eb1905e8f32bc33840970459be0332109e. No dependency or database migration is required. Website approval files and settings are unchanged.
 
-## Apply on your development PC
+## Apply
 
-Close the development app. Extract this ZIP, then copy the CONTENTS of DiamondPOS-update-v0.3.35 into your existing project folder, replacing matching files. Keep the rest of your project, local data and configuration.
+Close the development app, extract the ZIP, and copy the CONTENTS of DiamondPOS-update-v0.3.36 into your existing project folder, replacing matching files. Keep the rest of your project and local configuration/data.
 
 ```powershell
 npm run typecheck
@@ -13,30 +13,28 @@ npm run build
 npm run dev
 ```
 
-Typecheck, build and all 126 regression checks passed. Windows visual verification is still a local check.
+Typecheck, build and all 131 regression checks passed. Windows visual verification is still a local check.
 
-## What changes
+## Try the change
 
-- On the Bench disappears from the work-order stage choices, progress strip, stage colors and email-template settings.
-- Approved to Fix -> Waiting on Parts or Ready for Review.
-- Waiting on Parts -> Approved to Fix or Ready for Review.
-- Ready for Review -> Ready for Pick Up or back to Approved to Fix for rework.
-- Migration 27 moves existing On the Bench tickets to Approved to Fix, adds an explanatory history note and leaves already-deducted inventory unchanged.
-- Original history and last-email records stay intact and may display On the Bench (retired). Other saved colors/templates stay unchanged.
-- Customer estimate approvals continue using the existing website; do not upload anything to cPanel for this update.
+1. Check in a new work order and select a unit. Estimate fee for this ticket starts with that category's configured default.
+2. Enter a lower or higher amount. The check-in collection button shows the edited amount. Collect it now or later.
+3. Click No fee (or enter 0.00) to waive it. No estimate-fee payment is required.
+4. Use default restores the configured fee. Selecting another unit loads its category's default. You can enter a positive fee even when its default is zero.
+5. Confirm the ticket shows the chosen amount and the settings default remains unchanged. A different fee/waiver has a history note with the default and ticket amounts.
 
-Check a migrated ticket if one existed, then try the new next-stage buttons and confirm inventory is not deducted again. Update the Store Server first, then ALL tills so everyone sees the same stage list. The server backs up an existing database before applying the migration.
+Blank, negative, fractional-cent and unsafe numeric amounts are rejected. The defaults must load before check-in; use Retry if loading fails. Existing tickets and paid fees are unchanged; this is a new-ticket check-in control.
 
-## Commit and release after your local check
+## Commit and release
 
-Review git status and git diff first. Include other local edits intentionally.
+Review git status and git diff first and include other local edits only intentionally.
 
 ```powershell
 git add .
-git commit -m "Remove On the Bench work order stage"
+git commit -m "Allow per-ticket estimate fee at work order check-in"
 git push origin main
-git tag v0.3.35
-git push origin v0.3.35
+git tag v0.3.36
+git push origin v0.3.36
 ```
 
-Use the tag only if unused. Pushing main alone does not publish the POS update; the version tag starts the Windows release workflow. No Git commit, push or tag was made here.
+Use the tag only if unused. The tag starts the Windows release workflow; pushing main alone does not publish an installer. Update the Store Server first, then tills, so the server accepts the edited fee field. No cPanel upload or approval-service reconfiguration is needed. No commit, push or tag was made here.

@@ -157,7 +157,7 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 1. Click **+ New work order** and pick the customer.
 2. Pick their unit, or click **+ Add a unit** (type, brand, model, serial; hours for mowers are optional).
 3. Type what's wrong with it.
-4. If an estimate fee applies, click **Check in & collect $X at till** to take it now, or check in and collect it later.
+4. Review **Estimate fee for this ticket ($)**. It starts with the selected equipment category’s configured default. Enter a different amount, click **No fee**, or enter **0.00** to waive it. **Use default** restores the configured amount. For a positive fee, click **Check in & collect $X at till** to collect the edited amount now, or collect it later. Changing the fee here does not change the defaults in Settings. Selecting a different unit reloads that category’s default.
 
 **Stages**
 - **Needs Estimate**: add parts, labor and other charges. Parts are not taken from stock yet; parts not in stock show in red.
@@ -522,3 +522,8 @@ Links expire after 30 days. The entered name is not independent identity verific
 ### Removed work-order stage
 
 As of v0.3.35, On the Bench is no longer a selectable stage or email template. Existing tickets in that stage move to Approved to Fix automatically, preserving the parts already deducted. The update adds a history note rather than rewriting past events. Older history and last-email records may display **On the Bench (retired)** to retain their original meaning. Other stage colors and templates keep their saved values. No website upload or approval-service reconfiguration is needed for this update.
+
+
+### Per-ticket fee at check-in
+
+The estimate fee field remains available even if the category's default is zero, so staff can charge a one-off fee when appropriate. A custom amount is saved on the new ticket and used for fee collection and any later eligible fee credit. A changed/waived fee adds a history note showing the configured default and ticket amount. Existing tickets, paid fees and work-order settings are unchanged. This control is for initial check-in, not changing an already-paid fee.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { customerDisplayName, type Customer } from '../../../shared/types'
 import { unitLabel, type CustomerUnit, type WoSettings, type WorkOrder } from '../../../shared/workorders'
-import { money } from '../format'
+import { money, parseMoney } from '../format'
 import { api } from '../api'
 import CustomerPicker from './CustomerPicker'
 import UnitEditor from './UnitEditor'
@@ -23,12 +23,14 @@ export default function NewWorkOrder(props: {
   const [hours, setHours] = useState('')
   const [error, setError] = useState('')
   const [settings, setSettings] = useState<WoSettings | null>(null)
-  const [chargeFee, setChargeFee] = useState(true)
+  const [feeText, setFeeText] = useState('')
+  const [settingsError,setSettingsError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  async function loadSettings(){setSettingsError('');try{setSettings(await api.woSettings())}catch(e){setSettingsError((e as Error).message)}}
   useEffect(() => {
     api.mkOptions().then((o) => setBrands(o.manufacturers)).catch(() => {})
-    api.woSettings().then(setSettings).catch(() => {})
+    void loadSettings()
   }, [])
   useEffect(() => {
     if (!customer) return
@@ -40,24 +42,26 @@ export default function NewWorkOrder(props: {
   }, [customer])
   useEffect(() => setHours(unit?.hours !== null && unit?.hours !== undefined ? String(unit.hours) : ''), [unit])
 
-  const feeCents = unit && settings ? settings.estimateFee.cents[unit.category] : 0
+  const defaultFee = unit && settings ? settings.estimateFee.cents[unit.category] : 0
+  useEffect(()=>{setFeeText(unit&&settings?(settings.estimateFee.cents[unit.category]/100).toFixed(2):'')},[unit?.id,unit?.category,settings])
+  const feeCents = parseMoney(feeText)
+  const validFee = Number.isSafeInteger(feeCents) && feeCents >= 0
 
   async function create(collectNow: boolean) {
-    if (!customer || !unit) return
+    if (busy || !customer || !unit || !settings) return
+    if (!validFee) {setError('Enter an estimate fee of $0.00 or more, or use No fee.');return}
     setBusy(true)
     setError('')
     try {
-      props.onCreated(
-        await api.woCreate({
-          customerId: customer.id,
-          unitId: unit.id,
-          problem,
-          hoursIn: unit.category === 'mower' && hours.trim() ? Number(hours) : null,
-          by: props.by,
-          noFee: !chargeFee
-        }),
-        collectNow && chargeFee && feeCents > 0
-      )
+      const created = await api.woCreate({
+        customerId: customer.id,
+        unitId: unit.id,
+        problem,
+        hoursIn: unit.category === 'mower' && hours.trim() ? Number(hours) : null,
+        by: props.by,
+        feeCents
+      })
+      props.onCreated(created, collectNow && created.feeCents > 0)
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -78,7 +82,7 @@ export default function NewWorkOrder(props: {
 
   return (
     <div className="modal-backdrop">
-      <div className="modal new-wo" onKeyDown={(e) => e.key === 'Escape' && !addingUnit && props.onCancel()}>
+      <div className="modal new-wo" onKeyDown={(e) => e.key === 'Escape' && !addingUnit && !busy && props.onCancel()}>
         <h2>New work order</h2>
 
         <div className="wo-step">
@@ -129,13 +133,19 @@ export default function NewWorkOrder(props: {
             placeholder="What the customer says, e.g. Hard to start, runs rough at full throttle"
             onChange={(e) => setProblem(e.target.value)}
           />
-          {feeCents > 0 && (
-            <label className="check fee-check">
-              <input type="checkbox" checked={chargeFee} onChange={(e) => setChargeFee(e.target.checked)} />
-              Charge the {money(feeCents)} estimate fee ({unit?.category === 'mower' ? 'mower' : unit?.category === 'handheld' ? 'hand-held' : 'other'})
-              {' '}<span className="muted small">credited toward the repair or a new purchase, kept if they decline</span>
+          <div className="fee-check">
+            <label>Estimate fee for this ticket ($)
+              <input aria-label="Estimate fee for this ticket" inputMode="decimal" maxLength={30} value={feeText} disabled={!unit||!settings||busy} onChange={e=>setFeeText(e.target.value)} placeholder="0.00"/>
             </label>
-          )}
+            <div className="row gap">
+              <button type="button" disabled={!unit||!settings||busy} onClick={()=>setFeeText((defaultFee/100).toFixed(2))}>Use default {money(defaultFee)}</button>
+              <button type="button" disabled={!unit||!settings||busy} onClick={()=>setFeeText('0.00')}>No fee</button>
+            </div>
+            <p className="muted small">Change this ticket's fee or enter 0.00 to waive it. The configured default is unchanged. A paid fee is credited toward the repair or a new purchase and kept if they decline.</p>
+            {!settings&&!settingsError&&<p className="muted small">Loading estimate fee defaults…</p>}
+            {settingsError&&<p className="error-text">Could not load fee defaults: {settingsError} <button type="button" onClick={()=>void loadSettings()}>Retry</button></p>}
+            {unit&&settings&&!validFee&&<p className="error-text">Enter an amount of 0.00 or more with up to two decimal places.</p>}
+          </div>
           {unit?.category === 'mower' && (
             <label className="inline">
               Hour meter now (optional)
@@ -146,18 +156,18 @@ export default function NewWorkOrder(props: {
 
         {error && <div className="error-text">{error}</div>}
         <div className="row gap end">
-          <button onClick={props.onCancel}>Cancel</button>
-          {feeCents > 0 && chargeFee ? (
+          <button disabled={busy} onClick={props.onCancel}>Cancel</button>
+          {validFee && feeCents > 0 ? (
             <>
-              <button disabled={!unit || !problem.trim() || busy} onClick={() => create(false)}>
+              <button disabled={!unit || !settings || !validFee || !problem.trim() || busy} onClick={() => create(false)}>
                 Check in (collect fee later)
               </button>
-              <button className="primary" disabled={!unit || !problem.trim() || busy} onClick={() => create(true)}>
+              <button className="primary" disabled={!unit || !settings || !validFee || !problem.trim() || busy} onClick={() => create(true)}>
                 {busy ? 'Creating…' : `Check in & collect ${money(feeCents)} at till`}
               </button>
             </>
           ) : (
-            <button className="primary" disabled={!unit || !problem.trim() || busy} onClick={() => create(false)}>
+            <button className="primary" disabled={!unit || !settings || !validFee || !problem.trim() || busy} onClick={() => create(false)}>
               {busy ? 'Creating…' : 'Check in (Needs Estimate)'}
             </button>
           )}

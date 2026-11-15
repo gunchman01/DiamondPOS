@@ -1,3 +1,4 @@
+import { testInitialFee } from './initial-fee'
 import { testApprovals } from './approvals'
 import { testWorkOrderEmails } from './work-order-email'
 import assert from 'node:assert/strict'
@@ -213,6 +214,7 @@ export async function testReportingVoids(check:(name:string,fn:()=>void)=>void,d
   })
   await testWorkOrderEmails(check,db,call)
   await testApprovals(check,db,call)
+  await testInitialFee(check,db,call)
   const capDb=openDatabase(path.join(dir,'report-cap.db'))
   try{
     capDb.prepare('UPDATE products SET active=0').run()

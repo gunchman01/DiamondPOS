@@ -626,8 +626,11 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       const problem = String(b.problem ?? '').trim().slice(0, 4000)
       if (!problem) throw new WoError(400, "Describe what's wrong with the unit")
       const settings = getWoSettings(db)
+      const defaultFee = settings.estimateFee.cents[unit.category]
+      if (b.feeCents !== undefined && (typeof b.feeCents !== 'number' || !Number.isSafeInteger(b.feeCents) || b.feeCents < 0))
+        throw new WoError(400, 'Estimate fee must be a valid amount of $0.00 or more')
+      const fee = b.noFee === true ? 0 : b.feeCents === undefined ? defaultFee : b.feeCents as number
       const id = db.transaction(() => {
-        const fee = b.noFee === true ? 0 : settings.estimateFee.cents[unit.category]
         const info = db
           .prepare('INSERT INTO work_orders (customer_id, unit_id, problem, hours_in, fee_cents, fee_status) VALUES (?, ?, ?, ?, ?, ?)')
           .run(unit.customerId, unit.id, problem, unit.category === 'mower' ? hoursIn : null, fee, fee > 0 ? 'unpaid' : 'none')
@@ -640,6 +643,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         if (unit.category === 'mower' && hoursIn !== null)
           db.prepare('UPDATE customer_units SET hours = ? WHERE id = ?').run(hoursIn, unit.id)
         hist(woId, 'Checked in', by(req), 'needs_estimate')
+        if (fee !== defaultFee) hist(woId, `Estimate fee set to $${(fee / 100).toFixed(2)} for this ticket (configured default $${(defaultFee / 100).toFixed(2)}).`, by(req), 'needs_estimate')
         return woId
       })()
       res.status(201).json(need(id))

@@ -165,7 +165,7 @@ export const api = {
     request<WoSummary[]>('GET', `/api/workorders?status=${status}&search=${encodeURIComponent(search)}`),
   woCounts: () => request<Record<WoStatus, number>>('GET', '/api/workorders/counts'),
   wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
-  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean }) =>
+  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean; feeCents?: number }) =>
     request<WorkOrder>('POST', '/api/workorders', b),
   woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}`, b),

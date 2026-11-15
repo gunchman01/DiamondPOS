@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.36 - 15 Nov 2026
+- **Editable check-in estimate fee:** new work orders start with the configured fee for the selected unit category. Change the amount for that ticket, use **No fee** to waive it, or **Use default** to restore the configured amount.
+- Check in and collect the adjusted amount immediately, or collect later. A zero fee needs no fee collection. Per-ticket changes are recorded in history and do not change the settings defaults or existing work orders.
+- Invalid amounts are rejected before saving. No database migration or approval-website upload is needed. Update the Store Server before tills so it accepts the new per-ticket fee field.
+
 ## v0.3.35 - 14 Nov 2026
 > Update the Store Server PC first.
 - Removed **On the Bench** from work-order stages, progress indicators, stage colors and email-template choices.

@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 14 November 2026 (v0.3.35 removed bench stage)_
+_Last updated: 15 November 2026 (v0.3.36 editable check-in fee)_
 
 ---
 
@@ -536,3 +536,10 @@ Removed on_bench from WoStatus, STAGES, next-stage buttons, ticket FLOW and defa
 Migration 27 inserts one audit history entry per on_bench ticket and updates its status to approved, with no stock SQL or reconcile call. Previously deducted stock_taken and product on_hand are preserved; normal reconciliation at approved is a no-op for already-taken quantities. Existing history and last_emailed_status are not rewritten. Migration is idempotent through schema_migrations.
 
 Validated typecheck/build and 126 SQLite/API regression checks, including a v26 database with a bench ticket/allocated stock, historical events, custom colors/templates and repeat startup. No PHP/site upload or approval-service change. Source overlay against main aaf5aa0d74222e2a19260f4f564400cea0b1e987 / v0.3.34. User commits/tags main; no branch, commit, push or release created here.
+
+
+## v0.3.36 initial ticket estimate fee
+
+NewWorkOrder uses an editable dollar amount, category default on unit selection, Use default and No fee controls. Defaults must load successfully before check-in. Validation uses parseMoney plus safe-integer cents. Collection routing uses the server-returned ticket fee. API accepts optional feeCents (safe integer >=0); omitted retains the default and older noFee:true still waives. Validation precedes transactional ticket/shop-supply/hour changes. Non-default fee history records both amounts without changing wo_settings or existing tickets. Existing fee payment/credit calculations already use the saved ticket fee.
+
+No schema migration, cPanel upload or approval-flow change. Typecheck/build and 131 regression checks passed, including omitted defaults, lower/higher overrides, zero-default override, zero/legacy waiver, fee collection and invalid-request rollback. Overlay baseline main e1a153eb1905e8f32bc33840970459be0332109e / v0.3.35. User commits/tags main; no commit/push/tag was made here. Windows visual verification remains a local check.
