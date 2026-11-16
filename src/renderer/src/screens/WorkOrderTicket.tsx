@@ -216,7 +216,7 @@ export default function WorkOrderTicket(props: {
       {error && <div className="error-text">{error}</div>}
       <FeeBar wo={wo} onCollect={() => props.onPayAtTill(wo.id, 'fee')} />
       {wo.status === 'needs_estimate' && (
-        <div className="info-bar">Parts on the estimate are not taken from stock until it's moved to <b>Approved to Fix</b>.</div>
+        <div className="info-bar">Inventory parts are taken from stock as soon as they are added to this ticket. Removing them or declining the repair returns them to stock.</div>
       )}
       {wo.status === 'ready_review' && (
         <div className="info-bar">Manager review: check the notes, parts and labor hours, then move it to <b>Ready for Pick Up</b>.</div>
@@ -232,7 +232,7 @@ export default function WorkOrderTicket(props: {
         {/* ---------------- Parts & labor ---------------- */}
         <div className="card form">
           <div className="row between">
-            <h3>{st.partsTaken ? 'Parts & labor' : 'Estimate'}</h3>
+            <h3>{['needs_estimate','waiting_customer'].includes(wo.status) ? 'Estimate' : 'Parts & labor'}</h3>
             {!closed && (
               <div className="row gap">
                 <button onClick={() => setPicking(true)}>+ Part</button>

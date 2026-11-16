@@ -1,3 +1,4 @@
+import { registerAccountRoutes,createAccountInvoice } from './accounts'
 import { startApprovalScheduler } from './approvals'
 import { saleVoid } from './voids'
 import { registerReportRoutes } from './reports'
@@ -41,7 +42,7 @@ import {
   validateCustomer
 } from './customers'
 import { registerKioskRoutes } from './kiosk'
-import { registerQuickBooksRoutes } from './quickbooks/qbwc'
+import { registerQuickBooksRoutes,quickBooksSyncing } from './quickbooks/qbwc'
 import { registerMarketingRoutes } from './marketing/routes'
 import { startMarketingSender, stopMarketingSender } from './marketing/mailer'
 import {
@@ -56,7 +57,7 @@ import { priceWithFeeCredit } from '../../shared/workorders'
 import { DEFAULT_FEEDBACK_EMAIL } from '../../shared/feedback'
 import { normaliseDesigns } from '../../shared/printDesigns'
 import { registerFeedbackRoutes } from './feedback'
-import { completeHeld, registerHeldRoutes, HeldError } from './held'
+import { completeHeld, releaseHeldStock, registerHeldRoutes, HeldError } from './held'
 import { registerDeleteRoutes } from './deleting'
 import { registerReceivingRoutes } from './receiving'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
@@ -290,6 +291,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   // Receiving (items in from vendors, average cost)
   registerReceivingRoutes(app, db)
   registerVendorRoutes(app, db)
+  registerAccountRoutes(app, db,quickBooksSyncing)
   registerReportRoutes(app, db)
 
   // Every customer, for Export to Excel
@@ -427,14 +429,19 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
          WHERE si.kind = 'return' AND s.status = 'completed' AND date(s.created_at, 'localtime') = ?`
       )
       .get(date) as { n: number; cents: number }
+    const charges=(db.prepare("SELECT COALESCE(SUM(total_cents),0) AS n FROM sales WHERE status='completed' AND on_account=1 AND date(created_at,'localtime')=?").get(date) as {n:number}).n
+    const accountPayments=db.prepare("SELECT method,SUM(amount_cents) AS n FROM account_payments WHERE date(created_at,'localtime')=? GROUP BY method").all(date) as {method:string;n:number}[]
+    const accountAmt=(method:string)=>accountPayments.find(r=>r.method===method)?.n??0
+    const accountTotal=accountPayments.reduce((n,r)=>n+r.n,0)
     const report: DailyReport = {
+      salesTotalCents: totals.total,accountChargesCents: charges,accountPaymentsCents: accountTotal,
       date,
       saleCount: totals.n,
-      totalCents: totals.total,
+      totalCents: totals.total-charges+accountTotal,
       taxCents: totals.tax,
-      cashCents: amt('cash') - totals.change, // net cash kept in the drawer
-      cardCents: amt('card'),
-      checkCents: amt('check'),
+      cashCents: amt('cash') - totals.change+accountAmt('cash'), // net cash kept in the drawer
+      cardCents: amt('card')+accountAmt('card'),
+      checkCents: amt('check')+accountAmt('check'),
       taxExemptCount: totals.exemptN,
       taxExemptCents: totals.exemptCents,
       refundCount: refunds.n,
@@ -590,6 +597,10 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     if (!customer) throw new HttpError(400, 'The selected customer no longer exists')
   }
 
+  if(req.onAccount!==undefined&&typeof req.onAccount!=='boolean')throw new HttpError(400,'Invalid account charge flag')
+  if(req.onAccount&&(!customer||!customer.active||!customer.accountEnabled))throw new HttpError(400,'Select an active customer approved for account sales')
+  if(req.onAccount&&(req.payments.length||returnReq.length))throw new HttpError(400,'Charge the entire positive sale to account without other tenders or returns')
+
   // Tax exemption: only for a tax-exempt customer whose Farm Tax ID is on file and current
   const taxExempt = req.taxExempt === true
   if (taxExempt) {
@@ -700,7 +711,8 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   const totalCents = priced.totalCents + retLines.reduce((s, l) => s + l.lineTotalCents + l.taxCents, 0)
   const taxCents = priced.taxCents + retLines.reduce((s, l) => s + l.taxCents, 0)
   const { taxExemptCents } = priced
-  if (totalCents !== 0 && req.payments.length === 0) throw new HttpError(400, totalCents < 0 ? 'Choose how the refund is given' : 'Sale has no payment')
+  if(req.onAccount&&totalCents<=0)throw new HttpError(400,'Account charges must be positive')
+  if (!req.onAccount && totalCents !== 0 && req.payments.length === 0) throw new HttpError(400, totalCents < 0 ? 'Choose how the refund is given' : 'Sale has no payment')
 
   const refund = totalCents < 0
   const payments: PaymentInput[] = req.payments.map((p) => {
@@ -717,7 +729,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   let changeCents = 0
   if (refund) {
     if (paid !== totalCents) throw new HttpError(400, `The refund must be exactly $${(-totalCents / 100).toFixed(2)}`)
-  } else {
+  } else if(!req.onAccount) {
     if (paid < totalCents) throw new HttpError(400, 'Payment is less than the sale total')
     changeCents = paid - totalCents
     const cashPaid = payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amountCents, 0)
@@ -725,6 +737,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   }
 
   const id = db.transaction(() => {
+    if(req.heldId)releaseHeldStock(db,Number(req.heldId))
     const info = db
       .prepare(
         `INSERT INTO sales (till_name, total_cents, tax_cents, change_cents, customer_id, tax_exempt, tax_exempt_id, tax_exempt_cents, work_order_id, no_receipt_return,
@@ -747,6 +760,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
         taxInfo.name
       )
     const saleId = Number(info.lastInsertRowid)
+    if(req.onAccount){db.prepare('UPDATE sales SET on_account=1 WHERE id=?').run(saleId);createAccountInvoice(db,saleId,customerId!)}
     const addItem = db.prepare(
       `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial,
                                kind, return_of_item_id, return_of_sale_id, return_reason, restocked, tax_cents, regular_price_cents, stock_removed)
@@ -788,6 +802,7 @@ export function getSale(db: DB, id: number): Sale | null {
         till_name: string
         total_cents: number
         status: string
+        on_account: number
         tax_cents: number
         change_cents: number
         tax_exempt: number
@@ -831,6 +846,7 @@ export function getSale(db: DB, id: number): Sale | null {
   return {
     id: s.id,
     status: s.status,
+    onAccount: s.on_account === 1,
     void: saleVoid(db,s.id),
     createdAt: sqliteToIso(s.created_at),
     tillName: s.till_name,

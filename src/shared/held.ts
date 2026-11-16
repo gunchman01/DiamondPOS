@@ -10,6 +10,7 @@ export interface HeldItemInput {
 }
 
 export interface HeldReceiptInput {
+  requestId?: string
   customerId?: number | null
   note?: string
   taxExempt?: boolean

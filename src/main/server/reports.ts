@@ -47,7 +47,7 @@ export function cleanReport(value:unknown):ReportDefinition {
 const sources:Record<ReportDefinition['source'],string>={
   sales:`SELECT s.id,date(s.created_at,'localtime') AS day,s.till_name AS till,s.customer_id AS customerId,
     CASE WHEN c.id IS NULL THEN 'Walk-in' WHEN c.track_as_company=1 AND COALESCE(c.company,'')<>'' THEN c.company ELSE TRIM(COALESCE(c.first_name,'')||' '||COALESCE(c.last_name,'')) END AS customer,
-    s.status,COALESCE(v.reason,'') AS voidReason,COALESCE(v.voided_by,'') AS voidBy,COALESCE(v.voided_at,'') AS voidAt,COALESCE(v.qb_status,'') AS voidSync,EXISTS(SELECT 1 FROM sale_items si WHERE si.sale_id=s.id AND si.kind='return') AS hasReturn,s.tax_exempt AS taxExempt,
+    s.on_account AS onAccount,s.status,COALESCE(v.reason,'') AS voidReason,COALESCE(v.voided_by,'') AS voidBy,COALESCE(v.voided_at,'') AS voidAt,COALESCE(v.qb_status,'') AS voidSync,EXISTS(SELECT 1 FROM sale_items si WHERE si.sale_id=s.id AND si.kind='return') AS hasReturn,s.tax_exempt AS taxExempt,
     s.total_cents-s.tax_cents AS net,s.tax_cents AS tax,s.total_cents AS total,
     COALESCE((SELECT SUM(p.amount_cents) FROM payments p WHERE p.sale_id=s.id AND p.method='cash'),0)-s.change_cents AS cash,
     COALESCE((SELECT SUM(p.amount_cents) FROM payments p WHERE p.sale_id=s.id AND p.method='card'),0) AS card,

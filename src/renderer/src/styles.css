@@ -1000,3 +1000,7 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .item-cost-summary { display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0; }
 .item-cost-summary div {display:flex;flex-direction:column;gap:4px;background:var(--panel-alt);padding:8px;}
 .item-cost-summary span {font-size:12px;color:var(--muted);}
+
+.account-backdrop {z-index:120;}
+.account-dialog {width:min(1100px,96vw);max-height:95vh;padding:18px;overflow:auto;}
+.account-payment-fields {align-items:end;flex-wrap:wrap;}

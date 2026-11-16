@@ -160,8 +160,8 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 4. Review **Estimate fee for this ticket ($)**. It starts with the selected equipment category’s configured default. Enter a different amount, click **No fee**, or enter **0.00** to waive it. **Use default** restores the configured amount. For a positive fee, click **Check in & collect $X at till** to collect the edited amount now, or collect it later. Changing the fee here does not change the defaults in Settings. Selecting a different unit reloads that category’s default.
 
 **Stages**
-- **Needs Estimate**: add parts, labor and other charges. Parts are not taken from stock yet; parts not in stock show in red.
-- **Approved to Fix**: parts are taken out of stock.
+- **Needs Estimate**: add parts, labor and other charges. Tracked parts are taken from available stock as soon as they are added; parts not available show in red.
+- **Approved to Fix**: already allocated parts are not deducted again.
 - **NOT FIXED**: the customer declined. Any parts go back into stock.
 - **Waiting on Parts**: waiting for required parts. Return to **Approved to Fix** when repair work resumes, or move directly to **Ready for Review** when complete.
 - **Approved to Fix** can move directly to **Ready for Review**; there is no separate On the Bench stage.
@@ -508,9 +508,9 @@ The notice appears with existing customized templates and with the itemized bill
 
 Configure the separate approval website using the supplied **extras/cpanel-approval/CPANEL-SETUP.md** guide. Online approvals start disabled. In Work Order Settings → Estimate approvals & customer follow-up, generate/save the private key and website URL, test the connection, then enable approvals and save. The settings card has its own Save button. The service can run on the staging site first and later morethanmowers.com.
 
-On a Needs Estimate ticket, add diagnosis and items, then **Send estimate for decision**. Review the preview and confirm sending. A successful send moves it to **Waiting on Customer**, records the exact revision/amount, and starts the follow-up timer. A normal check-in email does not start this timer. Parts stay in stock while waiting. The estimate template has its own configurable subject/body and includes the parts-ordering notice when stock is short.
+On a Needs Estimate ticket, add diagnosis and items, then **Send estimate for decision**. Review the preview and confirm sending. A successful send moves it to **Waiting on Customer**, records the exact revision/amount, and starts the follow-up timer. A normal check-in email does not start this timer. Parts remain allocated while waiting; declining restores them. The estimate template has its own configurable subject/body and includes the parts-ordering notice when stock is short.
 
-Customers open a private review link, read the estimate, enter their name and confirm Approve or Decline on the website. An email click alone is not a decision. No payment is taken. The Store Server polls every minute while running, or staff can use **Check customer responses now**. Responses recorded while POS is closed remain on the website until it reconnects. Matching approval moves to Approved to Fix (parts deducted once); decline moves to Not Fixed. History retains the revision, entered name, timestamp and comments. This is separate from QuickBooks sync and does not read the shop's inbox.
+Customers open a private review link, read the estimate, enter their name and confirm Approve or Decline on the website. An email click alone is not a decision. No payment is taken. The Store Server polls every minute while running, or staff can use **Check customer responses now**. Responses recorded while POS is closed remain on the website until it reconnects. Matching approval moves to Approved to Fix (no second parts deduction); decline moves to Not Fixed. History retains the revision, entered name, timestamp and comments. This is separate from QuickBooks sync and does not read the shop's inbox.
 
 Unanswered estimates are flagged **Needs customer call** after **3 calendar days** by default (configurable 1–90). Use the work-order filter to find them. On the ticket, enter a contact note and choose **Record call & remind again** to set another reminder. Approval/decline stops reminders. The timer only flags tickets; it never makes a decision or cancels a repair. Failed sends do not start it. Manually selecting Waiting on Customer without successfully sending an estimate creates no reminder timer.
 
@@ -527,3 +527,22 @@ As of v0.3.35, On the Bench is no longer a selectable stage or email template. E
 ### Per-ticket fee at check-in
 
 The estimate fee field remains available even if the category's default is zero, so staff can charge a one-off fee when appropriate. A custom amount is saved on the new ticket and used for fee collection and any later eligible fee credit. A changed/waived fee adds a history note showing the configured default and ticket amount. Existing tickets, paid fees and work-order settings are unchanged. This control is for initial check-in, not changing an already-paid fee.
+
+
+## Customer accounts and reserved inventory (v0.3.37)
+
+In the customer editor, enable **Allow on account** and set payment terms (default 30 days). Select that customer on Sell and use **Charge to account** for a whole positive sale. The receipt says no payment was collected. Returns and split tenders cannot be charged to account.
+
+With QuickBooks sync configured and enabled, account sales create unpaid customer Invoices with item amounts and sales tax. They are excluded from paid Sales Receipts. Open QuickBooks to send or print the invoice to the customer; POS does not email it automatically.
+
+Use **Pay existing account** on Sell or **Account balance / receive payment** in the customer editor. Record cash, check (check number required), or a payment already approved on the standalone card terminal. Payments apply oldest invoice first. They do not create another sale, deduct stock, or charge tax. Daily Closeout includes these receipts in takings and shows account charges separately. Sales reports remain sale-based and do not treat account payments as new sales.
+
+The account window lists invoices, balances, payments and sync errors. QuickBooks settings also shows recent account sync activity. Unsent invoices sync before their payments, which become QuickBooks Receive Payments applied to those invoices. Retrying the same saved request or a lost sync response is checked to avoid duplicates.
+
+Balances cover invoices created by this POS only. The separate imported past-due field and invoices entered directly in QuickBooks are not included. Back-office payments update the displayed balance after a successful connector run. A conflicting payment or changed invoice stops for review: reconcile in QuickBooks before retrying the failed item. Do not collect the same payment again because a connection timed out; use the saved retry.
+
+Overpayments, account payment reversals, credits and account-sale void/refund synchronization are not supported in this release. Cash receipt voids and receipt-linked cash returns are blocked for account invoices. Arrange account adjustments with the bookkeeper and reconcile in QuickBooks; do not assume a POS cash return reduces an account invoice.
+
+Holding a sale now deducts its tracked quantities immediately. Editing it adjusts only the difference; deleting the hold restores its stock. Checkout replaces the hold allocation with the completed sale deduction in one transaction. Work-order parts are deducted when added, even during Needs Estimate or Waiting on Customer. Removing parts or marking Not Fixed restores them; approval and checkout do not deduct them twice.
+
+Update the Store Server first, then all tills. Migration 28 allocates existing open held sales and previously unallocated open work-order parts, so available on-hand can decrease on the first start. Already allocated parts are preserved. Review these open tickets against physical stock after upgrading. No approval-website upload is required.

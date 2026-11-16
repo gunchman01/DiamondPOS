@@ -2,9 +2,8 @@ import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,s
 /**
  * WORK ORDERS (repairs) and CUSTOMER UNITS (equipment).
  *
- * Stock rule: parts on a ticket only come out of inventory while the ticket
- * is in a stage with `partsTaken` (Approved to Fix and later). Moving back to
- * Needs Estimate, or to NOT FIXED, puts them back. `reconcileStock()` makes
+ * Stock rule: inventory parts are reserved immediately, including estimate/customer-wait stages.
+ * Removing parts or moving to NOT FIXED puts them back. `reconcileStock()` makes
  * the stock match the stage every time a ticket or its parts change, so the
  * numbers can never drift.
  */
@@ -301,8 +300,8 @@ export function reconcileStock(db: DB, woId: number) {
     if (wo.status === 'closed') return
     const take = stage(wo.status).partsTaken
     for (const l of woLines(db, woId)) {
-      if (l.kind !== 'part' || l.product_id === null || l.ptype !== 'inventory') continue
-      const target = take ? l.qty : 0
+      if (l.kind !== 'part' || l.product_id === null) continue
+      const target = take && l.ptype === 'inventory' ? l.qty : 0
       const delta = target - l.stock_taken
       if (delta !== 0) {
         db.prepare('UPDATE products SET on_hand = on_hand - ? WHERE id = ?').run(Math.round(delta), l.product_id)

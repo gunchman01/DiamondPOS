@@ -125,6 +125,7 @@ export interface PaymentInput {
 }
 
 export interface SaleRequest {
+  onAccount?: boolean
   /** Stable across retries, including a lost response. */
   requestId: string
   tillName: string
@@ -168,6 +169,7 @@ export interface SaleItem {
 }
 
 export interface Sale {
+  onAccount?: boolean
   status?: string
   void?: SaleVoid | null
   id: number
@@ -209,6 +211,8 @@ export interface SaleSummary {
 // ----- Customers -------------------------------------------------------------
 
 export interface Customer {
+  accountEnabled?: boolean
+  accountTermsDays?: number
   id: number
   // Customer info
   firstName: string | null
@@ -301,6 +305,9 @@ export function customerDisplayName(c: Pick<Customer, 'firstName' | 'lastName' |
 }
 
 export interface DailyReport {
+  salesTotalCents?: number
+  accountChargesCents?: number
+  accountPaymentsCents?: number
   date: string
   saleCount: number
   totalCents: number

@@ -41,10 +41,11 @@ export function operationsStatus(db: DB): OperationsStatus {
     SUM(CASE WHEN status = 'manual' THEN 1 ELSE 0 END) AS manual FROM qb_sale_exports WHERE sale_id IN (SELECT id FROM sales WHERE status='completed')`).get() as
     { pending: number | null; problems: number | null; manual: number | null }
   const voids=db.prepare("SELECT SUM(qb_status='pending') AS pending,SUM(qb_status='error') AS problems FROM sale_voids").get() as {pending:number|null;problems:number|null}
+  const accounts=db.prepare("SELECT SUM(status='pending') AS pending,SUM(status='error') AS problems FROM (SELECT status FROM account_invoices UNION ALL SELECT status FROM account_payments)").get() as {pending:number|null;problems:number|null}
   return {
     serverTime: new Date().toISOString(), backup: backupStatus(db),
     quickbooks: { enabled: cfg.enabled, companyName: getQbLists(db).companyName,
       lastConnectionAt: null, lastSyncAt: null, lastFailureAt: null, error: null,
-      ...read<QbHistory>(db, 'operations_quickbooks'), pending: (counts.pending ?? 0)+(voids.pending ?? 0), problems: (counts.problems ?? 0)+(voids.problems ?? 0), manual: counts.manual ?? 0 }
+      ...read<QbHistory>(db, 'operations_quickbooks'), pending: (counts.pending ?? 0)+(voids.pending ?? 0)+(accounts.pending ?? 0), problems: (counts.problems ?? 0)+(voids.problems ?? 0)+(accounts.problems ?? 0), manual: counts.manual ?? 0 }
   }
 }

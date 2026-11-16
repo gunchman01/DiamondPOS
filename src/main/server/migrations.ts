@@ -605,6 +605,43 @@ export const migrations: Migration[] = [
       SELECT id,'approved','On the Bench stage retired; moved to Approved to Fix. Existing inventory deductions preserved.','System update'
       FROM work_orders WHERE status='on_bench';
     UPDATE work_orders SET status='approved',updated_at=datetime('now') WHERE status='on_bench';
+  ` },
+  { version: 28, name: 'customer account invoices payments and immediate stock reservations', up: `
+    ALTER TABLE customers ADD COLUMN on_account_enabled INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE customers ADD COLUMN account_terms_days INTEGER NOT NULL DEFAULT 30;
+    ALTER TABLE sales ADD COLUMN on_account INTEGER NOT NULL DEFAULT 0;
+    CREATE TABLE account_invoices (
+      sale_id INTEGER PRIMARY KEY REFERENCES sales(id),customer_id INTEGER NOT NULL REFERENCES customers(id),
+      ref_number TEXT NOT NULL UNIQUE,due_date TEXT NOT NULL,customer_name TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',txn_id TEXT,error TEXT,qb_balance_cents INTEGER,qb_pos_paid_cents INTEGER NOT NULL DEFAULT 0,qb_checked_at TEXT
+    );
+    CREATE INDEX idx_account_invoices_customer ON account_invoices(customer_id);
+    CREATE TABLE account_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,request_hash TEXT NOT NULL,
+      customer_id INTEGER NOT NULL REFERENCES customers(id),amount_cents INTEGER NOT NULL CHECK(amount_cents>0),
+      method TEXT NOT NULL CHECK(method IN ('cash','card','check')),reference TEXT,card_brand TEXT,by_name TEXT NOT NULL,till_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),status TEXT NOT NULL DEFAULT 'pending',txn_id TEXT,error TEXT
+    );
+    CREATE TABLE account_allocations (
+      payment_id INTEGER NOT NULL REFERENCES account_payments(id),sale_id INTEGER NOT NULL REFERENCES account_invoices(sale_id),amount_cents INTEGER NOT NULL CHECK(amount_cents>0),PRIMARY KEY(payment_id,sale_id)
+    );
+    ALTER TABLE held_sales ADD COLUMN request_id TEXT;
+    ALTER TABLE held_sales ADD COLUMN request_hash TEXT;
+    CREATE UNIQUE INDEX idx_held_request_id ON held_sales(request_id) WHERE request_id IS NOT NULL;
+    CREATE INDEX idx_account_alloc_sale ON account_allocations(sale_id);
+    CREATE INDEX idx_account_payments_customer ON account_payments(customer_id);
+    CREATE TABLE held_stock (held_id INTEGER NOT NULL REFERENCES held_sales(id),product_id INTEGER NOT NULL REFERENCES products(id),qty REAL NOT NULL,PRIMARY KEY(held_id,product_id));
+    CREATE INDEX idx_held_stock_product ON held_stock(product_id);
+    INSERT INTO held_stock(held_id,product_id,qty)
+      SELECT h.id,p.id,SUM(CAST(json_extract(j.value,'$.qty') AS REAL))
+      FROM held_sales h JOIN json_each(CASE WHEN json_valid(h.items_json) THEN h.items_json ELSE '[]' END) j
+      JOIN products p ON p.id=json_extract(j.value,'$.productId')
+      WHERE h.status='held' AND p.type='inventory' AND CAST(json_extract(j.value,'$.qty') AS REAL)>0 GROUP BY h.id,p.id;
+    UPDATE products SET on_hand=on_hand-COALESCE((SELECT SUM(h.qty) FROM held_stock h WHERE h.product_id=products.id),0);
+    UPDATE products SET on_hand=on_hand-COALESCE((SELECT SUM(l.qty-l.stock_taken) FROM work_order_lines l JOIN work_orders w ON w.id=l.work_order_id
+      WHERE l.product_id=products.id AND l.kind='part' AND w.status NOT IN ('closed','not_fixed')),0) WHERE type='inventory';
+    UPDATE work_order_lines SET stock_taken=qty WHERE kind='part' AND product_id IN (SELECT id FROM products WHERE type='inventory')
+      AND work_order_id IN (SELECT id FROM work_orders WHERE status NOT IN ('closed','not_fixed'));
   ` }
 
 ]

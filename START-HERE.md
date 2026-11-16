@@ -1,40 +1,50 @@
-# DiamondPOS v0.3.36 — Editable estimate fee at initial check-in
+# DiamondPOS v0.3.37 update
 
-Source overlay over main v0.3.35 / e1a153eb1905e8f32bc33840970459be0332109e. No dependency or database migration is required. Website approval files and settings are unchanged.
+Source overlay for your existing v0.3.36 project on main. No commit, push, tag or release has been created. No cPanel upload is needed; the included cPanel guide only corrects its stock instructions.
 
-## Apply
+## Install and publish
 
-Close the development app, extract the ZIP, and copy the CONTENTS of DiamondPOS-update-v0.3.36 into your existing project folder, replacing matching files. Keep the rest of your project and local configuration/data.
+1. Make a verified database backup from the current Store Server before updating. Close POS/dev instances.
+2. Extract this ZIP separately, then copy everything inside DiamondPOS-update-v0.3.37 into your existing Git project folder. Merge folders and replace matching files; keep .git and other project files. This contains no database/customer data and is not an installer.
+3. In PowerShell in that project run:
 
 ```powershell
+npm ci
 npm run typecheck
 npm test
 npm run build
 npm run dev
 ```
 
-Typecheck, build and all 131 regression checks passed. Windows visual verification is still a local check.
-
-## Try the change
-
-1. Check in a new work order and select a unit. Estimate fee for this ticket starts with that category's configured default.
-2. Enter a lower or higher amount. The check-in collection button shows the edited amount. Collect it now or later.
-3. Click No fee (or enter 0.00) to waive it. No estimate-fee payment is required.
-4. Use default restores the configured fee. Selecting another unit loads its category's default. You can enter a positive fee even when its default is zero.
-5. Confirm the ticket shows the chosen amount and the settings default remains unchanged. A different fee/waiver has a history note with the default and ticket amounts.
-
-Blank, negative, fractional-cent and unsafe numeric amounts are rejected. The defaults must load before check-in; use Retry if loading fails. Existing tickets and paid fees are unchanged; this is a new-ticket check-in control.
-
-## Commit and release
-
-Review git status and git diff first and include other local edits only intentionally.
+4. Review the changes, then commit/push main and create your usual release:
 
 ```powershell
 git add .
-git commit -m "Allow per-ticket estimate fee at work order check-in"
+git commit -m "Add customer accounts and reserve held/work-order stock"
 git push origin main
-git tag v0.3.36
-git push origin v0.3.36
+git tag v0.3.37
+git push origin v0.3.37
 ```
 
-Use the tag only if unused. The tag starts the Windows release workflow; pushing main alone does not publish an installer. Update the Store Server first, then tills, so the server accepts the edited fee field. No cPanel upload or approval-service reconfiguration is needed. No commit, push or tag was made here.
+Use that tag only if it is unused; do not move an existing tag. GitHub Actions sets the installer version from the tag, runs checks and publishes the release. package.json remains at its source baseline version as in previous updates.
+
+5. Install/update the Store Server first, then every till before resuming transactions. Migration 28 reserves existing open held sales and previously unallocated open work-order parts. Available on-hand may fall at first startup; review open tickets and physical stock. Already deducted parts are not taken twice. Keep the new version after migration; do not run older binaries against the migrated database.
+
+## Test with your QuickBooks test company
+
+- Enable on-account purchasing in a test customer's editor and set terms. Sell an item using Charge to account. Confirm inventory falls once, receipt says unpaid, and no cash/card tender is recorded.
+- Run Web Connector with your existing customer/item/tax/income mappings. Confirm exactly one unpaid Invoice for the customer, correct items, tax, total and due date, and no paid Sales Receipt for that charge. Send/print the invoice from QuickBooks; POS does not automatically email it.
+- Open the customer account window and collect a partial payment (cash/check or an already processed standalone card payment). Run Connector. Confirm one Receive Payment applied to the correct invoice, correct remaining balance, and no new sale/tax/stock movement. Repeat sync and check no duplicates. Test the remaining payment and payment across two invoices.
+- If payment is recorded in QuickBooks, sync again and verify the POS balance updates. Balances cover POS-created invoices only, not imported past-due fields or unrelated QuickBooks invoices.
+- Review errors in the account window or QuickBooks account sync panel. Reconcile back-office payment/invoice conflicts before using Retry. Retry a saved timeout request rather than collecting money twice.
+- Put an item on hold; verify available stock falls. Edit quantities, recall and complete it: no double deduction. Delete another hold and verify stock returns.
+- Add parts to a new work order; verify stock falls immediately. Waiting for approval/approving must not deduct again. Remove a part or decline the ticket and verify restoration; complete another work order and confirm no second deduction.
+- Check Daily Closeout: account charges are sales but not takings; received account payments are takings without new sales tax. Sales reports stay based on original sales.
+
+Account overpayments, payment reversals and automatic account-sale credit/void/refund synchronization are not included. Account-sale cash voids and receipt-linked returns are blocked; coordinate account adjustments/reconciliation with the bookkeeper in QuickBooks.
+
+## Validation completed here
+
+162 real SQLite/API regression checks passed, including mocked QuickBooks SOAP invoice/payment recovery, tax, external payment conflicts, oldest-first allocations and stock migration/lifecycles. Typecheck and production build passed. Actual Windows UI, printers and QuickBooks Desktop were not exercised here; complete the test-company checks above before relying on the workflow.
+
+See CHANGED-FILES.txt for the overlay contents and the in-app user manual for operating instructions.

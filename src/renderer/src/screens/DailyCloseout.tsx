@@ -47,6 +47,8 @@ export default function DailyCloseout() {
         <div className="stats">
           <Stat label="Sales" value={String(report.saleCount)} />
           <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
+          <Stat label="Charged to account" value={money(report.accountChargesCents??0)}/>
+          <Stat label="Account payments received" value={money(report.accountPaymentsCents??0)}/>
           <Stat label="Sales tax" value={money(report.taxCents)} />
           <Stat label="Cash (net of change)" value={money(report.cashCents)} />
           <Stat label="Card (terminal)" value={money(report.cardCents)} />

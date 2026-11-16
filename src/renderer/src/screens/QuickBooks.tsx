@@ -1,3 +1,4 @@
+import AccountSync from './AccountSync'
 import VoidQueue from './VoidQueue'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { PAYMENT_LABEL } from '../../../shared/types'
@@ -106,10 +107,11 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               run(() => api.qbSaveConfig({ enabled: e.target.checked }), e.target.checked ? 'Sync switched on' : 'Sync switched off')
             }
           />
-          Send individual sales to QuickBooks
+          Send sales and account payments to QuickBooks
         </label>
       </div>
 
+      <AccountSync/>
       <VoidQueue/>
       {/* ---------- Status ---------- */}
       <div className={st.missing.length ? 'card qb-status warn' : 'card qb-status ok'}>

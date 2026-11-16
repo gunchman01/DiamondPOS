@@ -89,7 +89,7 @@ export function parseResponse(qbxml: string): QbResult {
   return {
     name: rs.name,
     ok: statusCode === '0' || (statusCode === '1' && rs.name.includes('Query')) ||
-      (statusCode === '500' && (rs.name === 'CustomerQueryRs' || rs.name === 'SalesReceiptQueryRs') && rs.children.length === 0),
+      (statusCode === '500' && (rs.name === 'CustomerQueryRs' || rs.name === 'SalesReceiptQueryRs' || rs.name === 'InvoiceQueryRs' || rs.name === 'ReceivePaymentQueryRs') && rs.children.length === 0),
     statusCode,
     message: rs.attrs.statusMessage ?? '',
     node: rs

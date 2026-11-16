@@ -74,7 +74,7 @@ export function returnableSale(db: DB, saleId: number, fallbackRate = 0): Return
   const s = db
     .prepare(
       `SELECT s.*, c.id AS cid, c.first_name, c.last_name, c.company, c.track_as_company
-       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ? AND s.status = 'completed'`
+       FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ? AND s.status = 'completed' AND s.on_account=0`
     )
     .get(saleId) as Record<string, unknown> | undefined
   if (!s) return null
@@ -335,7 +335,7 @@ export function registerReturnRoutes(app: express.Express, db: DB) {
       .prepare(
         `SELECT s.id, s.created_at, s.total_cents,
                 (SELECT GROUP_CONCAT(name, ', ') FROM (SELECT name FROM sale_items WHERE sale_id = s.id AND kind = 'item' LIMIT 4)) AS items
-         FROM sales s WHERE s.customer_id = ? AND s.status = 'completed'
+         FROM sales s WHERE s.customer_id = ? AND s.status = 'completed' AND s.on_account=0
            AND EXISTS (SELECT 1 FROM sale_items WHERE sale_id = s.id AND kind = 'item' AND qty > 0)
          ORDER BY s.id DESC LIMIT 60`
       )

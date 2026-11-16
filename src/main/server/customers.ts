@@ -8,7 +8,7 @@ import { ValidationError } from './products'
 import { customerDisplayName } from '../../shared/types'
 import type { Customer, CustomerDetail, CustomerInput, ImportRowResult, ImportSummary, SaleSummary } from '../../shared/types'
 
-type Kind = 'text' | 'bool' | 'pct' | 'cents'
+type Kind = 'text' | 'bool' | 'pct' | 'cents' | 'days'
 interface Field {
   key: keyof CustomerInput
   col: string
@@ -16,6 +16,8 @@ interface Field {
 }
 
 export const CUSTOMER_FIELDS: Field[] = [
+  { key: 'accountEnabled', col: 'on_account_enabled', kind: 'bool' },
+  { key: 'accountTermsDays', col: 'account_terms_days', kind: 'days' },
   { key: 'firstName', col: 'first_name', kind: 'text' },
   { key: 'lastName', col: 'last_name', kind: 'text' },
   { key: 'title', col: 'title', kind: 'text' },
@@ -53,6 +55,7 @@ export const CUSTOMER_FIELDS: Field[] = [
 ]
 
 export const CUSTOMER_DEFAULTS: CustomerInput = {
+  accountEnabled: false, accountTermsDays: 30,
   firstName: null,
   lastName: null,
   title: null,
@@ -109,6 +112,9 @@ export function validateCustomer(body: unknown, base: CustomerInput): CustomerIn
   for (const f of CUSTOMER_FIELDS) {
     const raw = b[f.key] === undefined ? base[f.key] : b[f.key]
     if (f.kind === 'bool') out[f.key] = raw === true || raw === 1
+    else if (f.kind === 'days') {
+      const n=Number(raw??30);if(!Number.isInteger(n)||n<0||n>365)throw new ValidationError('Account payment terms must be 0–365 days');out[f.key]=n
+    }
     else if (f.kind === 'cents') {
       const n = Math.round(Number(raw ?? 0))
       if (!Number.isFinite(n) || Math.abs(n) > 1e9) throw new ValidationError('Past due must be an amount')

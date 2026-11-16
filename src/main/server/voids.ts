@@ -16,7 +16,8 @@ export function reviewVoid(db:DB,id:number):VoidReview {
   const legacyStock=items.some(i=>i.kind==='item'&&i.product_id!==null&&i.stock_removed===null)
   const e=db.prepare('SELECT * FROM qb_sale_exports WHERE sale_id=?').get(id) as any
   let blockedReason:string|null=null
-  if(sale.status!=='completed')blockedReason='This receipt is already void or is not completed.'
+  if(sale.on_account)blockedReason='Account invoices require a credit or invoice correction in QuickBooks; they cannot be voided as cash receipts.'
+  else if(sale.status!=='completed')blockedReason='This receipt is already void or is not completed.'
   else if(sale.work_order_id||items.some(i=>i.kind!=='item'))blockedReason='Refunds, exchanges and work-order payments cannot be voided here. Use the return/work-order workflow and reconcile QuickBooks.'
   else if(sale.total_cents<=0)blockedReason='Only positive completed sales can be voided.'
   else if(db.prepare("SELECT 1 FROM sale_items r JOIN sales s ON s.id=r.sale_id WHERE r.return_of_sale_id=? AND s.status='completed' LIMIT 1").get(id))blockedReason='This receipt has already been returned against. Use the return workflow.'

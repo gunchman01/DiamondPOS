@@ -1,3 +1,4 @@
+import CustomerAccountDialog from './CustomerAccount'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type SaleRequest, type StoreSettings } from '../../../shared/types'
@@ -21,7 +22,7 @@ import InlineReturnDialog from './InlineReturnDialog'
 import ReturnDialog, { type ReturnLine } from './ReturnDialog'
 import { ColumnMenu, visibleColumns, type GridRow } from '../saleColumns'
 import { HeldPicker, HoldDialog } from './HeldReceipts'
-import { heldNumber } from '../../../shared/held'
+import { heldNumber,type HeldReceiptInput } from '../../../shared/held'
 import { quantityError } from '../quantity'
 import { returnAmount } from '../../../shared/returns'
 
@@ -81,6 +82,10 @@ export default function Sell({
     const value = localStorage.getItem(pendingKey)
     return value ? JSON.parse(value) as SaleRequest : null
   })
+  const holdKey=pendingKey+':hold'
+  const [pendingHold,setPendingHold]=useState<{id:number|null;body:HeldReceiptInput}|null>(()=>{const value=localStorage.getItem(holdKey);return value?JSON.parse(value):null})
+  const [holdError,setHoldError]=useState('')
+  const holdBusy=useRef(false)
   const checkoutBusy = useRef(false)
   const [checkoutWaiting, setCheckoutWaiting] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
@@ -115,6 +120,7 @@ export default function Sell({
   const [returning, setReturning] = useState(false)
   /** Held receipt this sale came from (ringing it up closes it; holding again updates it) */
   const [held, setHeld] = useState<{ id: number; note: string } | null>(null)
+  const [viewAccount,setViewAccount]=useState(false)
   const [holding, setHolding] = useState(false)
   const [recalling, setRecalling] = useState(false)
   const [heldCount, setHeldCount] = useState(0)
@@ -220,14 +226,21 @@ export default function Sell({
   }
 
   async function holdSale(note: string) {
-    const body = {
+    if(holdBusy.current)return
+    holdBusy.current=true;setHoldError('')
+    try {
+    const body:HeldReceiptInput = {
+      requestId: crypto.randomUUID(),
       customerId: customer?.id ?? null,
       note,
       taxExempt: applyExempt,
       tillName: boot.config.tillName,
       items: cart.map((l) => ({ productId: l.product.id, qty: l.qty, serial: l.serial, ...(l.priceCents !== undefined ? { priceCents: l.priceCents } : {}) }))
     }
-    const h = held ? await api.updateHeld(held.id, body) : await api.holdSale(body)
+    const original=pendingHold??{id:held?.id??null,body}
+    localStorage.setItem(holdKey,JSON.stringify(original));setPendingHold(original)
+    const h = original.id ? await api.updateHeld(original.id, original.body) : await api.holdSale(original.body)
+    localStorage.removeItem(holdKey);setPendingHold(null)
     setHolding(false)
     setCart([])
     setSelectedId(null)
@@ -237,6 +250,7 @@ export default function Sell({
     setMessage({ kind: 'info', text: `Sale put on hold as ${heldNumber(h.id)}${h.customerName ? ` for ${h.customerName}` : ''}` })
     refreshHeldCount()
     focusScan()
+    }catch(e){if((e as any).definite){localStorage.removeItem(holdKey);setPendingHold(null)}setHoldError((e as Error).message);throw e}finally{holdBusy.current=false}
   }
 
   async function loadWorkOrder(id: number, mode: WoSaleMode) {
@@ -647,7 +661,7 @@ export default function Sell({
     addToCart(p)
   }
 
-  async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string, cardBrand?: CardBrand) {
+  async function completeSale(method: PaymentMethod | null, amountCents: number, reference: string, cardBrand?: CardBrand, onAccount=false) {
     if (checkoutBusy.current) return
     checkoutBusy.current = true
     setCheckoutWaiting(true)
@@ -655,6 +669,7 @@ export default function Sell({
     try {
       const request: SaleRequest = pendingCheckout ?? {
         requestId: crypto.randomUUID(),
+        onAccount,
         tillName: boot.config.tillName,
         customerId: customer?.id ?? null,
         taxExempt: applyExempt,
@@ -749,6 +764,8 @@ export default function Sell({
 
   return (
     <div className={hasQuickPicks ? 'register' : 'register no-quick'}>
+      {viewAccount&&customer&&<CustomerAccountDialog customer={customer} onClose={()=>setViewAccount(false)}/>}
+      {pendingHold&&<div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true"><h2>Confirm held inventory</h2><p>Check the original hold before starting another. Retrying does not reserve inventory twice.</p>{holdError&&<p className="error-text">{holdError}</p>}<button onClick={()=>void holdSale('').catch(()=>{})}>Check / retry original hold</button></div></div>}
       {pendingCheckout && <div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true">
         <h2>{checkoutWaiting ? 'Saving checkout…' : 'Recover checkout'}</h2>
         <p>Keep this checkout open until its receipt is confirmed. Do not take payment again.</p>
@@ -1111,7 +1128,7 @@ export default function Sell({
                   <b>Refund #{lastSale.id} complete · {money(-lastSale.totalCents)} back</b>
                 ) : (
                   <>
-                    <b>Sale #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
+                    <b>{lastSale.onAccount?'Account sale':'Sale'} #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
                   </>
                 )}
               </div>
@@ -1130,6 +1147,7 @@ export default function Sell({
           )}
 
           <div className="tender">
+            {customer&&<button disabled={checkoutWaiting||!!pendingCheckout} onClick={()=>setViewAccount(true)}>Pay existing account</button>}
             <button
               className={isRefund && suggestMethod === 'card' ? '' : 'primary'}
               disabled={!hasLines}
@@ -1146,6 +1164,7 @@ export default function Sell({
               <span>{isRefund ? 'Refund card' : 'Card'}</span>
               <kbd>F8</kbd>
             </button>
+            {!isRefund&&<button disabled={!hasLines||!customer?.accountEnabled||returns.length>0||total<=0||checkoutWaiting} title="Select a customer enabled for account sales. The entire sale is charged as an unpaid invoice." onClick={()=>{if(customer&&confirm(`Charge ${money(total)} to ${customerDisplayName(customer)}'s account? No payment is being collected now.`))void completeSale(null,0,'',undefined,true).catch(e=>setMessage({kind:'error',text:e.message}))}}>Charge to account</button>}
             {!isRefund && (
               <button className="primary" disabled={!hasLines} onClick={() => startPayment('check')} title="Pay by check (asks for the check number)">
                 <span>Check</span>

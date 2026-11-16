@@ -1,3 +1,4 @@
+import type { CustomerAccount,AccountPaymentRequest } from '../../shared/accounts'
 import type { ApprovalConfig } from '../../shared/approvals'
 import type { SaleVoid, VoidReview, VoidRequest } from '../../shared/voids'
 import type { ReportDefinition, ReportResult, SavedReport } from '../../shared/reports'
@@ -88,6 +89,10 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  accountSyncStatus: () => request<{kind:string;customerId:number;customerName:string;reference:string;status:string;error:string|null;date:string}[]>('GET','/api/accounts/sync-status'),
+  customerAccount: (id:number) => request<CustomerAccount>('GET',`/api/customers/${id}/account`),
+  receiveAccountPayment: (id:number,body:AccountPaymentRequest) => request<{paymentId:number;account:CustomerAccount}>('POST',`/api/customers/${id}/account-payments`,body),
+  retryAccountSync: (customerId:number) => request<CustomerAccount>('POST','/api/accounts/retry',{customerId}),
   vendors: (search = '', includeInactive = false) => request<Vendor[]>('GET', `/api/vendors?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`),
   vendor: (id: number) => request<VendorDetail>('GET', `/api/vendors/${id}`),
   createVendor: (value: VendorInput) => request<Vendor>('POST', '/api/vendors', value),

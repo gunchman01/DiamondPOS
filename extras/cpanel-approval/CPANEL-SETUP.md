@@ -60,10 +60,10 @@ Use a test customer email address you control and test inventory. No real emails
 
 1. Open a test work order in **Needs Estimate**. Add diagnosis/parts/labor and check the total.
 2. Choose **Send estimate for decision**, review the preview, then **Send estimate & start follow-up timer**.
-3. After a successful email send, the ticket moves to **Waiting on Customer**. Parts stay in stock at this stage. A failed send leaves no running follow-up timer.
+3. After a successful email send, the ticket moves to **Waiting on Customer**. As of POS v0.3.37, parts are already deducted when added and remain allocated at this stage. A failed send leaves no running follow-up timer.
 4. Open the received estimate email. Click either review button. The website shows the specific revision, itemized estimate, total and parts availability notice. Opening the link does not make a decision.
 5. Enter your name, choose Approve or Decline, and confirm. The response is recorded on the website; no payment is taken.
-6. Use **Check customer responses now** in POS settings, or wait about a minute while the Store Server runs. A matching approval moves to **Approved to Fix** and deducts parts once. A decline moves to **Not Fixed**. Both clear the follow-up flag. Ticket history records the name, timestamp, revision and comments. Repeat checks must not deduct stock again.
+6. Use **Check customer responses now** in POS settings, or wait about a minute while the Store Server runs. A matching approval moves to **Approved to Fix** without deducting already allocated parts again. A decline moves to **Not Fixed** and restores allocated parts. Both clear the follow-up flag. Ticket history records the name, timestamp, revision and comments. Repeat checks must not deduct stock again.
 7. Close the POS, record a test website response, then reopen the POS. It should collect that response on its next check. No inbound router port or access to the store LAN is needed.
 8. Change a sent estimate's amount/details and test its OLD link. A new revision invalidates unanswered older links on the website. If a response arrives before a cancellation sync, POS places the stale decision in **review**, rather than authorizing the changed repair.
 9. Move back to Needs Estimate/Waiting on Customer and **Send revised estimate** to request fresh approval. Approved repairs with changed details/totals cannot be checked out until the current revision is approved.

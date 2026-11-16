@@ -11,6 +11,7 @@ import { code128Svg } from './code128'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
+export const accountBanner=(sale:Sale)=>sale.onAccount?`<div style="border:2px solid #000;padding:8px"><b>CHARGED TO CUSTOMER ACCOUNT</b><br>Unpaid invoice DA${sale.id.toString(36).toUpperCase()}: ${money(sale.totalCents)}. No payment collected at checkout.</div>`:''
 export const voidBanner=(sale:Sale)=>sale.status==='void'?`<div style="border:3px solid #000;padding:8px;font-size:14px"><b>VOID — NOT A VALID SALE</b><br>Original amounts retained for audit only.${sale.void?`<br>${esc(sale.void.reason)} · ${esc(sale.void.by)} · ${esc(dateTime(sale.void.at))}`:''}</div>`:''
 
 /** "Sales tax 7.975%" style label for a sale's tax line */
@@ -93,7 +94,7 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
     .join('')
   const serials = sale.items.filter((i) => i.serial && i.kind !== 'return')
   return `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}</style></head><body>
-    ${voidBanner(sale)}${header(store, logoUrl, title, `<div><b>Receipt #${sale.id}</b></div><div>${dateTime(sale.createdAt)}</div><div class="muted">${esc(sale.tillName)}</div>${
+    ${voidBanner(sale)}${accountBanner(sale)}${header(store, logoUrl, title, `<div><b>Receipt #${sale.id}</b></div><div>${dateTime(sale.createdAt)}</div><div class="muted">${esc(sale.tillName)}</div>${
       woNumber ? `<div><b>${esc(woNumber)}</b></div>` : ''
     }`)}
     <div class="boxes">${customerBlock(customer, sale.customerName)}${

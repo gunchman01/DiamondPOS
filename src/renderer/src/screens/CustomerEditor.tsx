@@ -1,3 +1,4 @@
+import CustomerAccountDialog from './CustomerAccount'
 import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
 import { api } from '../api'
@@ -10,9 +11,10 @@ import TaxExemptBadge from '../TaxExemptBadge'
 const TITLES = ['', 'Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.', 'Mx.']
 const CUSTOMER_TYPES = ['Retail', 'Wholesale', 'Trade', 'Staff', 'VIP']
 
-type Form = { [K in keyof CustomerInput]: CustomerInput[K] extends boolean ? boolean : string }
+type Form = { [K in keyof CustomerInput]-?: NonNullable<CustomerInput[K]> extends boolean ? boolean : string }
 
 const EMPTY: Form = {
+  accountEnabled: false, accountTermsDays: '30',
   firstName: '',
   lastName: '',
   title: '',
@@ -72,6 +74,7 @@ function fromForm(f: Form): CustomerInput | string {
     if (!Number.isFinite(pd)) return 'Past due must be an amount, e.g. 25.00 (or -10.00 for a credit)'
     out.pastDueCents = Math.round(pd * 100)
   }
+  const terms=Number(out.accountTermsDays);if(!Number.isInteger(terms)||terms<0||terms>365)return 'Account terms must be 0–365 days';out.accountTermsDays=terms
   if (out.discountPct !== null) {
     const n = Number(out.discountPct)
     if (!Number.isFinite(n) || n < 0 || n > 100) return 'Discount must be a number between 0 and 100'
@@ -96,6 +99,7 @@ export interface CustomerEditorProps {
 /** Add / edit customer window. */
 export default function CustomerEditor(props: CustomerEditorProps) {
   /** Receipt opened from the History list */
+  const [viewAccount,setViewAccount]=useState(false)
   const [viewSale, setViewSale] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(props.customerId)
   const [detail, setDetail] = useState<CustomerDetail | null>(null)
@@ -307,7 +311,10 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               <Row label="Discount %">
                 <input className="num" placeholder="None" {...text('discountPct')} />
               </Row>
-              <Row label="Past Due $">
+              <Row label="Allow on account"><input {...check('accountEnabled')} className="lone-check"/></Row>
+              <Row label="Account terms (days)"><input type="number" min="0" max="365" {...text('accountTermsDays')}/></Row>
+              {detail&&<button type="button" onClick={()=>setViewAccount(true)}>Account balance / receive payment</button>}
+              <Row label="Imported past due $">
                 <input className="num" placeholder="0.00" title="Balance owed (negative = credit), e.g. carried over from QuickBooks POS" {...text('pastDueCents')} />
               </Row>
               <Row label="Custom Field 1">
@@ -426,6 +433,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
           ))}
         </datalist>
       </form>
+      {viewAccount&&detail&&<CustomerAccountDialog customer={detail.customer} onClose={()=>setViewAccount(false)}/>}
       {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => setViewSale(null)} />}
     </div>
   )

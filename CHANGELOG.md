@@ -14,6 +14,15 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.37 - 15 Nov 2026
+> Update the Store Server PC first, then all tills.
+- Enable customer accounts and payment terms. Charge sales to account as unpaid QuickBooks invoices; receive payments against oldest outstanding POS invoices and sync them as QuickBooks customer payments.
+- View invoice balances, payment history and sync errors from the customer account window or QuickBooks account sync panel. Retry protection checks invoices and payments before posting duplicates.
+- Held sales and work-order parts now reduce available stock immediately. Removing/deleting/declining restores allocations; checkout does not deduct twice.
+- Migration 28 allocates existing open holds and previously unallocated work-order parts. Review available stock after updating. Back up first.
+- Account balances cover POS-created invoices. Account credit/void/refund synchronization, overpayments and payment reversals are not included; reconcile account adjustments in QuickBooks. Send invoices from QuickBooks.
+- No cPanel update is needed. Validate the invoice/payment workflow in your QuickBooks test company before use.
+
 ## v0.3.36 - 15 Nov 2026
 - **Editable check-in estimate fee:** new work orders start with the configured fee for the selected unit category. Change the amount for that ticket, use **No fee** to waive it, or **Use default** to restore the configured amount.
 - Check in and collect the adjusted amount immediately, or collect later. A zero fee needs no fee collection. Per-ticket changes are recorded in history and do not change the settings defaults or existing work orders.

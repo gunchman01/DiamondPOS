@@ -85,8 +85,8 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: false, canEmail: true, next: ['waiting_customer', 'approved', 'not_fixed'] },
-  { status: 'waiting_customer', label: 'Waiting on Customer', color: '#a16207', partsTaken: false, canEmail: true, next: ['approved', 'not_fixed'] },
+  { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: true, canEmail: true, next: ['waiting_customer', 'approved', 'not_fixed'] },
+  { status: 'waiting_customer', label: 'Waiting on Customer', color: '#a16207', partsTaken: true, canEmail: true, next: ['approved', 'not_fixed'] },
   { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'ready_review'] },
   { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['approved', 'ready_review'] },
   { status: 'ready_review', label: 'Ready for Review', color: '#0e7490', partsTaken: true, canEmail: false, next: ['ready_pickup', 'approved'] },

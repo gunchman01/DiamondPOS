@@ -1,3 +1,4 @@
+import { accountSteps } from './accountSync'
 import { registerVoidRoutes } from '../voids'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 /**
@@ -58,6 +59,7 @@ interface Session {
 
 const sessions = new Map<string, Session>()
 let lastContact: string | null = null
+export function quickBooksSyncing(){for(const [id,session] of sessions)if(Date.now()-session.touchedAt>30*60000)sessions.delete(id);return sessions.size>0}
 
 
 /** What still needs setting up before sales can be sent */
@@ -176,6 +178,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       )
     }
     q.push({kind:'plan',label:'Plan void corrections',run:()=>planVoids(s)})
+    q.push({kind:'plan',label:'Plan account invoices and payments',run:()=>{const c=getQbConfig(db);if(!qbMissing(db,c).length)s.queue.unshift(...accountSteps(db,c,readSettings(db).taxRate,qbTaxRate(c),steps=>s.queue.unshift(...steps),message=>{s.failed++;recordQbFailure(db,message)}))}})
     q.push({ kind: 'plan', label: 'Plan exports', run: () => planExports(s) })
     s.queue = q
   }
