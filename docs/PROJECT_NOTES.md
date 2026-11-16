@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 16 November 2026 (v0.3.38 manual printing)_
+_Last updated: 16 November 2026 (v0.3.39 item import mapping, Item List columns and cleanup)_
 
 ---
 
@@ -70,6 +70,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.39 — import mapping, Item List layout and bulk cleanup
+ImportItems adds pick/map/preview/done with per-destination source selects, sample values, shared conversion validation, arbitrary headings, same source to multiple destinations, opt-in unmapped extras, duplicate SKU/UPC checks and preview-only dry run. A mapped value preview precedes saving. Blank/unmapped fields preserve existing values; numeric stock remains an explicit overwrite when mapped. Mapping is per open file, not persisted.
+
+ItemColumns derives all defined import fields into display columns. ColumnMenu accepts optional column/default collections while keeping Sale defaults. Item layout/order is normalized and stored locally; name is mandatory. Item and customer lists add explicit shown/entire/clear selection, delete all selected IDs across filter changes, and label global/inactive scope. Existing delete routes reject malformed/over-limit ID batches instead of silently truncating. Held customer and non-inventory item references are retained through deactivation. No data was deleted on Greg's PC or in QB.
+
+Final validation: 169 SQLite/API/Excel regression checks, typecheck and production build passed. Browser fixture QA confirmed right-click toggles, reorder and reload persistence; file chooser stalled/lost the browser tab, so interactive import upload remains a Windows check. Direct real XLSX parsing and mapped import dry-run/commit were tested against disposable SQLite. Baseline main d0d1fb8f90dacf9a57fd4fccf8ea6d37f1c12ef4 / v0.3.38. No schema migration, website upload, Git commit, push or tag performed.
+
 
 ### v0.3.38 — manual printing
 Removed automatic label dispatch from WorkOrders onCreated and automatic receipt dispatch after Sell completion. PrintSettings exposes manual-print guidance instead of auto toggles; printSettings normalizes legacy auto flags to false. Manual print buttons, printer selection, templates, copy counts and print previews remain available. Typecheck and production build passed. Targeted settings checks confirmed default/legacy auto flags are false while printer choices and copies remain intact. Windows physical printing remains a local check. No schema/site change. Baseline main e6b7301d4fc9c1ca6b1341f12c8a575deadbc0a2 / v0.3.37. No commit, push or tag created here.
@@ -462,6 +470,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- On Windows, verify v0.3.39 mapping/file-picker with a few inventory rows before importing the full file; verify manual labels after changes. Optional future saved import profiles and sheet selection are not included.
+
 
 - Verify manual work-order label and sale receipt printing on Windows after v0.3.38 is installed on each PC.
 

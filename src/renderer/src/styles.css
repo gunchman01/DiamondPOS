@@ -1004,3 +1004,13 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .account-backdrop {z-index:120;}
 .account-dialog {width:min(1100px,96vw);max-height:95vh;padding:18px;overflow:auto;}
 .account-payment-fields {align-items:end;flex-wrap:wrap;}
+
+/* Item import mapping and configurable Item List */
+.import-mapping { max-height: 45vh; overflow: auto; margin: 14px 0; }
+.import-mapping th { position: sticky; top: 0; background: #f3f3f3; z-index: 1; }
+.import-mapping select { width: 100%; min-width: 210px; }
+.import-mapping td:last-child { max-width: 420px; overflow-wrap: anywhere; }
+.item-list-scroll { overflow-x: auto; }
+.item-list-scroll td, .item-list-scroll th { min-width: 100px; max-width: 380px; overflow-wrap: anywhere; }
+.item-list-scroll .sel-col { min-width: 35px; }
+.list-tools { flex-wrap: wrap; margin: 12px 0; }

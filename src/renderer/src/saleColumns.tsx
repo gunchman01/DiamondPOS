@@ -182,6 +182,8 @@ export function visibleColumns(ids: string[] | undefined): SaleColumn[] {
 
 /** Right-click menu on the receipt grid header: show/hide columns, move the clicked one, reset */
 export function ColumnMenu(props: {
+  columns?: { id: string; label: string; required?: boolean }[]
+  defaults?: string[]
   x: number
   y: number
   shown: string[]
@@ -190,6 +192,8 @@ export function ColumnMenu(props: {
   onChange: (ids: string[]) => void
   onClose: () => void
 }) {
+  const columns = props.columns ?? SALE_COLUMNS
+  const defaults = props.defaults ?? DEFAULT_SALE_COLUMNS
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -222,17 +226,17 @@ export function ColumnMenu(props: {
     ;[next[i], next[j]] = [next[j], next[i]]
     props.onChange(next)
   }
-  const label = SALE_COLUMNS.find((c) => c.id === props.target)?.label
+  const label = columns.find((c) => c.id === props.target)?.label
   const i = props.target ? props.shown.indexOf(props.target) : -1
   // Keep the menu on screen
-  const left = Math.min(props.x, window.innerWidth - 240)
+  const left = Math.max(8, Math.min(props.x, window.innerWidth - 240))
   const top = Math.min(props.y, window.innerHeight - 520)
 
   return (
     <div ref={ref} className="col-menu" style={{ left, top: Math.max(8, top) }} onContextMenu={(e) => e.preventDefault()}>
       <div className="col-menu-title">Columns to show</div>
       <div className="col-menu-list">
-        {SALE_COLUMNS.map((c) => (
+        {columns.map((c) => (
           <label key={c.id} className={c.required ? 'disabled' : ''}>
             <input type="checkbox" checked={c.required || props.shown.includes(c.id)} disabled={c.required} onChange={() => toggle(c.id)} />
             {c.label === '#' ? 'Line #' : c.label}
@@ -251,7 +255,7 @@ export function ColumnMenu(props: {
         </div>
       )}
       <div className="col-menu-actions">
-        <button onClick={() => props.onChange(DEFAULT_SALE_COLUMNS)}>Reset to default</button>
+        <button onClick={() => props.onChange(defaults)}>Reset to default</button>
         <button className="primary" onClick={props.onClose}>
           Done
         </button>

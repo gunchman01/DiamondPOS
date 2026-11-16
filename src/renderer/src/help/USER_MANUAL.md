@@ -551,3 +551,22 @@ Update the Store Server first, then all tills. Migration 28 allocates existing o
 ## Manual printing (v0.3.38)
 
 All printing is initiated by staff. Checking in a work order, adding items, or completing a sale does not print anything. Use **🏷 Label** on a work-order ticket, **Print receipt** / **Reprint last receipt** on Sell, or the relevant Print button elsewhere. Older saved automatic-print settings are ignored. Printer selection, label designs and copy counts still apply to manual print jobs.
+
+
+## Item column mapping and Item List layout (v0.3.39)
+
+Open **Item List → Import from Excel**, then choose .xlsx, .xls or .csv. The first worksheet is used; row 1 must contain unique headings. On **Match spreadsheet columns to POS fields**, each POS field has a dropdown of your spreadsheet headings and samples from the first three rows. Recognized headings are suggested. Use Auto-match headings or Clear mapping, then set your own choices. The same source can fill several fields (for example, both Item Name and Item Description).
+
+Choose **Do not import this field** to leave it out. Unmapped fields and blank cells keep existing values on updates; new records use defaults and require Item Name and Reg Price. Dollar fields contain dollars, not cents. Format item identifiers and UPCs as Text in Excel to retain leading zeros. Choose whether unmapped source columns with data are kept under Other details or skipped. Mapping choices apply to the file currently open and are not saved as an import profile.
+
+Choose **Preview import**. Review the source → destination list, first five mapped valid rows, and row-by-row create/update/problems results. Nothing is saved in preview. **Change column mapping** returns to the dropdowns; preview again after changes. **Import N items** saves valid rows, while problem rows are skipped and listed. Duplicate Item No. or UPC entries in one file are flagged so one row does not overwrite another.
+
+To fix item names/printed tag text, keep the same Item No. or UPC mapped, map the correct text to Item Name and/or Item Description, and enable Update existing items. Leave On-Hand Qty unmapped to keep current inventory. You do not need to delete items first. If you previously made items inactive, map Active to a spreadsheet column containing Yes to reactivate them. Imports do not print tags; print manually after checking the results.
+
+Right-click an **Item List column heading** (or use **Columns…**) to choose displayed fields. Item Name stays visible. Right-click a particular heading to move that column left/right; Reset to default restores the original layout. Layout/order is saved on that computer separately from Sale columns. Changing displayed columns does not change item data, printed label designs or spreadsheet exports. Use horizontal scrolling when showing many fields.
+
+## Bulk item/customer cleanup (v0.3.39)
+
+Use checkboxes, **Select shown**, **Select entire Item/Customer List…**, or **Clear selection**. Select shown uses the currently displayed rows, up to 500. Select entire list selects every record, including inactive records and records outside the search/Quick Pick filter. Selection remains across searches, and its full count is shown. **Delete selected** confirms and processes all selected IDs, not just visible rows; Clear selection starts over. Up to 50,000 IDs may be submitted at once.
+
+Export to Excel and make a verified server backup before deleting. Unlinked test items/customers are erased permanently. Records linked to sales, work orders or open held receipts are made inactive to retain history; items on receiving vouchers are also retained. The completion message separates deleted and inactive counts. Existing sales, QuickBooks transactions, stock allocations and work orders are not erased or reset. Item List includes inactive items; Customer List has Show inactive. This is cleanup, not a complete database reset.

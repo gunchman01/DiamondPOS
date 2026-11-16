@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.39 - 16 Nov 2026
+- **Choose your import columns:** select which spreadsheet column fills each POS item field, with sample values and a preview before saving. One source column can fill more than one field; unmapped fields stay unchanged on updates.
+- **Customize Item List columns:** right-click a heading or choose Columns to show/hide fields, move a column left/right, or reset the layout. Choices are saved on that computer.
+- **Bulk test-data cleanup:** Item and Customer lists now have Select shown, Select entire list and Clear selection. Entire-list selection includes inactive records and records beyond the 500-row view. Delete selected confirms the full count, including selections outside the current search.
+- Items/customers with linked sales, work orders or open held receipts are made inactive; items on receiving records are also retained. Unlinked records are deleted. Export/back up before deleting.
+- Fix names and tag descriptions by updating matching Item No./UPC records without deleting them. Keep stock quantities unmapped unless you want to replace them. No database migration or website update is needed; update the server and tills.
+
 ## v0.3.38 - 16 Nov 2026
 - Printing is now manual. Work-order check-in and adding items do not automatically print a label, and completing a sale does not automatically print a receipt.
 - Use **🏷 Label** on a work-order ticket or **Print receipt / Reprint last receipt** on Sell. Existing printer choices, designs and copies are preserved.

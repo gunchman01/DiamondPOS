@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { api } from '../api'
-import { money } from '../format'
+import { ITEM_COLUMNS, DEFAULT_ITEM_COLUMNS, itemColumnIds } from '../itemColumns'
+import { ColumnMenu } from '../saleColumns'
 import TagPrintDialog from './TagPrintDialog'
 import ItemEditor from './ItemEditor'
 import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
@@ -10,14 +11,14 @@ import { COLUMNS, extraHeadersOf, itemToRow } from '../../../shared/itemImport'
 import { today } from '../format'
 import { writeSpreadsheet } from '../spreadsheet'
 
-const TYPE_LABEL: Record<Product['type'], string> = {
-  inventory: 'Inventory',
-  non_inventory: 'Non-inv.',
-  service: 'Service'
-}
-
 /** Item List: every item, with Add / Edit opening the full item window. */
 export default function Products({ startTags, onIntentDone }: { startTags?: boolean; onIntentDone?: () => void } = {}) {
+  const columnKey = 'diamondpos:item-list-columns'
+  const [colIds, setColIds] = useState<string[]>(() => { try { return itemColumnIds(JSON.parse(localStorage.getItem(columnKey) ?? 'null')) } catch { return [...DEFAULT_ITEM_COLUMNS] } })
+  const [colMenu, setColMenu] = useState<{ x: number; y: number; target: string | null } | null>(null)
+  const columns = colIds.map((id) => ITEM_COLUMNS.find((c) => c.id === id)!).filter(Boolean)
+  function saveColumns(ids: string[]) { const next = itemColumnIds(ids); setColIds(next); try { localStorage.setItem(columnKey, JSON.stringify(next)) } catch { setError('Column choices could not be saved on this computer.') } }
+  const [deleting, setDeleting] = useState(false)
   const [vendorNames, setVendorNames] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
@@ -76,10 +77,11 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
   const allTicked = shown.length > 0 && shown.every((p) => selected.has(p.id))
 
   async function deleteSelected() {
-    const ids = shown.filter((p) => selected.has(p.id)).map((p) => p.id)
-    if (!ids.length) return
+    const ids = [...selected]
+    if (!ids.length || deleting) return
     if (!confirm(`Delete ${ids.length} item${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`)) return
     setError('')
+    setDeleting(true)
     try {
       const r = await api.deleteProducts(ids)
       setNotice(deleteSummary(r, 'item'))
@@ -87,7 +89,12 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
       load()
     } catch (e) {
       setError((e as Error).message)
-    }
+    } finally { setDeleting(false) }
+  }
+
+  async function selectEntireList() {
+    setDeleting(true); setError('')
+    try { const all = await api.listAllProducts(); if (all.length > 50000) throw new Error('Select smaller batches of up to 50,000 items.'); setSelected(new Set(all.map((p) => p.id))); setNotice(`Selected all ${all.length} items, including inactive and items outside the current search.`) } catch(e) { setError((e as Error).message) } finally { setDeleting(false) }
   }
 
   return (
@@ -99,7 +106,7 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
           <button onClick={exportItems}>Export to Excel</button>
           <button onClick={() => setTagging([])}>🏷 Print tags</button>
           {selected.size > 0 && (
-            <button className="danger" onClick={deleteSelected}>
+            <button className="danger" onClick={deleteSelected} disabled={deleting}>
               🗑 Delete selected ({selected.size})
             </button>
           )}
@@ -120,11 +127,19 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
           Quick Picks only
         </label>
       </div>
+      <div className="row gap list-tools">
+        <button disabled={deleting || shown.length === 0} onClick={() => setSelected(new Set(shown.map((p) => p.id)))}>Select shown ({shown.length})</button>
+        <button disabled={deleting} onClick={selectEntireList}>Select entire Item List…</button>
+        <button disabled={deleting || selected.size === 0} onClick={() => setSelected(new Set())}>Clear selection</button>
+        <span className="small muted">{selected.size} selected across all searches. Up to 500 rows shown. Export / back up before deleting.</span>
+        <button onClick={(e) => setColMenu({ x: e.clientX, y: e.clientY, target: null })}>Columns…</button>
+      </div>
+      <p className="small muted">Right-click a column heading to choose columns or move it left/right. Choices are saved on this computer.</p>
       {error && <div className="error-text">{error}</div>}
       {notice && <div className="ok-text">{notice}</div>}
 
-      <table className="table">
-        <thead>
+      <div className="item-list-scroll"><table className="table">
+        <thead onContextMenu={(e) => { e.preventDefault(); setColMenu({ x: e.clientX, y: e.clientY, target: (e.target as HTMLElement).closest('th')?.dataset.col ?? null }) }}>
           <tr>
             <th className="sel-col">
               <input
@@ -134,15 +149,7 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
                 onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((p) => p.id)) : new Set())}
               />
             </th>
-            <th>Item No.</th>
-            <th>Name</th>
-            <th>Department</th>
-            <th>Type</th>
-            <th>UPC</th>
-            <th className="r">On Hand</th>
-            <th className="r">Price</th>
-            <th>Quick Pick</th>
-            <th>Status</th>
+            {columns.map((c) => <th key={c.id} data-col={c.id} className={c.num ? 'r' : ''} title="Right-click to choose columns">{c.label}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -160,23 +167,14 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
                   }}
                 />
               </td>
-              <td>{p.sku}</td>
-              <td>{p.name}</td>
-              <td>{p.department}</td>
-              <td>{TYPE_LABEL[p.type]}</td>
-              <td>{p.barcode}</td>
-              <td className={p.type === 'inventory' && p.reorderPoint !== null && p.onHand <= p.reorderPoint ? 'r low' : 'r'}>
-                {p.type === 'inventory' ? p.onHand : ''}
-              </td>
-              <td className="r">{money(p.priceCents)}</td>
-              <td className="qp-cell">{p.quickPick ? '✓' : ''}</td>
-              <td>{p.active ? 'Active' : 'Inactive'}</td>
+              {columns.map((c) => <td key={c.id} className={c.id === 'onHand' && p.type === 'inventory' && p.reorderPoint !== null && p.onHand <= p.reorderPoint ? 'r low' : c.num ? 'r' : ''}>{c.cell(p)}</td>)}
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {shown.length === 0 && <p className="muted">No items found.</p>}
 
+      {colMenu && <ColumnMenu {...colMenu} shown={colIds} columns={ITEM_COLUMNS} defaults={DEFAULT_ITEM_COLUMNS} onChange={saveColumns} onClose={() => setColMenu(null)} />}
       {importing && <ImportItems onClose={() => setImporting(false)} onImported={load} />}
 
       {tagging && <TagPrintDialog initial={tagging} onClose={() => setTagging(null)} />}

@@ -19,7 +19,7 @@ export async function readSpreadsheet(file: File): Promise<SheetData> {
   const rows = data.map((values, i) => {
     // SheetJS records the original (0-based) row index on each object
     const idx = (values as { __rowNum__?: number }).__rowNum__
-    return { values, rowNumber: typeof idx === 'number' ? idx + 1 : i + 2 }
+    return { values: Object.fromEntries(Object.entries(values).map(([key, value]) => [key.trim(), value])), rowNumber: typeof idx === 'number' ? idx + 1 : i + 2 }
   })
   return { sheetName, headers, rows }
 }

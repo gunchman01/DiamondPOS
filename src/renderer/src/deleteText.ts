@@ -8,11 +8,12 @@ export function deleteSummary(r: DeleteResult, what: 'item' | 'customer'): strin
   if (r.deactivated)
     parts.push(
       `${w(r.deactivated)} made inactive instead, because ${r.deactivated === 1 ? "it's" : "they're"} on past ${
-        what === 'item' ? 'sales or work orders' : 'sales or work orders'
+        what === 'item' ? 'sales, work orders, receiving or held receipts' : 'sales, work orders or held receipts'
       } (kept so old receipts stay correct; hidden from searches).`
     )
+  if (r.notFound) parts.push(`${w(r.notFound)} no longer found.`)
   return parts.join(' ') || 'Nothing was deleted.'
 }
 
 export const DELETE_EXPLAIN =
-  'Anything with no history is erased for good. Anything on past sales or work orders is made inactive instead (hidden, but old receipts stay correct).'
+  'Anything with no history is erased for good. Anything linked to sales, work orders, receiving or open held receipts is made inactive instead (hidden, but old receipts stay correct).'

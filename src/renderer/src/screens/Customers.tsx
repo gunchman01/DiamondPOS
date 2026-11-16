@@ -19,13 +19,15 @@ export default function Customers() {
   const [importing, setImporting] = useState(false)
   /** Customers ticked for Delete selected */
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [deleting, setDeleting] = useState(false)
   const [notice, setNotice] = useState('')
 
   async function deleteSelected() {
-    const ids = customers.filter((c) => selected.has(c.id)).map((c) => c.id)
-    if (!ids.length) return
+    const ids = [...selected]
+    if (!ids.length || deleting) return
     if (!confirm(`Delete ${ids.length} customer${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`)) return
     setError('')
+    setDeleting(true)
     try {
       const r = await api.deleteCustomers(ids)
       setNotice(deleteSummary(r, 'customer'))
@@ -33,7 +35,11 @@ export default function Customers() {
       load()
     } catch (e) {
       setError((e as Error).message)
-    }
+    } finally { setDeleting(false) }
+  }
+  async function selectEntireList() {
+    setDeleting(true); setError('')
+    try { const all = await api.allCustomers(); if (all.length > 50000) throw new Error('Select smaller batches of up to 50,000 customers.'); setSelected(new Set(all.map((c) => c.id))); setNotice(`Selected all ${all.length} customers, including inactive and customers outside the current search.`) } catch(e) { setError((e as Error).message) } finally { setDeleting(false) }
   }
   const [exporting, setExporting] = useState(false)
 
@@ -74,7 +80,7 @@ export default function Customers() {
             {exporting ? 'Exporting…' : 'Export to Excel'}
           </button>
           {selected.size > 0 && (
-            <button className="danger" onClick={deleteSelected}>
+            <button className="danger" onClick={deleteSelected} disabled={deleting}>
               🗑 Delete selected ({selected.size})
             </button>
           )}
@@ -95,6 +101,12 @@ export default function Customers() {
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
           Show inactive
         </label>
+      </div>
+      <div className="row gap list-tools">
+        <button disabled={deleting || customers.length === 0} onClick={() => setSelected(new Set(customers.map((c) => c.id)))}>Select shown ({customers.length})</button>
+        <button disabled={deleting} onClick={selectEntireList}>Select entire Customer List…</button>
+        <button disabled={deleting || selected.size === 0} onClick={() => setSelected(new Set())}>Clear selection</button>
+        <span className="small muted">{selected.size} selected across all searches. Up to 500 rows shown. Export / back up before deleting.</span>
       </div>
       {error && <div className="error-text">{error}</div>}
       {notice && <div className="ok-text">{notice}</div>}

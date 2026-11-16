@@ -1,3 +1,4 @@
+import { testItemTools } from './item-tools'
 import { testAccountsStock } from './accounts-stock'
 import { testRetiredStage } from './retired-stage'
 import { testReportingVoids } from './reporting-voids'
@@ -37,6 +38,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
 let checks = 0
 const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`PASS ${name}`) }
 async function main() {
+  await testItemTools(check, dir)
   check('quantity typing accepts explicit signs and rejects blank, decimal and scanner-like input', () => {
     assert.equal(parseQuantity(' +3 '), 3)
     assert.equal(parseQuantity('-2'), -2)

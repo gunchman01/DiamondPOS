@@ -14,7 +14,9 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 function ids(body: unknown): number[] {
   const list = (body as { ids?: unknown })?.ids
   if (!Array.isArray(list) || list.length === 0) throw Object.assign(new Error('Choose what to delete'), { status: 400 })
-  return [...new Set(list.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 50000)
+  if (list.length > 50000 || list.some((id) => !Number.isSafeInteger(id) || id <= 0))
+    throw Object.assign(new Error('Choose up to 50,000 valid record IDs'), { status: 400 })
+  return [...new Set(list)]
 }
 
 export function deleteProducts(db: DB, idList: number[]): DeleteResult {
@@ -23,7 +25,7 @@ export function deleteProducts(db: DB, idList: number[]): DeleteResult {
   const sold = db.prepare('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?')
   const onWo = db.prepare('SELECT COUNT(*) AS n FROM work_order_lines WHERE product_id = ?')
   const onRv = db.prepare('SELECT COUNT(*) AS n FROM receiving_lines WHERE product_id = ?')
-  const onHold = db.prepare('SELECT COUNT(*) AS n FROM held_stock WHERE product_id=?')
+  const onHold = db.prepare(`SELECT COUNT(DISTINCT h.id) AS n FROM held_sales h, json_each(CASE WHEN json_valid(h.items_json) THEN h.items_json ELSE '[]' END) line WHERE h.status='held' AND json_extract(line.value,'$.productId')=?`)
   const del = db.prepare('DELETE FROM products WHERE id = ?')
   const off = db.prepare("UPDATE products SET active = 0, quick_pick = 0, updated_at = datetime('now') WHERE id = ?")
   db.transaction(() => {
@@ -62,6 +64,7 @@ export function deleteCustomers(db: DB, idList: number[]): DeleteResult {
   const get = db.prepare('SELECT * FROM customers WHERE id = ?')
   const sales = db.prepare('SELECT COUNT(*) AS n FROM sales WHERE customer_id = ?')
   const wos = db.prepare('SELECT COUNT(*) AS n FROM work_orders WHERE customer_id = ?')
+  const holds = db.prepare("SELECT COUNT(*) AS n FROM held_sales WHERE customer_id=? AND status='held'")
   const off = db.prepare("UPDATE customers SET active = 0, updated_at = datetime('now') WHERE id = ?")
   db.transaction(() => {
     for (const id of idList) {
@@ -79,14 +82,15 @@ export function deleteCustomers(db: DB, idList: number[]): DeleteResult {
       })
       const s = (sales.get(id) as { n: number }).n
       const w = (wos.get(id) as { n: number }).n
-      if (s || w) {
+      const h = (holds.get(id) as {n: number}).n
+      if (s || w || h) {
         off.run(id)
         out.deactivated++
         out.results.push({
           id,
           name,
           action: 'deactivated',
-          reason: `has ${[s ? plural(s, 'sale') : '', w ? plural(w, 'work order') : ''].filter(Boolean).join(' and ')}`
+          reason: `has ${[s ? plural(s, 'sale') : '', w ? plural(w, 'work order') : '', h ? plural(h, 'held receipt') : ''].filter(Boolean).join(' and ')}`
         })
       } else {
         // Nothing important refers to them: tidy up their bits and erase them

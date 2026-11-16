@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ImportRowResult, ImportSummary } from '../../../shared/types'
-import { COLUMNS, ImportItem, TEMPLATE_ROWS, extraColumns, mapHeaders, rowToItem } from '../../../shared/itemImport'
+import { COLUMNS, ImportItem, TEMPLATE_ROWS, extraColumns, suggestedItemMapping, mappedRowToItem, type ItemFieldMapping } from '../../../shared/itemImport'
 import { api } from '../api'
-import { readSpreadsheet, writeSpreadsheet } from '../spreadsheet'
+import { readSpreadsheet, writeSpreadsheet, type SheetData } from '../spreadsheet'
 
-type Step = 'pick' | 'preview' | 'done'
+type Step = 'pick' | 'map' | 'preview' | 'done'
 
 interface Parsed {
   fileName: string
@@ -18,6 +18,9 @@ interface Parsed {
 
 /** Bulk import items from Excel / CSV, with a preview before anything is saved. */
 export default function ImportItems({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const [sheet, setSheet] = useState<(SheetData & { fileName: string }) | null>(null)
+  const [mapping, setMapping] = useState<ItemFieldMapping>({})
+  const [keepExtras, setKeepExtras] = useState(true)
   const [step, setStep] = useState<Step>('pick')
   const [updateExisting, setUpdateExisting] = useState(true)
   const [parsed, setParsed] = useState<Parsed | null>(null)
@@ -34,30 +37,55 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
     try {
       const sheet = await readSpreadsheet(file)
       if (sheet.rows.length === 0) throw new Error('No item rows found. Row 1 should be the column headers.')
-      const { map, unknown } = mapHeaders(sheet.headers)
-      if (![...map.values()].some((c) => c.key === 'name' || c.key === 'sku' || c.key === 'barcode'))
-        throw new Error('Could not find an "Item Name", "Item No." or "UPC" column. Download the template to see the expected headers.')
+      if (new Set(sheet.headers).size !== sheet.headers.length)
+        throw new Error('Some spreadsheet headers are duplicated. Give every column a unique heading before importing.')
+      setSheet({ ...sheet, fileName: file.name })
+      setMapping(suggestedItemMapping(sheet.headers))
+      setParsed(null)
+      setSummary(null)
+      setStep('map')
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
-      const extras = extraColumns(unknown, sheet.rows.map((r) => r.values))
+  async function previewMapping() {
+    if (!sheet) return
+    setBusy(true)
+    setError('')
+    try {
+      if (!Object.values(mapping).some(Boolean)) throw new Error('Choose at least one spreadsheet column to use.')
+      const used = new Set(Object.values(mapping).filter(Boolean))
+      const unknown = sheet.headers.filter((h) => !used.has(h))
+      const extras = keepExtras ? extraColumns(unknown, sheet.rows.map((r) => r.values)) : []
       const items: ImportItem[] = []
       const clientErrors: ImportRowResult[] = []
       const skuRows = new Map<string, number>()
+      const upcRows = new Map<string, number>()
       for (const r of sheet.rows) {
-        const { item, errors } = rowToItem(r.values, map, r.rowNumber, extras)
+        const { item, errors } = mappedRowToItem(r.values, mapping, r.rowNumber, extras)
         // The same Item No. twice in one file would overwrite the first item
         if (item.sku) {
           const first = skuRows.get(item.sku.toUpperCase())
           if (first) errors.push(`Item No. ${item.sku} is already used on row ${first} of this file`)
           else skuRows.set(item.sku.toUpperCase(), r.rowNumber)
         }
+        if (item.barcode) {
+          const first = upcRows.get(item.barcode)
+          if (first) errors.push(`UPC ${item.barcode} is already used on row ${first} of this file`)
+          else upcRows.set(item.barcode, r.rowNumber)
+        }
         if (errors.length)
           clientErrors.push({ row: r.rowNumber, name: String(item.name ?? ''), action: 'error', message: errors.join('; ') })
         else items.push(item)
       }
       const p: Parsed = {
-        fileName: file.name,
+        fileName: sheet.fileName,
         rowCount: sheet.rows.length,
-        matched: [...map.values()].map((c) => c.header),
+        matched: COLUMNS.filter((c) => mapping[c.key]).map((c) => `${mapping[c.key]} → ${c.header}`),
         unknown: unknown.filter((u) => !extras.includes(u)),
         extras,
         items,
@@ -70,7 +98,6 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
       setError((e as Error).message)
     } finally {
       setBusy(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -102,8 +129,8 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
           'When updating, leave a cell blank to keep the current value.',
           'Prices and costs are dollar amounts before sales tax, e.g. 5.50',
           'Type: Inventory, Non-inventory or Service.   Tax: Tax or Non-taxable.   Yes/No columns: Yes or No.',
-          'Format the UPC column as Text in Excel so leading zeros are kept.',
-          'You can delete columns you do not need. Extra columns are ignored.'
+          'Format Item No. and UPC columns as Text in Excel so leading zeros are kept.',
+          'Choose the spreadsheet column for each POS field on the mapping screen. Unmapped columns can be kept as Other details or skipped.'
         ].map((t) => ({ 'How to use this template': t }))
       }
     ])
@@ -133,11 +160,11 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
             <div className="import-pick">
               <ol className="steps">
                 <li>
-                  Use a <b>QuickBooks Point of Sale inventory export</b> as it is, or download the template. Row 1 must be the column headers, such as{' '}
+                  Use your own spreadsheet, a <b>QuickBooks Point of Sale inventory export</b>, or the template. Row 1 must contain unique column headers. You will map them to POS fields; examples include{' '}
                   <b>Item Name, Item No., UPC, Department, Reg Price, On-Hand Qty</b>.
                 </li>
                 <li>Fill in one item per row and save the file (.xlsx, .xls or .csv).</li>
-                <li>Choose the file below. You'll see a preview before anything is saved.</li>
+                <li>Choose the file, select your column mapping, then review the preview before anything is saved.</li>
               </ol>
               <div className="row gap">
                 <button onClick={downloadTemplate}>⬇ Download template</button>
@@ -159,7 +186,22 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
             </div>
           )}
 
-          {step !== 'pick' && parsed && (
+          {step === 'map' && sheet && <>
+            <h3>Match spreadsheet columns to POS fields</h3>
+            <p><b>{sheet.fileName}</b> · sheet {sheet.sheetName} · {sheet.rows.length} rows. Uses the first worksheet and row 1 headings.</p>
+            <p className="small muted">Choose a spreadsheet column for each POS field you want to fill. Leave a field unmapped to keep its current value when updating. You can use one source column for more than one POS field. New items need Item Name and Reg Price. Prices/costs are dollars, not cents.</p>
+            <div className="row gap"><button disabled={busy} onClick={() => setMapping(suggestedItemMapping(sheet.headers))}>Auto-match headings</button><button disabled={busy} onClick={() => setMapping({})}>Clear mapping</button></div>
+            <div className="grid-wrap import-mapping"><table className="grid"><thead><tr><th>POS field</th><th>Spreadsheet column</th><th>Sample values (first 3 rows)</th></tr></thead><tbody>
+              {COLUMNS.map((c) => <tr key={c.key}><td><b>{c.header}</b></td><td><select aria-label={`Spreadsheet column for ${c.header}`} value={mapping[c.key] ?? ''} disabled={busy} onChange={(e) => setMapping({ ...mapping, [c.key]: e.target.value })}>
+                <option value="">— Do not import this field —</option>{sheet.headers.map((h) => <option key={h} value={h}>{h}</option>)}
+              </select></td><td className="dim">{mapping[c.key] ? sheet.rows.slice(0, 3).map((r) => String(r.values[mapping[c.key]!] ?? '') || '(blank)').join(' / ') : '—'}</td></tr>)}
+            </tbody></table></div>
+            <label className="check"><input type="checkbox" checked={keepExtras} onChange={(e) => setKeepExtras(e.target.checked)} />Keep unmapped columns with data as Other details on the item (otherwise skip them).</label>
+            <label className="check"><input type="checkbox" checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} />Update matching Item No. or UPC; blank cells keep current values. Untick to add new items only.</label>
+            <p className="small muted">For correcting names or labels, keep Item No. or UPC mapped to the existing identifiers. Leave On-Hand Qty unmapped if you do not intend to replace stock quantities. To reactivate inactive items, map Active to a column containing Yes. Format Item No. and UPC as Text in Excel to preserve leading zeros. Preview does not save anything.</p>
+          </>}
+
+          {(step === 'preview' || step === 'done') && parsed && (
             <>
               <div className="import-summary">
                 <div>
@@ -179,8 +221,9 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
                     Also kept on each item (shown under "Other details" in the item window): {parsed.extras.join(', ')}
                   </div>
                 )}
-                {parsed.unknown.length > 0 && <div className="muted">Skipped (no data in them): {parsed.unknown.join(', ')}</div>}
+                {parsed.unknown.length > 0 && <div className="muted">Skipped: {parsed.unknown.join(', ')}</div>}
               </div>
+              {step === 'preview' && parsed.items.length > 0 && <div className="grid-wrap"><table className="grid"><caption>Mapped values — first 5 valid rows</caption><thead><tr><th>Row</th><th>Item No.</th><th>Item Name</th><th>UPC</th><th>Description</th></tr></thead><tbody>{parsed.items.slice(0,5).map((item) => <tr key={item.__row}><td>{item.__row}</td><td>{item.sku ?? '—'}</td><td>{item.name ?? '(unchanged)'}</td><td>{item.barcode ?? '—'}</td><td>{item.description ?? '(unchanged)'}</td></tr>)}</tbody></table></div>}
               {step === 'done' && (
                 <div className="import-done">
                   ✓ Import complete: {summary?.created ?? 0} items added, {summary?.updated ?? 0} updated
@@ -231,11 +274,13 @@ export default function ImportItems({ onClose, onImported }: { onClose: () => vo
 
         <div className="id-foot">
           {step === 'preview' && (
-            <button onClick={() => setStep('pick')} disabled={busy}>
-              ← Choose another file
+            <button onClick={() => { setStep('map'); setError('') }} disabled={busy}>
+              ← Change column mapping
             </button>
           )}
+          {step === 'map' && <button onClick={() => { setStep('pick'); setError('') }} disabled={busy}>← Choose another file</button>}
           <div className="id-msg" />
+          {step === 'map' && <button className="primary" disabled={busy} onClick={previewMapping}>{busy ? 'Checking rows…' : 'Preview import'}</button>}
           {step === 'preview' && (
             <button className="primary" disabled={busy || goodCount === 0} onClick={runImport}>
               {busy ? 'Importing… (this can take a minute)' : `Import ${goodCount} item${goodCount === 1 ? '' : 's'}`}

@@ -115,7 +115,7 @@ export const api = {
       `/api/products?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
     ),
   /** Every item including inactive ones, no limit (for Export to Excel) */
-  listAllProducts: () => request<Product[]>('GET', '/api/products?includeInactive=1&all=1'),
+  listAllProducts: () => request<Product[]>('GET', '/api/products?includeInactive=1&all=1', undefined, undefined, undefined, 60000),
   listQuickPicks: () => request<Product[]>('GET', '/api/products?quickPick=1'),
   product: (id:number) => request<Product>('GET',`/api/products/${id}`),
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),

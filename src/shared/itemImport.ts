@@ -240,3 +240,25 @@ export const TEMPLATE_ROWS: Record<string, string | number>[] = [
     Active: 'Yes'
   }
 ]
+
+
+/** Explicit destination-field mapping. One spreadsheet column may populate several POS fields. */
+export type ItemFieldMapping = Partial<Record<keyof ProductInput, string>>
+
+export function suggestedItemMapping(headers: string[]): ItemFieldMapping {
+  return Object.fromEntries([...mapHeaders(headers).map].map(([header, col]) => [col.key, header]))
+}
+
+export function mappedRowToItem(row: Record<string, unknown>, mapping: ItemFieldMapping, rowNumber: number, extras: string[] = []) {
+  const item: ImportItem = { __row: rowNumber }
+  const errors: string[] = []
+  for (const col of COLUMNS) {
+    const header = mapping[col.key]
+    if (!header) continue
+    const converted = rowToItem(row, new Map([[header, col]]), rowNumber)
+    Object.assign(item, converted.item)
+    errors.push(...converted.errors)
+  }
+  Object.assign(item, rowToItem(row, new Map(), rowNumber, extras).item)
+  return { item, errors }
+}
