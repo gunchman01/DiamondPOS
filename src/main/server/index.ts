@@ -1,3 +1,4 @@
+import { saleInstant } from '../../shared/saleDates'
 import { registerAccountRoutes,createAccountInvoice } from './accounts'
 import { startApprovalScheduler } from './approvals'
 import { saleVoid } from './voids'
@@ -165,6 +166,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const body: Health = {
       ok: true,
       serverVersion: opts.appVersion,
+      saleDates: true,
       schemaVersion: getSchemaVersion(db),
       minClientVersion: MIN_CLIENT_VERSION
     }
@@ -557,6 +559,8 @@ export function createSale(db: DB, req: SaleRequest): Sale {
 function createSaleOnce(db: DB, req: SaleRequest): Sale {
   if (!req || !Array.isArray(req.items)) throw new HttpError(400, 'Sale has no items')
   if (!Array.isArray(req.payments)) throw new HttpError(400, 'Sale has no payment')
+  let saleAt: string | null
+  try { saleAt = saleInstant(req.saleAt === undefined && req.heldId ? (db.prepare('SELECT sale_at FROM held_sales WHERE id=?').get(req.heldId) as {sale_at:string|null}|undefined)?.sale_at : req.saleAt) } catch (e) { throw new HttpError(400, (e as Error).message) }
   const tillName = String(req.tillName || 'Unknown till').slice(0, 60)
   // The tax rate for this sale: the one picked on the Sale screen, or the store's default
   const store = readSettings(db)
@@ -761,6 +765,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
         taxInfo.name
       )
     const saleId = Number(info.lastInsertRowid)
+    db.prepare("UPDATE sales SET recorded_at=datetime('now'), date_overridden=?, created_at=COALESCE(?,created_at) WHERE id=?").run(saleAt ? 1 : 0, saleAt ? saleAt.slice(0,-1).replace('T',' ') : null, saleId)
     if(req.onAccount){db.prepare('UPDATE sales SET on_account=1 WHERE id=?').run(saleId);createAccountInvoice(db,saleId,customerId!)}
     const addItem = db.prepare(
       `INSERT INTO sale_items (sale_id, product_id, name, unit_price_cents, qty, line_total_cents, department, taxable, serial,
@@ -800,6 +805,8 @@ export function getSale(db: DB, id: number): Sale | null {
     | ({
         id: number
         created_at: string
+        recorded_at: string | null
+        date_overridden: number
         till_name: string
         total_cents: number
         status: string
@@ -850,6 +857,8 @@ export function getSale(db: DB, id: number): Sale | null {
     onAccount: s.on_account === 1,
     void: saleVoid(db,s.id),
     createdAt: sqliteToIso(s.created_at),
+    recordedAt: sqliteToIso(s.recorded_at ?? s.created_at),
+    dateOverridden: s.date_overridden === 1,
     tillName: s.till_name,
     totalCents: s.total_cents,
     taxCents: s.tax_cents,

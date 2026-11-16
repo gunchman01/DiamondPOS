@@ -642,6 +642,12 @@ export const migrations: Migration[] = [
       WHERE l.product_id=products.id AND l.kind='part' AND w.status NOT IN ('closed','not_fixed')),0) WHERE type='inventory';
     UPDATE work_order_lines SET stock_taken=qty WHERE kind='part' AND product_id IN (SELECT id FROM products WHERE type='inventory')
       AND work_order_id IN (SELECT id FROM work_orders WHERE status NOT IN ('closed','not_fixed'));
+  ` },
+  { version: 29, name: 'sale business date and original entry timestamp', up: `
+    ALTER TABLE sales ADD COLUMN recorded_at TEXT;
+    ALTER TABLE sales ADD COLUMN date_overridden INTEGER NOT NULL DEFAULT 0;
+    UPDATE sales SET recorded_at=created_at;
+    ALTER TABLE held_sales ADD COLUMN sale_at TEXT;
   ` }
 
 ]

@@ -1,3 +1,4 @@
+import { saleTimeFromLocal, localSaleTime } from '../../../shared/saleDates'
 import CustomerAccountDialog from './CustomerAccount'
 import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
 import { useEffect, useRef, useState } from 'react'
@@ -77,6 +78,8 @@ export default function Sell({
   onWorkOrderDone?: () => void
 }) {
   const pendingKey = `diamondpos-checkout:${boot.config.serverUrl}:${boot.config.tillName}`
+  const [customSaleTime, setCustomSaleTime] = useState(false)
+  const [saleTime, setSaleTime] = useState(() => localSaleTime(new Date().toISOString()))
   const [pendingCheckout, setPendingCheckout] = useState<SaleRequest | null>(() => {
     const value = localStorage.getItem(pendingKey)
     return value ? JSON.parse(value) as SaleRequest : null
@@ -188,6 +191,8 @@ export default function Sell({
         attachCustomer(d.customer, `Held receipt ${heldNumber(id)}`)
         if (!h.taxExempt) setExempt(false)
       }
+      setCustomSaleTime(!!h.saleAt)
+      setSaleTime(localSaleTime(h.saleAt ?? new Date().toISOString()))
       setHeld({ id, note: h.note })
       setLastSale(null)
       setMessage({
@@ -228,8 +233,10 @@ export default function Sell({
     if(holdBusy.current)return
     holdBusy.current=true;setHoldError('')
     try {
+    if ((customSaleTime || pendingHold?.body.saleAt) && !(await api.health()).saleDates) throw new Error('Update the Store Server to v0.3.41 before choosing a sale date.')
     const body:HeldReceiptInput = {
       requestId: crypto.randomUUID(),
+      saleAt: customSaleTime ? saleTimeFromLocal(saleTime) : null,
       customerId: customer?.id ?? null,
       note,
       taxExempt: applyExempt,
@@ -241,6 +248,8 @@ export default function Sell({
     const h = original.id ? await api.updateHeld(original.id, original.body) : await api.holdSale(original.body)
     localStorage.removeItem(holdKey);setPendingHold(null)
     setHolding(false)
+    setCustomSaleTime(false)
+    setSaleTime(localSaleTime(new Date().toISOString()))
     setCart([])
     setSelectedId(null)
     setCustomer(null)
@@ -666,9 +675,11 @@ export default function Sell({
     setCheckoutWaiting(true)
     setCheckoutError('')
     try {
+      if ((customSaleTime || pendingCheckout?.saleAt) && !(await api.health()).saleDates) throw new Error('Update the Store Server to v0.3.41 before choosing a sale date.')
       const request: SaleRequest = pendingCheckout ?? {
         requestId: crypto.randomUUID(),
         onAccount,
+        saleAt: customSaleTime ? saleTimeFromLocal(saleTime) : null,
         tillName: boot.config.tillName,
         customerId: customer?.id ?? null,
         taxExempt: applyExempt,
@@ -706,6 +717,8 @@ export default function Sell({
       setCustomer(null)
       setExempt(false)
       setTaxRateId(null)
+      setCustomSaleTime(false)
+      setSaleTime(localSaleTime(new Date().toISOString()))
       setLastSale(sale)
       setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
       focusScan()
@@ -1130,6 +1143,7 @@ export default function Sell({
               {lastSale.totalCents < 0 && lastSale.payments[0]?.method === 'cash' && (
                 <div className="change">Give back: {money(-lastSale.totalCents)}</div>
               )}
+              <div className="small">Sale date/time: {new Date(lastSale.createdAt).toLocaleString()}</div>
               {lastSale.customerName && <div className="small">Customer: {lastSale.customerName}</div>}
               {lastSale.taxExempt && (
                 <div className="small">
@@ -1141,6 +1155,10 @@ export default function Sell({
             </div>
           )}
 
+          <div className="sale-date-picker">
+            <label className="check"><input type="checkbox" checked={customSaleTime} disabled={checkoutWaiting || !!pendingCheckout} onChange={(e) => { setCustomSaleTime(e.target.checked); if(e.target.checked) setSaleTime(localSaleTime(new Date().toISOString())) }} />Choose sale date and time</label>
+            {customSaleTime ? <><input type="datetime-local" aria-label="Sale date and time" value={saleTime} disabled={checkoutWaiting || !!pendingCheckout} onChange={(e) => setSaleTime(e.target.value)} /><p className="small muted">Uses this PC's local time. Receipts, sales reports and QuickBooks use this date; actual entry time is kept. Future dates wait for that day before QuickBooks sync. Completing now still takes payment and deducts stock now.</p></> : <p className="small muted">Sale date/time: actual checkout time</p>}
+          </div>
           <div className="tender">
             {customer&&<button disabled={checkoutWaiting||!!pendingCheckout} onClick={()=>setViewAccount(true)}>Pay existing account</button>}
             <button

@@ -10,6 +10,7 @@ export interface HeldItemInput {
 }
 
 export interface HeldReceiptInput {
+  saleAt?: string | null
   requestId?: string
   customerId?: number | null
   note?: string
@@ -33,6 +34,7 @@ export interface HeldSummary {
 }
 
 export interface HeldReceipt extends HeldSummary {
+  saleAt?: string | null
   taxExempt: boolean
   /** Items with their current details; missing = item deleted or made inactive since it was held */
   items: { product: Product; qty: number; serial?: string; priceCents?: number }[]

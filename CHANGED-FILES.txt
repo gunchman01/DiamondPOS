@@ -1,19 +1,22 @@
-DiamondPOS v0.3.40 — source overlay against main 46a764546417e2b4acac226e32f8b0771668f05a / v0.3.39
+DiamondPOS v0.3.41 — overlay against main 2a08212a58d5b6ce725bfb69be06f00a01712a15 / v0.3.40
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
 docs/PROJECT_NOTES.md
-src/main/server/backup.ts
+src/main/server/held.ts
 src/main/server/index.ts
-src/main/server/operations.ts
-src/renderer/src/HomeStatus.tsx
-src/renderer/src/api.ts
+src/main/server/migrations.ts
+src/main/server/quickbooks/accountSync.ts
+src/main/server/quickbooks/queue.ts
+src/main/server/reports.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/BackupSettings.tsx
-src/renderer/src/screens/Settings.tsx
+src/renderer/src/screens/SaleDialog.tsx
+src/renderer/src/screens/Sell.tsx
 src/renderer/src/styles.css
-src/shared/backups.ts
-src/shared/operations.ts
-tests/backup-settings.ts
+src/shared/held.ts
+src/shared/reports.ts
+src/shared/saleDates.ts
+src/shared/types.ts
 tests/regressions.ts
+tests/sale-dates.ts

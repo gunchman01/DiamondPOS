@@ -14,6 +14,14 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.41 - 16 Nov 2026
+> Update the Store Server PC first, then all tills.
+- **Sale date and time:** checkout defaults to now. Tick Choose sale date and time to record the day/time of an open-house sale, including a past or future date.
+- Receipts, sales history, daily/ad hoc reports and QuickBooks transactions use the selected business date. The actual time entered is retained separately and shown in sale details; ad hoc Sales reports can include Entered at and Sale time.
+- Held tickets remember their chosen date. Completed tickets keep their original saved date; retrying a checkout does not change or duplicate it.
+- Future-dated sales and account invoices wait until the selected day for QuickBooks sync. Completing a sale still takes payment and deducts inventory immediately; use Hold if it is not ready to complete.
+- Migration 29 preserves existing dates and backfills their entry timestamps. This feature does not automatically apply an event discount or alter already synced sales. No website upload needed.
+
 ## v0.3.40 - 16 Nov 2026
 - **Settings → Backups:** choose every 15 minutes, 30 minutes, hour, 4 hours or 24 hours; choose 1–365 recent copies to keep. Defaults are hourly and 12 copies.
 - **Back Up Now** creates and verifies a Store Server snapshot. See the last successful backup, next scheduled time, server folder, file count, size and errors from any connected till.

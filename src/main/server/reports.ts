@@ -45,7 +45,7 @@ export function cleanReport(value:unknown):ReportDefinition {
   return {source,columns,groupBy,filters,period:source==='inventory'?'all':period,start,end,sort,descending:b.descending as boolean}
 }
 const sources:Record<ReportDefinition['source'],string>={
-  sales:`SELECT s.id,date(s.created_at,'localtime') AS day,s.till_name AS till,s.customer_id AS customerId,
+  sales:`SELECT s.id,datetime(s.created_at,'localtime') AS saleTime,datetime(COALESCE(s.recorded_at,s.created_at),'localtime') AS enteredAt,s.date_overridden AS dateOverridden,date(s.created_at,'localtime') AS day,s.till_name AS till,s.customer_id AS customerId,
     CASE WHEN c.id IS NULL THEN 'Walk-in' WHEN c.track_as_company=1 AND COALESCE(c.company,'')<>'' THEN c.company ELSE TRIM(COALESCE(c.first_name,'')||' '||COALESCE(c.last_name,'')) END AS customer,
     s.on_account AS onAccount,s.status,COALESCE(v.reason,'') AS voidReason,COALESCE(v.voided_by,'') AS voidBy,COALESCE(v.voided_at,'') AS voidAt,COALESCE(v.qb_status,'') AS voidSync,EXISTS(SELECT 1 FROM sale_items si WHERE si.sale_id=s.id AND si.kind='return') AS hasReturn,s.tax_exempt AS taxExempt,
     s.total_cents-s.tax_cents AS net,s.tax_cents AS tax,s.total_cents AS total,

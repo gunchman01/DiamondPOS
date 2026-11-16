@@ -47,7 +47,7 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
             <div className="sale-head">
               <div>
                 <span className="muted small">Date</span>
-                <b>{dateTime(sale.createdAt)}</b>
+                <b>{dateTime(sale.createdAt)}</b>{sale.dateOverridden && <div className="small muted">Sale date selected manually · Entered {dateTime(sale.recordedAt ?? sale.createdAt)}</div>}
               </div>
               <div>
                 <span className="muted small">Till</span>

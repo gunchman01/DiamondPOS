@@ -84,7 +84,7 @@ export function accountSteps(
   }
   const invoices = db
     .prepare(
-      `SELECT i.*,s.total_cents,date(s.created_at,'localtime') AS date FROM account_invoices i JOIN sales s ON s.id=i.sale_id WHERE i.status='pending' ORDER BY i.sale_id LIMIT 40`
+      `SELECT i.*,s.total_cents,date(s.created_at,'localtime') AS date FROM account_invoices i JOIN sales s ON s.id=i.sale_id WHERE i.status='pending' AND date(s.created_at,'localtime')<=date('now','localtime') ORDER BY i.sale_id LIMIT 40`
     )
     .all() as any[]
   const steps: AccountStep[] = invoices.map((original) => ({

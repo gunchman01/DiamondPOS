@@ -585,3 +585,18 @@ Scheduled, startup and Back Up Now files use the generated **store-auto-…db** 
 **store-before-v…db** snapshots taken before database migrations, partial files, differently named files, subdirectories and symlinks are excluded from automated cleanup. These can keep the folder larger than the recent-copy count suggests. The page reports other files separately; do not delete them blindly. A cleanup permission error is displayed separately: the new backup is still good, and cleanup retries after the next verified snapshot.
 
 The folder remains `%APPDATA%\DiamondPOS\data\backups` on the server PC (the actual path is displayed). Snapshots use SQLite's online backup API, include committed WAL contents, and are converted to a standalone database before verification/publication. Verification does not modify the live database. Copies are local: separately arrange copying completed backups to another drive or off the PC. This page does not set up off-site copying, a tiered daily/weekly archive, automatic restore or a custom backup folder.
+
+
+## Sale date and time (v0.3.41)
+
+The Sell checkout panel defaults to **actual checkout time**. For an open-house or other sale entered later, tick **Choose sale date and time** and select the business date/time. Past and future dates are accepted. The field uses the till PC's local time and is sent as an unambiguous UTC timestamp; keep Store Server/till Windows time zones set consistently for your shop (America/Chicago for Diamond P).
+
+The selected business date/time appears on receipts, Sale History and daily/ad hoc sales reports, and becomes the QuickBooks transaction date. This moves the entire receipt and its tenders to that date in sales/closeout reporting. The actual server time when it was entered is saved separately. Sale details identifies manually selected dates and shows **Entered**; ad hoc Sales reports also offer **Sale time**, **Entered at**, and **Date selected manually**. Existing sales keep their original dates, with the same timestamp copied to their historical entry field.
+
+A date chosen before **Hold** is saved with the held ticket and recalled with it. Uncheck the date option to use checkout time when completing instead. After completion or putting a ticket on hold, the new sale defaults back to actual checkout time. Unknown checkout/hold response recovery reuses the saved request and chosen date. Completed sale dates are not editable; this does not rewrite existing or previously synced transactions.
+
+Future-dated completed sales and unpaid account invoices are deferred until the selected local calendar day, then become eligible on a connector run. The POS/Store Server and Web Connector must be running for synchronization. A payment allocated to a future invoice waits until the invoice syncs. Existing sync-start-date and reconciliation checks still apply to backdated sales; check the QuickBooks queue if a date is before your configured start.
+
+Completing a future-dated sale still collects/records payment and removes stock **now**. It is not a delayed stock/payment scheduler. Use a held ticket to prepare a sale that is not yet ready to complete; held stock is reserved under the existing hold rules. This feature does not automatically give a 10% discount or determine a vendor's event eligibility. Set the agreed item price using the existing price controls and verify the total before completion.
+
+Update the Store Server first, then tills. A till checks that the server supports selected sale dates before posting one. Migration 29 adds audit timestamps and a held date field; it does not alter the dates of historical receipts. Test ordinary, backdated and future receipts in your QuickBooks test company before relying on event reporting.

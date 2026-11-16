@@ -30,7 +30,7 @@ export function transactionQueue(db: DB, options: QueueOptions = {}): QbQueuePag
       COALESCE(e.customer_name, NULLIF(CASE WHEN c.track_as_company = 1 THEN c.company
         ELSE TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) END, ''), ?) AS customerName,
       CASE
-        WHEN s.on_account=1 THEN CASE ai.status WHEN 'sent' THEN 'Account invoice confirmed in QuickBooks. Payments are tracked separately in the customer account.' WHEN 'error' THEN COALESCE(ai.error,'Account invoice sync failed') ELSE 'Account invoice pending. Automatically sent by Web Connector.' END
+        WHEN s.on_account=1 AND date(s.created_at,'localtime')>date('now','localtime') THEN 'Future-dated account invoice; waits for the selected day.' WHEN s.on_account=1 THEN CASE ai.status WHEN 'sent' THEN 'Account invoice confirmed in QuickBooks. Payments are tracked separately in the customer account.' WHEN 'error' THEN COALESCE(ai.error,'Account invoice sync failed') ELSE 'Account invoice pending. Automatically sent by Web Connector.' END
         WHEN s.status = 'void' THEN CASE v.qb_status WHEN 'confirmed' THEN 'VOID: QuickBooks confirmed the correction.' WHEN 'not_needed' THEN 'VOID: not exported to QuickBooks.' WHEN 'error' THEN COALESCE(v.qb_error,'Void correction failed.') WHEN 'pending' THEN 'VOID: QuickBooks correction pending.' ELSE 'Void / noncompleted receipt.' END
         WHEN s.status <> 'completed' THEN 'Sale is not completed.'
         WHEN date(s.created_at, 'localtime') < ? THEN 'Before the configured sync start date.'

@@ -125,6 +125,8 @@ export interface PaymentInput {
 }
 
 export interface SaleRequest {
+  /** Business date/time in canonical UTC ISO; omitted uses actual checkout time. */
+  saleAt?: string | null
   onAccount?: boolean
   /** Stable across retries, including a lost response. */
   requestId: string
@@ -169,6 +171,9 @@ export interface SaleItem {
 }
 
 export interface Sale {
+  /** Actual time entered, retained separately from createdAt (business sale time). */
+  recordedAt?: string
+  dateOverridden?: boolean
   onAccount?: boolean
   status?: string
   void?: SaleVoid | null
@@ -379,6 +384,7 @@ export interface KioskSession {
 }
 
 export interface Health {
+  saleDates?: boolean
   ok: boolean
   serverVersion: string
   schemaVersion: number

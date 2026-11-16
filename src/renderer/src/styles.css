@@ -1020,3 +1020,6 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .backup-details dt { font-weight: 600; }
 .backup-details dd { margin: 0; overflow-wrap: anywhere; }
 .backup-details code { white-space: normal; }
+
+.sale-date-picker { padding: 12px 0; border-top: 1px solid var(--border-soft); }
+.sale-date-picker input[type="datetime-local"] { width: 100%; }

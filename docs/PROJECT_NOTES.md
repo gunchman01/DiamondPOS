@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 16 November 2026 (v0.3.40 backup settings and retention)_
+_Last updated: 16 November 2026 (v0.3.41 sale business date/time)_
 
 ---
 
@@ -70,6 +70,16 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.41 — sale business date/time and entry audit
+Migration 29 adds sales.recorded_at/date_overridden and held_sales.sale_at; backfills old entry times from unchanged created_at. Existing created_at is explicitly the business timestamp so receipt/history/report/QuickBooks SQL retains consistent behavior. createSale validates canonical ISO before writes, sets recorded_at to actual server UTC, and applies the business timestamp before account invoice/due-date creation. Request hashes freeze the date across retries. No completed-sale date-edit endpoint.
+
+Sell date/time-local control defaults to actual checkout, verifies server capability via health.saleDates before override, converts local input to UTC with invalid/DST-gap rejection, resets after hold/completion. Held save/recall retains choice; omitted old-client hold updates preserve date, old-client held checkout inherits it, and legacy v40 pending-hold hashes are recognized when no date was provided. Explicit null clears the choice. No automatic event discount or delayed tender/stock action.
+
+Future ordinary exports already defer by local sale day; account invoice planning now also filters out future business dates. Their pending payment allocations wait for invoice sync. Ad hoc report fields expose saleTime, enteredAt and dateOverridden; SaleDialog marks selected dates and entry timestamp. All PCs should share shop time zone. Sync-start and existing reconciliation checks still apply.
+
+Final typecheck/build and 194 SQLite/API/QuickBooks regression checks passed: v28 migration history, canonical/local date validation, past/ordinary/future checkout, idempotency, selected-day reports and QB summaries, due dates, future invoice deferral and held recall. Windows UI, printers and actual QB company remain local checks. Baseline main 2a08212a58d5b6ce725bfb69be06f00a01712a15 / v0.3.40. No commit/push/tag or real transaction created here.
+
 
 ### v0.3.40 — server backup settings and safe retention
 Shared settings validate fixed minute options 15/30/60/240/1440 and retention integer 1–365; fallback defaults 60 minutes / 12. Stored in existing settings table, no migration. WeakMap per-DB manager shared by startup scheduler and authenticated GET /api/backups, PUT /api/backups/settings, POST /api/backups/run routes. One in-flight Promise joins manual/scheduled runs, resettable timeout reflects config changes, stop awaits work. Overview reports next due time, verified status, server folder/storage/counts and distinct cleanup errors.
@@ -478,6 +488,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Validate v0.3.41 on Windows and QB test company: normal/past/future dates, receipt/report time zones and deferred account invoices. Confirm vendor event requirements separately; no automatic discount rule added.
+
 
 - Verify Settings → Backups on Windows: actual folder, chosen interval/next run and Back Up Now; confirm separately protected pre-migration files. Arrange an off-server copy before production.
 

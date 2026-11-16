@@ -1,3 +1,4 @@
+import { saleInstant } from '../../shared/saleDates'
 import crypto from 'node:crypto'
 /**
  * Held receipts: a sale built ahead of time (e.g. a part was ordered) and put on hold until
@@ -21,6 +22,7 @@ export class HeldError extends Error {
 const iso = (s: string) => s.replace(' ', 'T') + 'Z'
 
 type Row = {
+  sale_at: string | null
   id: number
   customer_id: number | null
   note: string
@@ -46,12 +48,15 @@ function parseItems(json: string): HeldItemInput[] {
 }
 
 function clean(b: Partial<HeldReceiptInput>): {
+  saleAt: string | null
   customerId: number | null
   note: string
   taxExempt: boolean
   tillName: string
   items: HeldItemInput[]
 } {
+  let saleAt: string | null
+  try { saleAt = saleInstant(b.saleAt) } catch(e) { throw new HeldError(400, (e as Error).message) }
   const items = (Array.isArray(b.items) ? b.items : []).slice(0, 300).map((i) => {
     const qty = Number(i?.qty)
     if (!Number.isInteger(Number(i?.productId)) || !Number.isSafeInteger(qty) || qty <= 0 || qty > 10000)
@@ -66,6 +71,7 @@ function clean(b: Partial<HeldReceiptInput>): {
   })
   if (items.length === 0) throw new HeldError(400, 'There is nothing on the sale to hold')
   return {
+    saleAt,
     customerId: b.customerId ? Number(b.customerId) : null,
     note: String(b.note ?? '')
       .trim()
@@ -159,7 +165,7 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
     const r = db.prepare(`${select} WHERE h.id = ? AND h.status = 'held'`).get(id) as Row | undefined
     if (!r) return null
     const { _items, _missing, ...s } = summary(r)
-    return { ...s, taxExempt: r.tax_exempt === 1, items: _items, missing: _missing }
+    return { ...s, saleAt: r.sale_at, taxExempt: r.tax_exempt === 1, items: _items, missing: _missing }
   }
   const wrap =
     (fn: (req: express.Request, res: express.Response) => void) =>
@@ -209,14 +215,14 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
         if (requestId) {
           const old = db.prepare('SELECT id,request_hash,status FROM held_sales WHERE request_id=?').get(requestId) as any
           if (old) {
-            if (old.request_hash !== hash) throw new HeldError(409, 'Hold request ID was reused with different items')
+            if (old.request_hash !== hash && !(req.body?.saleAt === undefined && c.saleAt === null && old.request_hash === crypto.createHash('sha256').update(JSON.stringify((({saleAt: _date, ...legacy}) => legacy)(c))).digest('hex'))) throw new HeldError(409, 'Hold request ID was reused with different items')
             if (old.status !== 'held') throw new HeldError(409, 'That hold was already completed or deleted')
             return old.id
           }
         }
         const info = db
-          .prepare('INSERT INTO held_sales (customer_id, note, items_json, tax_exempt, till_name) VALUES (?, ?, ?, ?, ?)')
-          .run(c.customerId, c.note, JSON.stringify(c.items), c.taxExempt ? 1 : 0, c.tillName)
+          .prepare('INSERT INTO held_sales (customer_id, note, items_json, tax_exempt, till_name, sale_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(c.customerId, c.note, JSON.stringify(c.items), c.taxExempt ? 1 : 0, c.tillName, c.saleAt)
         const id = Number(info.lastInsertRowid)
         if (requestId) db.prepare('UPDATE held_sales SET request_id=?,request_hash=? WHERE id=?').run(requestId, hash, id)
         reserveHeldStock(db, id, c.items)
@@ -234,8 +240,8 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
       const c = clean(req.body ?? {})
       db.transaction(() => {
         db.prepare(
-          "UPDATE held_sales SET customer_id = ?, note = ?, items_json = ?, tax_exempt = ?, till_name = ?, updated_at = datetime('now') WHERE id = ?"
-        ).run(c.customerId, c.note, JSON.stringify(c.items), c.taxExempt ? 1 : 0, c.tillName, id)
+          "UPDATE held_sales SET customer_id = ?, note = ?, items_json = ?, tax_exempt = ?, till_name = ?, sale_at = ?, updated_at = datetime('now') WHERE id = ?"
+        ).run(c.customerId, c.note, JSON.stringify(c.items), c.taxExempt ? 1 : 0, c.tillName, req.body?.saleAt === undefined ? (full(id)?.saleAt ?? null) : c.saleAt, id)
         reserveHeldStock(db, id, c.items)
       })()
       res.json(full(id))
