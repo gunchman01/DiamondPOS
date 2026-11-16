@@ -4,7 +4,6 @@ import { STAGES, stage, stageStyle, DEFAULT_STAGE_COLORS, type WoSaleMode, type 
 import { api } from '../api'
 import { money } from '../format'
 import NewWorkOrder from './NewWorkOrder'
-import { currentPrintSettings, printWorkOrderLabel } from '../printing'
 import WorkOrderTicket from './WorkOrderTicket'
 import WorkOrderSettings from './WorkOrderSettings'
 import EquipmentLookup from './EquipmentLookup'
@@ -160,10 +159,6 @@ export default function WorkOrders({
           onCancel={() => setCreating(false)}
           onCreated={(wo, collectFee) => {
             setCreating(false)
-            // Label for the unit, printed straight away if this till is set to (Settings → Printing)
-            currentPrintSettings()
-              .then((ps) => (ps.woLabelAuto ? printWorkOrderLabel(wo) : undefined))
-              .catch((e) => setError(`${wo.number} was checked in, but the label didn't print: ${(e as Error).message}`))
             if (collectFee) onPayAtTill(wo.id, 'fee')
             else setView({ kind: 'ticket', id: wo.id })
           }}

@@ -17,7 +17,7 @@ export interface LabelLayout {
 export interface PrintSettings {
   receiptPrinter: string
   receiptWidthMm: 80 | 58
-  /** Print the receipt as soon as a sale is completed */
+  /** Legacy setting retained for compatibility; automatic printing is disabled. */
   autoPrint: boolean
   /** Ask which printer (receipt or full page) every time a receipt prints */
   askPrinter: boolean
@@ -32,9 +32,10 @@ export interface PrintSettings {
   /** Label template for items with a price, and for items with no price (parts / bin labels) */
   priceTagTemplate: string
   noPriceTagTemplate: string
-  /** Work order label (stuck on the unit): design, copies, print automatically at check-in */
+  /** Work order label (stuck on the unit): design and copies */
   woLabelTemplate: string
   woLabelCopies: number
+  /** Legacy setting retained for compatibility; automatic printing is disabled. */
   woLabelAuto: boolean
 }
 
@@ -53,7 +54,7 @@ export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   noPriceTagTemplate: 'tag-noprice',
   woLabelTemplate: 'tag-wo',
   woLabelCopies: 1,
-  woLabelAuto: true
+  woLabelAuto: false
 }
 
 /** Common Zebra label sizes (inches) */
@@ -72,6 +73,8 @@ export function printSettings(saved: Partial<PrintSettings> | undefined): PrintS
   return {
     ...d,
     ...(saved ?? {}),
+    autoPrint: false,
+    woLabelAuto: false,
     fullPageFor: { ...d.fullPageFor, ...(saved?.fullPageFor ?? {}) },
     label: { ...d.label, ...(saved?.label ?? {}) }
   }

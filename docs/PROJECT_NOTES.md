@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 15 November 2026 (v0.3.36 editable check-in fee)_
+_Last updated: 16 November 2026 (v0.3.38 manual printing)_
 
 ---
 
@@ -70,6 +70,10 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.38 — manual printing
+Removed automatic label dispatch from WorkOrders onCreated and automatic receipt dispatch after Sell completion. PrintSettings exposes manual-print guidance instead of auto toggles; printSettings normalizes legacy auto flags to false. Manual print buttons, printer selection, templates, copy counts and print previews remain available. Typecheck and production build passed. Targeted settings checks confirmed default/legacy auto flags are false while printer choices and copies remain intact. Windows physical printing remains a local check. No schema/site change. Baseline main e6b7301d4fc9c1ca6b1341f12c8a575deadbc0a2 / v0.3.37. No commit, push or tag created here.
+
 
 ### 14 Nov 2026: v0.3.30 card brands, drawer and top scan bar
 - Baseline main 448319e1 / v0.3.29. Moved Sale scan/search DOM and grid area above receipt with downward suggestions in all Quick Pick/responsive layouts; line actions stay below.
@@ -458,6 +462,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Verify manual work-order label and sale receipt printing on Windows after v0.3.38 is installed on each PC.
+
 
 **Update prepared: v0.3.30** (optional card brands, manual configurable COM drawer and top item scan). Apply over v0.3.29, test and publish v0.3.30. Store Server first for migration 23, then tills. Drawer setup is local to each PC and starts disabled.
 

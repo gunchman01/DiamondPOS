@@ -68,7 +68,7 @@ Open **Make a Sale**.
 **Card:** enter the total on the card terminal. When it says APPROVED, optionally choose the card brand and click **Card approved – complete sale**.
 **Check:** check the amount and signature, type the **check number** (required) and click **Check received – complete sale**. No change is given from a check.
 
-After the sale, click **Print receipt** or **Reprint last receipt** (or set the till to print automatically, see **Printing**). A window asks where to print: the **receipt printer** or a **full page**, on any printer. The usual choice is already picked, so just press Enter. Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
+After the sale, click **Print receipt** or **Reprint last receipt**. A window asks where to print: the **receipt printer** or a **full page**, on any printer. The usual choice is already picked, so just press Enter. Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
 
 | Key | What it does |
 |---|---|
@@ -169,7 +169,7 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - **Ready for Customer Pick Up**: the customer can collect it and pay.
 - **Picked up / Closed**: the ticket is finished and locked.
 
-**Work order label:** when a unit is checked in, a label prints on the Zebra label printer with the **customer's name, the work order number, the date checked in and a barcode**. Stick it on the unit. Click **🏷 Label** on the ticket to print it again. Scanning the barcode into the search box on the Work Orders screen finds the ticket. (Settings → Printing chooses the label design and whether it prints automatically; the Label Designer can change what's on it.)
+**Work order label:** click **🏷 Label** on the ticket to print a label on the Zebra label printer with the **customer's name, the work order number, the date checked in and a barcode**. Stick it on the unit. Nothing prints automatically when you check in a unit or add work-order items. Use the same button for another copy. Scanning the barcode into the search box on the Work Orders screen finds the ticket. (Settings → Printing chooses the label design and copies; the Label Designer can change what's on it.)
 
 **Changing a price:** click the price on any line of the ticket, type the new price and press **Enter**. When ringing up a repair pick-up on the Sale screen, the work order lines' prices can be clicked and changed there too: the ticket is updated. (Labor shown as hours × rate is changed as the line total.)
 
@@ -342,12 +342,12 @@ The Cash drawer button is in the top bar. Opening is manual, not automatic after
 
 
 Each computer has its own printers, so set this up on every till (**Settings → Printing**). Install the printers in Windows first.
-- **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Tick **Print the receipt automatically** to print as soon as a sale is completed. **Ask which printer every time** (on by default) shows a window each time a receipt prints, so you can send a small sale to the laser printer as a full page. Untick it to always print on the usual printer without asking.
+- **Receipt printer**: choose the printer and paper width (80 mm or 58 mm). Receipts print only when you choose **Print receipt** or **Reprint last receipt**. **Ask which printer every time** (on by default) shows a window after you request a receipt, so you can send a small sale to the laser printer as a full page. Untick it to always print on the usual printer without asking.
 - **Full-page printer (laser)**: prints on Letter paper. Choose what prints here instead of the receipt printer:
   - sales with a **serial-numbered unit** (mowers, saws, blowers…), with the customer's details, serial numbers and a signature line
   - **work order** receipts (estimate fee, repair pick-up)
   - Work order tickets (🖨 Print on a ticket) always print here.
-- **Label printer (Zebra)**: choose the printer, then which label design to use for items **with a price** (price tag) and for items with **no price** (parts, bin labels), and the **work order label** stuck on a unit at check-in (copies, and whether it prints automatically). Design the labels under **Label Designer**.
+- **Label printer (Zebra)**: choose the printer, then which label design to use for items **with a price** (price tag) and for items with **no price** (parts, bin labels), and the **work order label** stuck on a unit at check-in (copies). Design the labels under **Label Designer**.
 - Use the **Print test** buttons to check each printer before saving, then click **Save printing settings**.
 > For a Zebra printer, install the ZDesigner driver and set the same label size in the driver's printing preferences.
 
@@ -546,3 +546,8 @@ Overpayments, account payment reversals, credits and account-sale void/refund sy
 Holding a sale now deducts its tracked quantities immediately. Editing it adjusts only the difference; deleting the hold restores its stock. Checkout replaces the hold allocation with the completed sale deduction in one transaction. Work-order parts are deducted when added, even during Needs Estimate or Waiting on Customer. Removing parts or marking Not Fixed restores them; approval and checkout do not deduct them twice.
 
 Update the Store Server first, then all tills. Migration 28 allocates existing open held sales and previously unallocated open work-order parts, so available on-hand can decrease on the first start. Already allocated parts are preserved. Review these open tickets against physical stock after upgrading. No approval-website upload is required.
+
+
+## Manual printing (v0.3.38)
+
+All printing is initiated by staff. Checking in a work order, adding items, or completing a sale does not print anything. Use **🏷 Label** on a work-order ticket, **Print receipt** / **Reprint last receipt** on Sell, or the relevant Print button elsewhere. Older saved automatic-print settings are ignored. Printer selection, label designs and copy counts still apply to manual print jobs.

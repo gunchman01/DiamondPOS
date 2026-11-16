@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type SaleRequest, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
-import { currentPrintSettings } from '../printing'
 import PrintChooser from '../PrintChooser'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
@@ -709,10 +708,6 @@ export default function Sell({
       setTaxRateId(null)
       setLastSale(sale)
       setMessage({ kind: 'info', text: sale.totalCents < 0 ? `Refund #${sale.id} saved` : `Sale #${sale.id} saved` })
-      // Print straight away if this till is set to (Settings → Printing)
-      currentPrintSettings()
-        .then((ps) => (ps.autoPrint ? printReceipt(sale) : undefined))
-        .catch(() => {})
       focusScan()
     } catch (error) {
       // A 4xx response is a definite rejection; network and 5xx failures may follow a commit.

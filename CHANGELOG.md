@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.38 - 16 Nov 2026
+- Printing is now manual. Work-order check-in and adding items do not automatically print a label, and completing a sale does not automatically print a receipt.
+- Use **🏷 Label** on a work-order ticket or **Print receipt / Reprint last receipt** on Sell. Existing printer choices, designs and copies are preserved.
+- Removed automatic-print options and ignore previously saved automatic-print settings. No database migration or website update is needed. Update all PCs for consistent behavior.
+
 ## v0.3.37 - 15 Nov 2026
 > Update the Store Server PC first, then all tills.
 - Enable customer accounts and payment terms. Charge sales to account as unpaid QuickBooks invoices; receive payments against oldest outstanding POS invoices and sync them as QuickBooks customer payments.

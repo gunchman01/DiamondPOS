@@ -88,10 +88,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
             <input type="number" min={1} max={3} value={s.receiptCopies} onChange={(e) => set({ receiptCopies: Math.max(1, Math.min(3, Number(e.target.value) || 1)) })} />
           </label>
         </div>
-        <label className="check">
-          <input type="checkbox" checked={s.autoPrint} onChange={(e) => set({ autoPrint: e.target.checked })} />
-          Print the receipt automatically when a sale is completed
-        </label>
+        <p className="muted small">Receipts print only when you choose Print receipt or Reprint last receipt.</p>
         <label className="check">
           <input type="checkbox" checked={s.askPrinter} onChange={(e) => set({ askPrinter: e.target.checked })} />
           Ask which printer every time (receipt printer or a full page on any printer)
@@ -181,10 +178,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
             <input type="number" min={1} max={5} value={s.woLabelCopies} onChange={(e) => set({ woLabelCopies: Math.max(1, Math.min(5, Number(e.target.value) || 1)) })} />
           </label>
         </div>
-        <label className="check">
-          <input type="checkbox" checked={s.woLabelAuto} onChange={(e) => set({ woLabelAuto: e.target.checked })} />
-          Print the work order label automatically when a unit is checked in (🏷 Label on a ticket prints it again)
-        </label>
+        <p className="muted small">Work order labels print only when you choose 🏷 Label on the ticket.</p>
         <p className="muted small">
           Design the labels (what's on them and where) under <b>Settings → Label Designer</b>. Uses the Zebra Windows driver
           (ZDesigner): set the same label size in the driver's printing preferences. Tags are printed from the Item List (🏷 Print
