@@ -14,6 +14,14 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.40 - 16 Nov 2026
+- **Settings → Backups:** choose every 15 minutes, 30 minutes, hour, 4 hours or 24 hours; choose 1–365 recent copies to keep. Defaults are hourly and 12 copies.
+- **Back Up Now** creates and verifies a Store Server snapshot. See the last successful backup, next scheduled time, server folder, file count, size and errors from any connected till.
+- Older managed copies are removed only after a new snapshot passes integrity verification. Scheduled, startup and Back Up Now snapshots share the retention limit. Pre-migration backups and other files are kept separately.
+- The first successful backup after updating can clean up old scheduled backups down to the retention limit. Changing settings alone does not delete files. Cleanup failures are shown separately from backup failures.
+- The Home backup-overdue indicator follows the configured frequency. Backups still require the Store Server POS to be running and are stored on that PC; keep another copy off the server.
+- No database migration or website upload needed. Update the Store Server first, then tills.
+
 ## v0.3.39 - 16 Nov 2026
 - **Choose your import columns:** select which spreadsheet column fills each POS item field, with sample values and a preview before saving. One source column can fill more than one field; unmapped fields stay unchanged on updates.
 - **Customize Item List columns:** right-click a heading or choose Columns to show/hide fields, move a column left/right, or reset the layout. Choices are saved on that computer.

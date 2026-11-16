@@ -32,7 +32,7 @@ export default function HomeStatus({ onQuickBooks, onReports }: { onQuickBooks: 
   }, [])
   const backup = status?.backup
   const qb = status?.quickbooks
-  const staleBackup = !!backup?.lastVerifiedAt && !!status && Date.parse(status.serverTime) - Date.parse(backup.lastVerifiedAt) > 30 * 60000
+  const staleBackup = !!backup?.lastVerifiedAt && !!status && Date.parse(status.serverTime) - Date.parse(backup.lastVerifiedAt) > Math.max(30, (backup.intervalMinutes ?? 15) * 1.5) * 60000
   const timestamp = (value: string | null | undefined) => value ? dateTime(value) : 'Not recorded yet'
   const unavailable = !detailsAvailable
   return <section className="home-status" aria-label="Today's totals and store status">

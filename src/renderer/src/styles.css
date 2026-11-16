@@ -1014,3 +1014,9 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .item-list-scroll td, .item-list-scroll th { min-width: 100px; max-width: 380px; overflow-wrap: anywhere; }
 .item-list-scroll .sel-col { min-width: 35px; }
 .list-tools { flex-wrap: wrap; margin: 12px 0; }
+
+.backup-settings { max-width: 1000px; }
+.backup-details { display: grid; grid-template-columns: 215px minmax(0,1fr); gap: 12px 22px; margin: 20px 0; }
+.backup-details dt { font-weight: 600; }
+.backup-details dd { margin: 0; overflow-wrap: anywhere; }
+.backup-details code { white-space: normal; }

@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 16 November 2026 (v0.3.39 item import mapping, Item List columns and cleanup)_
+_Last updated: 16 November 2026 (v0.3.40 backup settings and retention)_
 
 ---
 
@@ -70,6 +70,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.40 — server backup settings and safe retention
+Shared settings validate fixed minute options 15/30/60/240/1440 and retention integer 1–365; fallback defaults 60 minutes / 12. Stored in existing settings table, no migration. WeakMap per-DB manager shared by startup scheduler and authenticated GET /api/backups, PUT /api/backups/settings, POST /api/backups/run routes. One in-flight Promise joins manual/scheduled runs, resettable timeout reflects config changes, stop awaits work. Overview reports next due time, verified status, server folder/storage/counts and distinct cleanup errors.
+
+Pruning runs only after online snapshot, integrity check and rename. Exact generated store-auto ISO names only; keep current verified file plus latest N-1. Never prunes store-before-v migration snapshots, partials, unknown names, directories or symlinks. Existing old generated snapshots are eligible after the first successful new backup. New unpublished snapshot is set to journal_mode DELETE before integrity verification, avoiding readonly verifier WAL/SHM sidecars and delivering a standalone DB. Live store remains WAL. No off-site copy, custom directory or restore feature added.
+
+Settings → Backups works from all paired tills. HomeStatus overdue threshold now max(30 minutes, configured interval × 1.5); interval carried in operation status with compatibility fallback. Final validation: 183 regression checks, typecheck and production build passed. Actual Windows UI/physical disk failure remain local checks. Regression coverage includes defaults, validation, settings persistence/rescheduling, concurrent jobs, retention scope, failed snapshot preserving history/files, cleanup failure/retry and authenticated API. Baseline main 46a764546417e2b4acac226e32f8b0771668f05a / v0.3.39. No commit/push/tag or user backup deletion performed here.
+
 
 ### v0.3.39 — import mapping, Item List layout and bulk cleanup
 ImportItems adds pick/map/preview/done with per-destination source selects, sample values, shared conversion validation, arbitrary headings, same source to multiple destinations, opt-in unmapped extras, duplicate SKU/UPC checks and preview-only dry run. A mapped value preview precedes saving. Blank/unmapped fields preserve existing values; numeric stock remains an explicit overwrite when mapped. Mapping is per open file, not persisted.
@@ -470,6 +478,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Verify Settings → Backups on Windows: actual folder, chosen interval/next run and Back Up Now; confirm separately protected pre-migration files. Arrange an off-server copy before production.
+
 
 - On Windows, verify v0.3.39 mapping/file-picker with a few inventory rows before importing the full file; verify manual labels after changes. Optional future saved import profiles and sheet selection are not included.
 

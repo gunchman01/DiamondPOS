@@ -5,6 +5,7 @@ import type { SmtpSettingsView } from '../../../shared/marketing'
 import { api } from '../api'
 import { Icons, type IconName } from '../icons'
 import KioskSettings from './KioskSettings'
+import BackupSettings from './BackupSettings'
 import PrintSettings from './PrintSettings'
 import TaxSettings from './TaxSettings'
 import MenuSettings from './MenuSettings'
@@ -12,10 +13,11 @@ import LabelDesigner from './LabelDesigner'
 import ReceiptDesigner from './ReceiptDesigner'
 import { EmailSettings } from './Marketing'
 
-type Section = 'store' | 'taxes' | 'menus' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
+type Section = 'backups' | 'store' | 'taxes' | 'menus' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
 
 /** The Settings menu: one tile per area. Add a tile here (and a section below) for each new kind of setting. */
 const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
+  { id: 'backups', icon: 'computer', label: 'Backups', text: 'Server backup schedule, retained copies, storage and Back Up Now' },
   { id: 'store', icon: 'store', label: 'Store', text: 'Name, address, receipt footer, feedback email' },
   { id: 'taxes', icon: 'tax', label: 'Taxes', text: 'Sales tax rates (add several, pick one on a sale)' },
   { id: 'menus', icon: 'home', label: 'Menus', text: '"I want to…" menu and Home screen buttons for this computer' },
@@ -190,6 +192,7 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       {section === 'taxes' && store && <TaxSettings store={store} onSaved={setStore} />}
       {section === 'kiosk' && store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
       {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
+      {section === 'backups' && <BackupSettings />}
       {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}
       {section === 'labels' && <LabelDesigner />}
       {section === 'receipt' && <ReceiptDesigner />}

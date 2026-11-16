@@ -1,20 +1,19 @@
-DiamondPOS v0.3.39 — source overlay against main d0d1fb8f90dacf9a57fd4fccf8ea6d37f1c12ef4 / v0.3.38
+DiamondPOS v0.3.40 — source overlay against main 46a764546417e2b4acac226e32f8b0771668f05a / v0.3.39
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
 docs/PROJECT_NOTES.md
-src/main/server/deleting.ts
+src/main/server/backup.ts
+src/main/server/index.ts
+src/main/server/operations.ts
+src/renderer/src/HomeStatus.tsx
 src/renderer/src/api.ts
-src/renderer/src/deleteText.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/itemColumns.tsx
-src/renderer/src/saleColumns.tsx
-src/renderer/src/screens/Customers.tsx
-src/renderer/src/screens/ImportItems.tsx
-src/renderer/src/screens/Products.tsx
-src/renderer/src/spreadsheet.ts
+src/renderer/src/screens/BackupSettings.tsx
+src/renderer/src/screens/Settings.tsx
 src/renderer/src/styles.css
-src/shared/itemImport.ts
-tests/item-tools.ts
+src/shared/backups.ts
+src/shared/operations.ts
+tests/backup-settings.ts
 tests/regressions.ts

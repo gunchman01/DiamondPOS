@@ -1,3 +1,4 @@
+import { DEFAULT_BACKUP_SETTINGS, validateBackupSettings, type BackupSettings } from '../../shared/backups'
 import type { DB } from './db'
 import type { BackupStatus, OperationsStatus } from '../../shared/operations'
 import { getQbConfig, getQbLists } from './quickbooks/store'
@@ -10,8 +11,10 @@ function write(db: DB, key: string, value: unknown) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, JSON.stringify(value))
 }
 export function backupStatus(db: DB): BackupStatus {
+  let intervalMinutes = DEFAULT_BACKUP_SETTINGS.intervalMinutes
+  try { intervalMinutes = validateBackupSettings(read<BackupSettings>(db, 'backup_settings')).intervalMinutes } catch {}
   return { lastVerifiedAt: null, lastAttemptAt: null, lastFailureAt: null, error: null, running: false,
-    ...read<BackupStatus>(db, 'operations_backup') }
+    ...read<BackupStatus>(db, 'operations_backup'), intervalMinutes }
 }
 /** Only call success after the online backup passed integrity_check and was renamed. */
 export function recordBackup(db: DB, event: 'started' | 'verified' | 'failed', error?: string) {

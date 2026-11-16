@@ -1,3 +1,4 @@
+import type { BackupOverview, BackupSettings } from '../../shared/backups'
 import type { CustomerAccount,AccountPaymentRequest } from '../../shared/accounts'
 import type { ApprovalConfig } from '../../shared/approvals'
 import type { SaleVoid, VoidReview, VoidRequest } from '../../shared/voids'
@@ -89,6 +90,9 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  backups: () => request<BackupOverview>('GET', '/api/backups', undefined, undefined, undefined, 60000),
+  saveBackupSettings: (settings: BackupSettings) => request<BackupOverview>('PUT', '/api/backups/settings', settings, undefined, undefined, 60000),
+  runBackup: () => request<BackupOverview>('POST', '/api/backups/run', {}, undefined, undefined, 180000),
   accountSyncStatus: () => request<{kind:string;customerId:number;customerName:string;reference:string;status:string;error:string|null;date:string}[]>('GET','/api/accounts/sync-status'),
   customerAccount: (id:number) => request<CustomerAccount>('GET',`/api/customers/${id}/account`),
   receiveAccountPayment: (id:number,body:AccountPaymentRequest) => request<{paymentId:number;account:CustomerAccount}>('POST',`/api/customers/${id}/account-payments`,body),

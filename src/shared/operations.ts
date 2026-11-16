@@ -1,4 +1,5 @@
 export interface BackupStatus {
+  intervalMinutes?: number
   lastVerifiedAt: string | null
   lastAttemptAt: string | null
   lastFailureAt: string | null

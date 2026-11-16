@@ -16,7 +16,7 @@ import express, { NextFunction, Request, Response } from 'express'
 import type { Server } from 'http'
 import path from 'path'
 import crypto from 'crypto'
-import { startBackupScheduler } from './backup'
+import { startBackupScheduler, registerBackupRoutes } from './backup'
 import { operationsStatus } from './operations'
 import { openDatabase, getSchemaVersion, DB } from './db'
 import {
@@ -286,6 +286,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   })
 
   // Delete items / customers (ones with history are made inactive instead)
+  registerBackupRoutes(app, db, path.join(path.dirname(opts.dbFile), 'backups'))
   registerDeleteRoutes(app, db)
 
   // Receiving (items in from vendors, average cost)

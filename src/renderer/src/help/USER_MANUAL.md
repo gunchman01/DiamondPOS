@@ -24,7 +24,7 @@ The bottom of Home now contains four status cards:
 
 - **Today's sales:** receipt count, net takings, cash, card and checks. Click the heading to open Reports.
 - **QuickBooks:** sending enabled/off, last successful sync, last successful connection and counts of queued exports, problems and manual entries. Click QuickBooks to see its full settings and history. A generic connector contact or incomplete/failed session does not count as a successful sync.
-- **Database backup:** last verified scheduled backup, progress or latest failure. A backup more than 30 minutes old is marked overdue. Failures retain the last good backup time. These are local backups on the Store Server PC.
+- **Database backup:** last verified scheduled backup, progress or latest failure. A backup older than 1.5 times the configured interval (with a minimum of 30 minutes) is marked overdue. Failures retain the last good backup time. These are local backups on the Store Server PC.
 - **Store server:** whether the latest Home requests reached the server and when they were checked.
 
 The cards refresh every 30 seconds while Home is open. Timestamps display in this PC's local time. Failed refreshes are labelled unavailable; any displayed older history is identified as such. “Not recorded yet” means no success has been recorded by this version, not that an older backup or sync never happened. Update the Store Server first so it can supply the new status endpoint.
@@ -308,9 +308,9 @@ Diamond POS sends **individual Sales Receipts with customer names** to QuickBook
 See `docs/QUICKBOOKS_SETUP.md` for the full setup and first-run checks.
 
 ## Automatic backups and checkout recovery
-The Store Server takes an online SQLite backup at startup and every 15 minutes while running. Only backups that pass an integrity check receive a finished `.db` filename. They are in `%APPDATA%\DiamondPOS\data\backups`. Migration backups are also kept before database upgrades.
+The Store Server takes an online SQLite backup at startup and at the interval chosen under **Settings → Backups** while running (hourly by default). Only backups that pass an integrity check receive a finished `.db` filename. They are in `%APPDATA%\DiamondPOS\data\backups`. Migration backups are also kept before database upgrades.
 
-These backups are kept on the server PC; copy completed backups to another drive for protection against PC or disk loss. This phase does not delete old backups automatically. Backup successes and failures are written to the server log.
+These backups are kept on the server PC; copy completed backups to another drive for protection against PC or disk loss. As of v0.3.40, old generated snapshots are pruned to the configured retention count only after a new snapshot is verified. Pre-migration backups and other files are excluded from cleanup. Backup successes and failures are written to the server log.
 
 If **Recover checkout** appears, keep that checkout open and use **Check / retry original checkout** after the network returns. The original request is retained on that PC across app restarts. Do not take payment again: recovery checks whether the original sale was already saved. A second till cannot complete a held receipt that has already been rung up.
 
@@ -570,3 +570,18 @@ Right-click an **Item List column heading** (or use **Columns…**) to choose di
 Use checkboxes, **Select shown**, **Select entire Item/Customer List…**, or **Clear selection**. Select shown uses the currently displayed rows, up to 500. Select entire list selects every record, including inactive records and records outside the search/Quick Pick filter. Selection remains across searches, and its full count is shown. **Delete selected** confirms and processes all selected IDs, not just visible rows; Clear selection starts over. Up to 50,000 IDs may be submitted at once.
 
 Export to Excel and make a verified server backup before deleting. Unlinked test items/customers are erased permanently. Records linked to sales, work orders or open held receipts are made inactive to retain history; items on receiving vouchers are also retained. The completion message separates deleted and inactive counts. Existing sales, QuickBooks transactions, stock allocations and work orders are not erased or reset. Item List includes inactive items; Customer List has Show inactive. This is cleanup, not a complete database reset.
+
+
+## Backup Settings (v0.3.40)
+
+Open **Settings → Backups** on the Store Server or any paired till. The page controls the Store Server, not a separate backup on the till. Choose every 15 minutes, 30 minutes, hour, 4 hours or 24 hours, and retain 1–365 recent copies. Defaults are **hourly / 12 copies**. Save backup settings applies immediately without restarting. The next scheduled time is calculated from saving, or from completion of an in-progress backup. Every 24 hours means an elapsed interval while running, not a fixed clock time.
+
+A startup backup is still taken whenever the Store Server starts. Closing the server POS stops the schedule; no background Windows service runs while it is closed. Restarting makes a new baseline and restarts the interval. The page shows last verification, last attempt, next run, errors, the actual server path, total size of regular files in the folder and managed/other file counts. The Home overdue indicator uses the saved interval with a 50% grace period (minimum 30 minutes).
+
+**Back Up Now** runs the same verified snapshot process immediately. Concurrent scheduled/manual requests join the in-progress job instead of creating duplicate backups. The server finishes an active snapshot/cleanup before shutdown. If a request times out, refresh the page and check status before retrying. Manual runs use the last saved retention settings, not unsaved form edits.
+
+Scheduled, startup and Back Up Now files use the generated **store-auto-…db** names and share one retention pool. Only after a new snapshot has been successfully written, passed SQLite integrity checking and been published does cleanup remove older generated copies beyond the saved count. This also applies to older scheduled files already in the folder: **the first successful backup after installing v0.3.40 can reduce them to 12**. Saving a smaller retention count alone does not delete files; it takes effect at the next verified backup. A failed snapshot keeps existing copies and the last successful verification time.
+
+**store-before-v…db** snapshots taken before database migrations, partial files, differently named files, subdirectories and symlinks are excluded from automated cleanup. These can keep the folder larger than the recent-copy count suggests. The page reports other files separately; do not delete them blindly. A cleanup permission error is displayed separately: the new backup is still good, and cleanup retries after the next verified snapshot.
+
+The folder remains `%APPDATA%\DiamondPOS\data\backups` on the server PC (the actual path is displayed). Snapshots use SQLite's online backup API, include committed WAL contents, and are converted to a standalone database before verification/publication. Verification does not modify the live database. Copies are local: separately arrange copying completed backups to another drive or off the PC. This page does not set up off-site copying, a tiered daily/weekly archive, automatic restore or a custom backup folder.
