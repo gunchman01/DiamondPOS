@@ -247,7 +247,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
                 <input type="email" {...text('email')} />
               </Row>
               <Row label="OK to e-mail">
-                <input {...check('okToEmail')} className="lone-check" />
+                <input {...check('okToEmail')} className="lone-check" /><span className="muted small"> Marketing only. Saved unsubscribes cannot be overridden here or by importing customers.</span>
               </Row>
               <Row label="Street">
                 <input {...text('street')} />

@@ -1,12 +1,10 @@
-# DiamondPOS v0.3.43 — Customer equipment
+# DiamondPOS v0.3.44 — Website marketing unsubscribes
 
-Cumulative source overlay for your existing v0.3.41 or v0.3.42 project on main. It includes the previous v0.3.42 End of Day update, so you do not have to apply that ZIP first. GitHub main baseline when prepared: 6be322ff0553da169b660e26e50468db887c91b0 (v0.3.41). No commit, push, tag or release was made here.
+Source overlay for the current v0.3.43 project on main. Baseline: 9a2f368420deebe8fed4ea93c46e75c0984f1f33. No commit, push, tag, real email send or website deployment was made here.
 
-## Install and release
-
-1. Make a verified server backup. Close POS/dev instances.
-2. Extract this ZIP separately. Copy everything inside DiamondPOS-update-v0.3.43 into your existing Git project folder, merging folders and replacing matching files. Keep .git and all other project files. This package has source only, no installer or customer database.
-3. In PowerShell in that project:
+1. Make a verified Store Server backup and close all POS/dev instances.
+2. Extract the source ZIP separately. Copy everything inside DiamondPOS-update-v0.3.44 into your existing Git project, merging folders and replacing matching files. Keep .git and the other project files. No customer database or installer is included.
+3. In PowerShell in your project:
 
 ```powershell
 npm run typecheck
@@ -15,40 +13,12 @@ npm run build
 npm run dev
 ```
 
-4. Verify the checks below, then commit/push main and tag your normal release:
+4. Follow **extras/cpanel-marketing/CPANEL-SETUP.md**. The separate public cPanel ZIP creates pos-marketing beside your existing pos-approval pages. The example private configuration is in this source ZIP; put the real configuration and database outside public_html.
+5. Configure **Settings → Email → Website marketing consent**, then test with your own address. Marketing sends pause until the website service is available. Ordinary SMTP settings tests and work-order messages remain separate.
+6. When verified, commit/push main and create an unused tag through your usual process. Suggested commit: `Sync website marketing unsubscribes and protect campaign consent`. Suggested new tag: v0.3.44. Never move an existing tag. GitHub Actions sets installer version from the release tag; package.json stays at its existing development version.
 
-```powershell
-git add .
-git commit -m "Show customer equipment and service history; include End of Day"
-git push origin main
-git tag v0.3.43
-git push origin v0.3.43
-```
+Update the Store Server first, then every till (schema 31). Older versions do not honor the suppression safeguards, so do not use their marketing sender after customers unsubscribe.
 
-Use that tag only if unused; never move an existing tag. GitHub Actions sets installer version from the tag. Update the Store Server first, then tills. The equipment feature itself needs no new migration, but this cumulative package includes schema 30 for End of Day if not already applied. No website/cPanel upload needed.
+What changes: visible website unsubscribe links; minute-by-minute Store Server sync with durable history/acknowledgments; local opt-outs uploaded to the website; duplicate email addresses suppressed together; imports cannot re-enable unsubscribes; final per-recipient checks before SMTP; skipped-recipient progress; synchronized contact export and a consent status screen. No website campaign dashboard or tracking provider is included in this stage.
 
-## Customer Equipment
-
-Open Customer List, then open the customer. Customer Equipment appears above receipt History in the right-hand column. It shows units already linked to that customer: both repair-only intake equipment and serialized units sold to them. No sale/completed work order is required for intake units to appear.
-
-Expand a unit for type, brand, model, serial, hours, notes, purchase information and all its work orders. Inactive units are retained and marked. If a recorded Diamond P purchase exists, Receipt # opens the existing receipt view. A missing purchase record does not mean equipment cannot belong to the customer.
-
-Click a work order to read problem/diagnosis/work done/internal notes, parts/charges before tax and ticket history. This is read-only; use Work Orders for changes, stage changes or payment. Use Refresh equipment to reload changes made at another till while the customer window is open. Reopening a customer reloads automatically. Viewing does not create units, merge duplicate records or move stock.
-
-## Test on your PC
-
-- Check in a unit not bought at Diamond P, associated with an existing customer. Reopen that customer; confirm unit and ticket appear.
-- Verify another customer's units do not appear. Check brand/model/serial/hours/notes and open/closed ticket history.
-- Sell a serialized unit to a customer, then inspect their equipment and purchase receipt link.
-- Check an inactive unit remains visible with an Inactive badge. Read a ticket, close its view, and confirm no accidental customer save or ticket edit occurs.
-- Open a customer window, create/update a unit/ticket from another till, then Refresh equipment.
-
-Phone-browser mechanic access, intake photo upload and photo backup/restore remain separate proposed work. This release adds the missing customer equipment/history display only.
-
-## Included End of Day update
-
-The existing Home End of Day icon now opens the store/till summary and drawer count. Reports also has End of Day & receipts. It shows business-date sales/returns/tax/discount comparisons and actual-entry-date money movement, including accounts and void reversals, with manual count/over-short/deposit calculations. Save fixed closeout snapshots, print manually or export Excel. It does not lock/reset a day, settle cards or run QuickBooks/backups. See the in-app manual and docs/END_OF_DAY_REFERENCE.md. Verify per-till vs all-till counts and manual printer layout at the store Wednesday.
-
-## Validation here
-
-212 real SQLite/API regression checks, typecheck and production build passed. New coverage includes unsold repair equipment, active/closed history, inactive units, customer isolation, read-only behavior, serialized-sale linkage, pairing protection and actual check-in → equipment refresh. Existing End of Day and transaction regression checks also passed. Windows visual/physical printer tests remain local; no real customer data was modified here.
+Validation: 230 regression checks, TypeScript and production build; real local PHP/SQLite HTTP verification. No real emails sent. Complete the cPanel/SMTP/Windows checks in the setup guide before using marketing with actual customers. Back up the private cPanel database separately from POS backups.

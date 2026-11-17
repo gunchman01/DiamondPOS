@@ -1,3 +1,4 @@
+import { isMarketingSuppressed, suppressMarketing, normalizedEmail, validEmail } from './marketing/consent'
 /**
  * Customers: field ↔ column mapping, validation, search, and statistics.
  * Same pattern as products.ts: add a field here (plus a migration) and it is
@@ -150,6 +151,7 @@ export function isIsoDate(s: string): boolean {
 const toDb = (f: Field, v: unknown) => (f.kind === 'bool' ? (v ? 1 : 0) : f.kind === 'cents' ? Number(v ?? 0) : (v ?? null))
 
 export function insertCustomer(db: DB, c: CustomerInput): number {
+  if (isMarketingSuppressed(db,c.email)) c={...c,okToEmail:false}
   const cols = CUSTOMER_FIELDS.map((f) => f.col)
   const info = db
     .prepare(`INSERT INTO customers (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
@@ -161,6 +163,9 @@ export function insertCustomer(db: DB, c: CustomerInput): number {
 }
 
 export function updateCustomer(db: DB, id: number, c: CustomerInput): void {
+  const old=getCustomer(db,id)
+  if(old?.okToEmail && !c.okToEmail && old.email && validEmail(normalizedEmail(old.email)) && normalizedEmail(old.email)===normalizedEmail(c.email)) suppressMarketing(db,c.email,'pos',new Date().toISOString(),true)
+  if(isMarketingSuppressed(db,c.email)) c={...c,okToEmail:false}
   db.prepare(
     `UPDATE customers SET ${CUSTOMER_FIELDS.map((f) => `${f.col} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`
   ).run(...CUSTOMER_FIELDS.map((f) => toDb(f, c[f.key])), id)

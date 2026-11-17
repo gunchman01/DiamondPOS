@@ -1,3 +1,4 @@
+import type { MarketingConsentView, MarketingSubscriber } from '../../shared/marketingConsent'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
 import type { EndOfDayReport, EndOfDayCloseout, EndOfDayCloseRequest } from '../../shared/endOfDay'
 import type { BackupOverview, BackupSettings } from '../../shared/backups'
@@ -213,6 +214,12 @@ export const api = {
   mkSend: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/send`),
   mkCancel: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/cancel`),
   mkSends: (id: number) => request<CampaignSend[]>('GET', `/api/marketing/campaigns/${id}/sends`),
+  marketingConsent: () => request<MarketingConsentView>('GET', '/api/marketing/consent'),
+  saveMarketingConsent: (body: {enabled:boolean;url:string;apiKey:string}) => request<MarketingConsentView>('PUT', '/api/marketing/consent', body),
+  marketingConsentKey: () => request<{apiKey:string}>('POST', '/api/marketing/consent/key'),
+  replayMarketingConsent: () => request<MarketingConsentView>('POST', '/api/marketing/consent/replay'),
+  syncMarketingConsent: () => request<MarketingConsentView>('POST', '/api/marketing/consent/sync'),
+  exportMarketingConsent: () => request<MarketingSubscriber[]>('POST', '/api/marketing/consent/export'),
   mkSmtp: () => request<SmtpSettingsView>('GET', '/api/marketing/smtp'),
   mkSaveSmtp: (s: Partial<SmtpSettings>) => request<SmtpSettingsView>('PUT', '/api/marketing/smtp', s),
   mkSmtpTest: (email: string) => request<{ ok: boolean }>('POST', '/api/marketing/smtp/test', { email }),

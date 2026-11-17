@@ -4,6 +4,7 @@
  * inline styles, which is why this looks the way it does.
  */
 export interface MailerContent {
+  unsubscribeUrl?: string
   storeName: string
   storeAddress: string
   replyTo: string
@@ -41,7 +42,7 @@ ${c.flyerSrc ? `<tr><td style="padding:0"><img src="${esc(c.flyerSrc)}" width="6
 <tr><td style="padding:16px 20px 20px;font-size:12px;line-height:1.6;color:#646a75;border-top:1px solid #e5e7eb">
 You're receiving this email because you asked to hear from ${esc(c.storeName)}.<br>
 ${esc(c.storeAddress).replace(/\n/g, '<br>')}<br>
-To unsubscribe, reply with <b>UNSUBSCRIBE</b> or email <a href="mailto:${esc(c.replyTo)}?subject=Unsubscribe" style="color:#9b0c23">${esc(c.replyTo)}</a>.
+${c.unsubscribeUrl ? `<a href="${esc(c.unsubscribeUrl)}" style="color:#9b0c23">Unsubscribe from marketing emails</a>.<br>` : ''}To unsubscribe by email, reply with <b>UNSUBSCRIBE</b> or email <a href="mailto:${esc(c.replyTo)}?subject=Unsubscribe" style="color:#9b0c23">${esc(c.replyTo)}</a>.
 </td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -56,7 +57,8 @@ export function mailerText(c: MailerContent): string {
     '---',
     `You're receiving this email because you asked to hear from ${c.storeName}.`,
     c.storeAddress,
-    `To unsubscribe, reply with UNSUBSCRIBE or email ${c.replyTo}.`
+    c.unsubscribeUrl ? `Unsubscribe from marketing emails: ${c.unsubscribeUrl}` : '',
+    `To unsubscribe by email, reply with UNSUBSCRIBE or email ${c.replyTo}.`
   ]
     .filter((l, i, a) => !(l === '' && a[i - 1] === ''))
     .join('\n')

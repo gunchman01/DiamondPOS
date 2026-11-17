@@ -5,6 +5,7 @@ import type { SmtpSettingsView } from '../../../shared/marketing'
 import { api } from '../api'
 import { Icons, type IconName } from '../icons'
 import KioskSettings from './KioskSettings'
+import MarketingConsentSettings from './MarketingConsentSettings'
 import BackupSettings from './BackupSettings'
 import PrintSettings from './PrintSettings'
 import TaxSettings from './TaxSettings'
@@ -192,6 +193,7 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       {section === 'taxes' && store && <TaxSettings store={store} onSaved={setStore} />}
       {section === 'kiosk' && store && <KioskSettings boot={boot} store={store} onStoreChange={setStore} />}
       {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
+      {section === 'email' && <MarketingConsentSettings />}
       {section === 'backups' && <BackupSettings />}
       {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}
       {section === 'labels' && <LabelDesigner />}

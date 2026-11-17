@@ -642,3 +642,11 @@ Each unit lists all associated work orders, including open and Picked Up/closed 
 Use **Refresh equipment** after another till checks in or updates a unit/ticket while this customer window remains open. Reopening the customer loads fresh data. New unsaved customers show a Save-first message. If no units are linked, the page says so; customer spreadsheet contact imports alone do not create equipment records.
 
 This update is the customer equipment/history display. Phone access, intake image upload and photo storage/backup are separate future work and are not available in this release. Update the server before tills so the new equipment endpoint is present.
+
+## Website marketing consent (v0.3.44)
+
+Configure the cPanel consent service through Settings → Email → Website marketing consent, following extras/cpanel-marketing/CPANEL-SETUP.md. Marketing emails include a website confirmation link. Confirming suppresses that address immediately at the website, and the Store Server syncs approximately every minute and before each marketing send. Every matching customer loses OK to email. Website outages pause campaigns; work-order/estimate messages stay separate.
+
+Saved unsubscribes survive customer edits/imports and backups. They cannot be reversed with the checkbox; a future fresh-consent workflow is required. If a customer replies asking to unsubscribe, staff must uncheck OK to email and save; this immediately blocks local marketing and queues the website opt-out. Recent unsubscribes, last successful sync and pending opt-out uploads appear in Email settings. Queued recipients whose consent/address/active status changed are skipped.
+
+Export eligible contacts first synchronizes suppression and produces a deduplicated CSV. A website sender must still check the suppression service before each recipient; an older export never overrides unsubscribes. The website campaign dashboard is not included in this update. After restoring POS or website data, use Replay suppression history; separately back up the private cPanel database so old unsubscribe links remain valid. Emails already handed to SMTP cannot be recalled.

@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 16 November 2026 (v0.3.43 customer equipment/history)_
+_Last updated: 17 November 2026 (v0.3.44 marketing consent)_
 
 ---
 
@@ -620,3 +620,11 @@ Migration 28 adds opt-in customer accounts, invoice/payment/allocation ledgers, 
 Account sales retain sale/tax/stock records but create unpaid InvoiceAdd instead of SalesReceiptAdd. ReceivePaymentAdd uses exact oldest-first invoice allocations, unique references/memos, query-before-add and post-add verification. Invoice totals use Subtotal + SalesTaxTotal for real SDK responses. QB balances track sent local allocations to avoid double subtraction. Failed states require review/retry; active connector sessions prevent concurrent manual retry. Customer balance excludes imported balances and unrelated QB invoices. Account void/credit/refund, payment reversal and overpayment flows remain unsupported and guarded where applicable.
 
 Validated 162 SQLite/API regression checks, typecheck and production build. Mock SOAP tests cover lost replies, tax, multi-invoice allocation, external payment conflicts, retries and migration/stock lifecycles. Actual Windows UI, printing and QuickBooks Desktop must be tested locally. Overlay baseline main 1e0b120d10b8cff9999fef6881d020d52114740d / v0.3.36. No commit, push, tag, release or cPanel upload performed.
+
+## v0.3.44 — Marketing consent (17 Nov 2026)
+
+Schema 31 adds durable address suppression and outgoing opt-outs. `marketing/consent.ts` owns normalized email tombstones, authenticated HTTPS website sync (commit then ACK, retained replay), one-minute scheduler, final pre-send check/link preparation, synchronized CSV eligibility and settings routes. Save/update/import/audience/send paths honor suppression; imports and checkbox edits cannot reactivate it. Existing pending campaigns fail closed until configured. SMTP configuration tests and transactional work-order delivery bypass marketing consent. Website/API failures pause campaign recipients; suppressed/changed/deactivated queued customers become skipped. Shutdown awaits sender/sync jobs before database close.
+
+New `extras/cpanel-marketing` is independent of existing approval hosting: private PDO SQLite plus config/key outside public root; opaque hashed recipient tokens; scanner-safe GET confirmation and explicit POST; suppression/event/ACK API. No reconsent endpoint or destructive event pruning. URL/key changes republish local tombstones; replay restores history both ways. Public-only ZIP and setup guide prepared; no deployment or real email. Current SMTP campaign delivery remains in POS; website dashboard/provider tracking and unsubscribe webhooks are not implemented.
+
+Validation: 230 regression checks, typecheck/build and real local PHP/SQLite HTTP tests. Still verify actual cPanel/PHP permissions, SMTP email link and Windows screen on user's system. Next: deploy/configure consent service and run self-address end-to-end test; then design website campaign dashboard/provider with mandatory suppression preflight. Protect both POS and separate private website backups. Avoid old sender versions after this feature is enabled. No commit/push/tag performed.

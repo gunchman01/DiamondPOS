@@ -1,3 +1,4 @@
+import { consentConfig } from './consent'
 /** Marketing API: audiences, mailers (campaigns) and email settings. All need the store pairing code. */
 import type express from 'express'
 import type { DB } from '../db'
@@ -19,6 +20,7 @@ interface CampaignRow {
   sent_at: string | null
   total: number
   sent: number
+  skipped: number
   failed: number
 }
 
@@ -28,7 +30,8 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
   const select = `SELECT mc.*,
       (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id) AS total,
       (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id AND s.status = 'sent') AS sent,
-      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id AND s.status = 'failed') AS failed
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id AND s.status = 'failed') AS failed,
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='skipped') AS skipped
     FROM marketing_campaigns mc`
   const toCampaign = (r: CampaignRow, withFlyer = true): Campaign => ({
     id: r.id,
@@ -43,6 +46,7 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
     total: r.total,
     sent: r.sent,
     failed: r.failed,
+    skipped: r.skipped,
     lastError: r.last_error
   })
   const get = (id: number) => {
@@ -152,7 +156,9 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
       if (!c) return fail(res, 404, 'Mailer not found')
       const to = String(req.body?.email ?? '').trim()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return fail(res, 400, 'Enter the email address to send the test to')
-      const problems = sendProblems(c)
+      const consent = consentConfig(db)
+    if(!consent.enabled||!consent.url||!consent.apiKey)return fail(res,400,'Configure Website marketing consent in Settings → Email first')
+    const problems = sendProblems(c)
       if (problems.length) return fail(res, 400, problems.join('. '))
       await sendMailer(db, readSettings(db), {
         to,
@@ -170,6 +176,8 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
     const c = get(Number(req.params.id))
     if (!c) return fail(res, 404, 'Mailer not found')
     if (c.status !== 'draft') return fail(res, 409, 'This mailer has already been sent')
+    const consent=consentConfig(db)
+    if(!consent.enabled||!consent.url||!consent.apiKey)return fail(res,400,'Configure Website marketing consent in Settings → Email first')
     const problems = sendProblems(c)
     if (problems.length) return fail(res, 400, problems.join('. '))
     const audience = runAudience(db, c.audience)

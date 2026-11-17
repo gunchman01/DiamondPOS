@@ -652,7 +652,11 @@ export const migrations: Migration[] = [
   {version:30,name:'saved end of day reconciliation snapshots',up:`
     CREATE TABLE end_day_closeouts(id INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,request_hash TEXT NOT NULL,business_date TEXT NOT NULL,till_name TEXT,saved_at TEXT NOT NULL,snapshot_json TEXT NOT NULL);
     CREATE INDEX idx_end_day_date ON end_day_closeouts(business_date);
-  `}
+  `},
+ {version:31,name:'persistent marketing suppression and outbound opt-out sync',up:`
+  CREATE TABLE marketing_suppressions(email TEXT PRIMARY KEY,unsubscribed_at TEXT NOT NULL,source TEXT NOT NULL);
+  CREATE TABLE marketing_consent_outbox(email TEXT PRIMARY KEY);
+ `}
 
 ]
 

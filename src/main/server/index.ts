@@ -1,3 +1,4 @@
+import { registerConsentRoutes, startConsentScheduler } from './marketing/consent'
 import { registerEndOfDayRoutes } from './endOfDay'
 import { saleInstant } from '../../shared/saleDates'
 import { registerAccountRoutes,createAccountInvoice } from './accounts'
@@ -95,6 +96,7 @@ class HttpError extends Error {
 let httpServer: Server | null = null
 let db: DB | null = null
 let stopApprovals: (()=>Promise<void>) | null = null
+let stopConsent: (()=>Promise<void>) | null = null
 let stopBackups: (() => Promise<void>) | null = null
 
 export function isServerRunning(): boolean {
@@ -119,11 +121,13 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     db = opened
     httpServer = listener
     stopBackups = startBackupScheduler(opened, path.join(path.dirname(opts.dbFile), 'backups'))
-    startMarketingSender(opened, readSettings)
+    stopConsent = startConsentScheduler(opened)
+    await startMarketingSender(opened, readSettings)
     console.log(`[server] Listening on port ${opts.port}`)
   } catch (error) {
     await stopApprovals?.();stopApprovals=null
-    stopMarketingSender()
+    await stopMarketingSender()
+    await stopConsent?.(); stopConsent=null
     if (stopBackups) await stopBackups()
     stopBackups = null
     if (listener) await new Promise<void>((resolve) => listener!.close(() => resolve()))
@@ -136,7 +140,8 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 
 export async function stopServer(): Promise<void> {
   await stopApprovals?.();stopApprovals=null
-  stopMarketingSender()
+  await stopMarketingSender()
+  await stopConsent?.(); stopConsent=null
   if (stopBackups) await stopBackups()
   stopBackups = null
   if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
@@ -336,6 +341,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   registerQuickBooksRoutes(app, db, readSettings)
 
   // ----- Marketing mailers (email) -----------------------------------------
+  registerConsentRoutes(app, db)
   registerMarketingRoutes(app, db, readSettings)
 
   // ----- Work orders (repairs) + customer units -----------------------------

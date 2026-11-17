@@ -114,6 +114,7 @@ export default function Marketing() {
                     </td>
                     <td className="r">
                       {c.total ? `${c.sent} / ${c.total}` : ''}
+                      {c.skipped ? <span> ({c.skipped} skipped)</span> : null}
                       {c.failed ? <span className="err-text"> ({c.failed} failed)</span> : null}
                     </td>
                     <td>{dateTime(c.sentAt ?? c.createdAt)}</td>
@@ -243,7 +244,7 @@ export function EmailSettings({ smtp, onSaved }: { smtp: SmtpSettingsView; onSav
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
       <p className="small muted">
-        When someone replies "UNSUBSCRIBE", open their customer record and untick <b>OK to e-mail</b>. They won't get future
+        Website-link unsubscribes sync automatically through Settings → Email. When someone replies "UNSUBSCRIBE", open their customer record and untick <b>OK to e-mail</b>. This permanently suppresses that address and queues the opt-out for the website. They won't get future
         mailers.
       </p>
     </div>

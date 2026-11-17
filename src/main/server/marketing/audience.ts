@@ -1,3 +1,4 @@
+import { isMarketingSuppressed } from './consent'
 /**
  * Marketing audiences: "customers who bought X". Rules come from drop-downs on
  * the Marketing screen and are turned into one parameterised SQL query.
@@ -126,7 +127,7 @@ export function runAudience(db: DB, input: unknown, limit = Infinity): AudienceR
   const recipients: AudienceResult['recipients'] = []
   for (const r of rows) {
     if (!validEmail(r.email)) excludedNoEmail++
-    else if (r.ok_to_email !== 1) excludedNoConsent++
+    else if (r.ok_to_email !== 1 || isMarketingSuppressed(db,r.email)) excludedNoConsent++
     else
       recipients.push({
         customerId: r.id,

@@ -1,3 +1,4 @@
+import { prepareMarketingSend, isMarketingSuppressed, normalizedEmail, MarketingSuppressed } from './consent'
 /**
  * Sending mailers by email (SMTP, via nodemailer).
  *
@@ -91,6 +92,7 @@ function transport(s: SmtpSettings) {
 export interface OutgoingMailer {
   to: string
   recipientName: string
+  customerId?: number
   subject: string
   message: string
   flyer: string | null // data: URL
@@ -100,7 +102,7 @@ export interface OutgoingMailer {
 export function isServerProblem(err: unknown): boolean {
   const e = err as { code?: string; responseCode?: number }
   return (
-    ['EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ETLS'].includes(e?.code ?? '') ||
+    ['ECONSENT', 'EAUTH', 'ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ETLS'].includes(e?.code ?? '') ||
     (typeof e?.responseCode === 'number' && (e.responseCode === 421 || e.responseCode === 454 || e.responseCode === 535))
   )
 }
@@ -109,6 +111,13 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
   const s = getSmtp(db)
   const problems = smtpProblems(s)
   if (problems.length) throw Object.assign(new Error(problems.join('; ')), { code: 'EAUTH' })
+  const checkRecipient = () => {
+    if(isMarketingSuppressed(db,m.to)) throw new MarketingSuppressed('Unsubscribed from marketing')
+    if(m.customerId !== undefined){const c=db.prepare('SELECT active,ok_to_email,email FROM customers WHERE id=?').get(m.customerId) as any;if(!c||!c.active||!c.ok_to_email||normalizedEmail(c.email)!==normalizedEmail(m.to))throw new MarketingSuppressed('Customer consent, active status or email changed after queuing')}
+  }
+  checkRecipient()
+  const unsubscribeUrl = await prepareMarketingSend(db,m.to)
+  checkRecipient()
   const replyTo = s.replyTo || s.fromEmail
   const flyer = m.flyer?.match(/^data:(image\/(?:jpeg|png));base64,(.+)$/)
   const content = {
@@ -118,7 +127,8 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
     subject: m.subject,
     message: m.message,
     flyerSrc: flyer ? `cid:${FLYER_CID}` : null,
-    recipientName: m.recipientName
+    recipientName: m.recipientName,
+    unsubscribeUrl
   }
   const info = await transport(s).sendMail({
     from: { name: s.fromName || store.storeName, address: s.fromEmail },
@@ -137,7 +147,7 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
           }
         ]
       : [],
-    headers: { 'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>` }
+    headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>, <mailto:${replyTo}?subject=Unsubscribe>` }
   })
   return String(info?.messageId ?? '')
 }
@@ -164,24 +174,19 @@ export async function sendEmail(
 
 /** Simple "it works" email for the Email settings screen */
 export async function sendSmtpTest(db: DB, store: StoreSettings, to: string): Promise<void> {
-  await sendMailer(db, store, {
-    to,
-    recipientName: '',
-    subject: `Test email from ${store.storeName}`,
-    message: 'This is a test email from Diamond POS. Your email settings are working.',
-    flyer: null
-  })
+  await sendEmail(db, store, {to,subject:`Test email from ${store.storeName}`,html:'<p>Your DiamondPOS SMTP settings are working.</p>',text:'Your DiamondPOS SMTP settings are working.'})
 }
 
 // ---------------- Background sender ----------------
 
 let timer: ReturnType<typeof setTimeout> | null = null
 let busy = false
+let senderJob: Promise<void> | null = null
 
-export function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSettings) {
-  stopMarketingSender()
+export async function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSettings) {
+  await stopMarketingSender()
   const schedule = (ms: number) => {
-    timer = setTimeout(tick, ms)
+    timer = setTimeout(() => { const job=tick();senderJob=job;void job.finally(()=>{if(senderJob===job)senderJob=null}) }, ms)
   }
   const tick = async () => {
     if (busy) return
@@ -194,12 +199,12 @@ export function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSett
       if (campaign) {
         const next = db
           .prepare(
-            `SELECT ms.id, ms.email, c.first_name, c.last_name, c.company, c.track_as_company
+            `SELECT ms.id, ms.customer_id, ms.email, c.first_name, c.last_name, c.company, c.track_as_company
              FROM marketing_sends ms JOIN customers c ON c.id = ms.customer_id
              WHERE ms.campaign_id = ? AND ms.status = 'pending' ORDER BY ms.id LIMIT 1`
           )
           .get(campaign.id) as
-          | { id: number; email: string; first_name: string | null; last_name: string | null; company: string | null; track_as_company: number }
+          | { id: number; customer_id: number; email: string; first_name: string | null; last_name: string | null; company: string | null; track_as_company: number }
           | undefined
         if (!next) {
           db.prepare("UPDATE marketing_campaigns SET status = 'sent', sent_at = datetime('now'), last_error = NULL WHERE id = ?").run(
@@ -211,6 +216,7 @@ export function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSett
           try {
             await sendMailer(db, readSettings(db), {
               to: next.email,
+              customerId: next.customer_id,
               recipientName: name,
               subject: campaign.subject,
               message: campaign.message,
@@ -220,6 +226,7 @@ export function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSett
             db.prepare('UPDATE marketing_campaigns SET last_error = NULL WHERE id = ?').run(campaign.id)
           } catch (err) {
             const msg = (err as Error).message || String(err)
+            if(err instanceof MarketingSuppressed){db.prepare("UPDATE marketing_sends SET status='skipped',error=? WHERE id=?").run(msg.slice(0,500),next.id);return}
             if (isServerProblem(err)) {
               // The mail account/server is the problem: pause and try again later
               db.prepare('UPDATE marketing_campaigns SET last_error = ? WHERE id = ?').run(
@@ -241,10 +248,11 @@ export function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSett
       if (timer !== null) schedule(wait)
     }
   }
-  timer = setTimeout(tick, 2_000)
+  schedule(2_000)
 }
 
-export function stopMarketingSender() {
+export async function stopMarketingSender() {
   if (timer) clearTimeout(timer)
   timer = null
+  await senderJob?.catch(()=>{})
 }

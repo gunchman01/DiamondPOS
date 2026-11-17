@@ -14,6 +14,14 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.44 - 17 Nov 2026
+> Update the Store Server first, then every till. Upload/configure the new cPanel service before sending marketing campaigns.
+- **Website unsubscribes:** marketing emails include a confirmation link. Confirmed opt-outs stop future marketing and automatically clear OK to email on all matching customer records.
+- **Settings → Email:** consent-service setup, sync status, recent unsubscribes, history replay and an eligible-contact CSV export.
+- Customer imports and checkbox edits cannot overwrite saved unsubscribes. Queued campaigns check consent again before each message; skipped recipients are shown separately. If the website check fails, campaigns pause instead of sending unchecked.
+- Staff opt-outs sync to the website when connected. Repair estimates and work-order emails remain separate.
+- Includes a standalone cPanel PHP/SQLite consent service and setup guide. A website campaign dashboard and tracking integration are future work.
+
 ## v0.3.43 - 16 Nov 2026
 - **Customer Equipment:** open a customer to see their existing units, including equipment checked in for repair even if it was not bought at Diamond P.
 - Expand a unit for brand, model, serial number, hours, notes and purchase information. Purchase receipts open through the existing receipt view.

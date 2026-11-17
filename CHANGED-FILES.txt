@@ -1,27 +1,35 @@
-DiamondPOS v0.3.43 — cumulative overlay against main 6be322ff0553da169b660e26e50468db887c91b0 / v0.3.41; includes v0.3.42 End of Day
+DiamondPOS v0.3.44 — marketing consent
+Baseline main: 9a2f368420deebe8fed4ea93c46e75c0984f1f33 (v0.3.43)
+Copy these files over the existing project; no deletions required.
+Schema 31. Update Store Server first, then all tills.
+Marketing waits for cPanel consent service setup. See START-HERE.md.
+Validated: 230 regression checks, typecheck, production build, real PHP/SQLite HTTP tests.
+No commit, push, tag, actual email or deployment performed.
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
-docs/END_OF_DAY_REFERENCE.md
 docs/PROJECT_NOTES.md
-src/main/server/endOfDay.ts
+extras/cpanel-marketing/CPANEL-SETUP.md
+extras/cpanel-marketing/private/marketing-config.example.php
+extras/cpanel-marketing/public/.htaccess
+extras/cpanel-marketing/public/index.php
+src/main/server/customers.ts
 src/main/server/index.ts
+src/main/server/marketing/audience.ts
+src/main/server/marketing/consent.ts
+src/main/server/marketing/mailer.ts
+src/main/server/marketing/routes.ts
 src/main/server/migrations.ts
-src/main/server/workorders.ts
-src/renderer/src/App.tsx
 src/renderer/src/api.ts
-src/renderer/src/endOfDayPrint.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/menus.ts
 src/renderer/src/screens/CustomerEditor.tsx
-src/renderer/src/screens/CustomerEquipmentPanel.tsx
-src/renderer/src/screens/DailyCloseout.tsx
-src/renderer/src/screens/Home.tsx
-src/renderer/src/screens/Reports.tsx
-src/renderer/src/styles.css
-src/shared/customerEquipment.ts
-src/shared/endOfDay.ts
-tests/customer-equipment.ts
-tests/end-of-day.ts
+src/renderer/src/screens/Marketing.tsx
+src/renderer/src/screens/MarketingConsentSettings.tsx
+src/renderer/src/screens/Settings.tsx
+src/shared/mailerTemplate.ts
+src/shared/marketing.ts
+src/shared/marketingConsent.ts
+tests/cpanel/marketing-service.py
+tests/marketing-consent.ts
 tests/regressions.ts

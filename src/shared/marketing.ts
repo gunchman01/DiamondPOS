@@ -63,6 +63,7 @@ export interface Campaign {
   /** Progress once sending has started */
   total: number
   sent: number
+  skipped?: number
   failed: number
   /** Why sending is paused (e.g. the mail server refused the login) */
   lastError: string | null
@@ -74,7 +75,7 @@ export interface CampaignSend {
   customerId: number
   name: string
   email: string
-  status: 'pending' | 'sent' | 'failed'
+  status: 'pending' | 'sent' | 'failed' | 'skipped'
   error: string | null
   sentAt: string | null
 }

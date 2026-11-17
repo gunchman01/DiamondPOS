@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "\.(sqlite|db|log|ini|bak)$">
+  Require all denied
+</FilesMatch>
