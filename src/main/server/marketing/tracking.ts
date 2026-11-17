@@ -1,3 +1,4 @@
+import { activityLocation, type GeoServiceStatus } from '../../../shared/campaignAnalytics'
 import crypto from 'node:crypto'
 import type express from 'express'
 import type { DB } from '../db'
@@ -6,7 +7,7 @@ export interface DeliveryTracking { unsubscribeUrl:string; pixelUrl?:string; cli
 const problem=(message:string)=>Object.assign(new Error(message),{code:'ECONSENT'})
 export function trackingStatus(db:DB){
  const row=db.prepare("SELECT value FROM settings WHERE key='marketing_activity_state'").get() as {value:string}|undefined
- let state={cursor:0,lastSyncAt:null as string|null,error:null as string|null};try{if(row)state=JSON.parse(row.value)}catch{}
+ let state={cursor:0,lastSyncAt:null as string|null,error:null as string|null,geo:null as GeoServiceStatus|null};try{if(row)state=JSON.parse(row.value)}catch{}
  return {...state,enabled:consentConfig(db).trackingEnabled}
 }
 function state(db:DB,value:unknown){db.prepare("INSERT INTO settings(key,value) VALUES('marketing_activity_state',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(value))}
@@ -33,6 +34,7 @@ export async function prepareDelivery(db:DB,email:string,sendId:number|undefined
  for(const url of unique)clickUrls[url]=serviceLink(result.clickUrls[url],cfg.url,'click')
  return {unsubscribeUrl,pixelUrl,clickUrls}
 }
+function validGeoStatus(input:any):GeoServiceStatus|null {if(!input||typeof input.enabled!=='boolean'||typeof input.keyConfigured!=='boolean')return null;return {enabled:input.enabled,keyConfigured:input.keyConfigured,lastError:typeof input.lastError==='string'?input.lastError.slice(0,300):null,lastSuccessAt:typeof input.lastSuccessAt==='string'?input.lastSuccessAt:null,dailyLookups:Number.isSafeInteger(input.dailyLookups)?input.dailyLookups:0,dailyLimit:Number.isSafeInteger(input.dailyLimit)?input.dailyLimit:0}}
 const jobs=new WeakMap<DB,Promise<ReturnType<typeof trackingStatus>>>()
 export function syncMarketingActivity(db:DB,fetcher:ConsentFetch=fetch){
  const pending=jobs.get(db);if(pending)return pending
@@ -47,12 +49,13 @@ export function syncMarketingActivity(db:DB,fetcher:ConsentFetch=fetch){
     db.transaction(()=>{
      for(const event of response.events){
       if(!event||!Number.isSafeInteger(event.id)||event.id<=cursor||!/^[a-f0-9]{64}$/.test(event.eventKey)||!/^[a-f0-9]{64}$/.test(event.deliveryKey)||!['open','click'].includes(event.kind)||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at))||(event.kind==='click'&&!safeMarketingUrl(event.url))||(event.kind==='open'&&event.url!==null))throw Error('Invalid activity event')
+      const location=activityLocation(event.location)
       const send=db.prepare('SELECT id FROM marketing_sends WHERE tracking_key=?').get(event.deliveryKey) as {id:number}|undefined
-      if(send)db.prepare('INSERT OR IGNORE INTO marketing_activity(event_key,send_id,kind,at,url) VALUES(?,?,?,?,?)').run(event.eventKey,send.id,event.kind,event.at,event.url)
+      if(send)db.prepare('INSERT OR IGNORE INTO marketing_activity(event_key,send_id,kind,at,url,location_json) VALUES(?,?,?,?,?,?)').run(event.eventKey,send.id,event.kind,event.at,event.url,location?JSON.stringify(location):null)
       cursor=event.id
      }
      if(response.hasMore&&!response.events.length)throw Error('Empty activity continuation')
-     current={...current,cursor,error:null};state(db,current)
+     current={...current,cursor,error:null,geo:validGeoStatus(response.geo)};state(db,current)
     })()
     if(!response.hasMore){state(db,{...current,lastSyncAt:new Date().toISOString(),error:null});return trackingStatus(db)}
    }

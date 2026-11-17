@@ -8,7 +8,7 @@ function trackingUrl(mixed $value):string {
  if(!is_string($value)||strlen($value)>2048||preg_match('/[\x00-\x20\x7f]/',$value))throw new InvalidArgumentException('Invalid link');
  $u=parse_url($value);if(!$u||!in_array(strtolower($u['scheme']??''),['http','https'],true)||empty($u['host'])||isset($u['user'])||isset($u['pass']))throw new InvalidArgumentException('Invalid link');return $value;
 }
-function trackingPublic(PDO $db,string $action):never {
+function trackingPublic(PDO $db,string $action,array $cfg):never {
  $method=$_SERVER['REQUEST_METHOD']??'GET';if(!in_array($method,['GET','HEAD'],true))jsonOut(['ok'=>false,'error'=>'Use GET'],405);
  $token=(string)($_GET['token']??'');$row=false;
  if(preg_match('/^[a-f0-9]{64}$/D',$token)){$q=$db->prepare('SELECT t.*,d.email FROM tracking_tokens t JOIN deliveries d ON d.delivery_key=t.delivery_key WHERE t.hash=? AND t.kind=?');$q->execute([hash('sha256',$token),$action==='open'?'open':'click']);$row=$q->fetch(PDO::FETCH_ASSOC);}
@@ -20,11 +20,17 @@ function trackingPublic(PDO $db,string $action):never {
   // Unsubscribed addresses retain working links but generate no further engagement.
   $q=$db->prepare('SELECT 1 FROM suppressions WHERE email=?');$q->execute([$row['email']]);
   if(!$q->fetchColumn()){
-   $db->beginTransaction();try{
-    $q=$db->prepare('SELECT 1 FROM activity_events WHERE token_hash=? AND at>=? LIMIT 1');$q->execute([$row['hash'],gmdate('Y-m-d\TH:i:s\Z',time()-60)]);
-    if(!$q->fetchColumn()){$q=$db->prepare('INSERT INTO activity_events(event_key,delivery_key,kind,at,url,token_hash) VALUES(?,?,?,?,?,?)');$q->execute([bin2hex(random_bytes(32)),$row['delivery_key'],$row['kind'],gmdate('Y-m-d\TH:i:s\Z'),$row['url'],$row['hash']]);}
-    $db->commit();
-   }catch(Throwable $e){$db->rollBack();error_log('DiamondPOS activity record unavailable');}
+   $q=$db->prepare('SELECT 1 FROM activity_events WHERE token_hash=? AND at>=? LIMIT 1');$q->execute([$row['hash'],gmdate('Y-m-d\TH:i:s\Z',time()-60)]);
+   if(!$q->fetchColumn()){
+    // Network lookup occurs outside the activity transaction; failure never breaks a click.
+    $location=null;try{$location=geographyLocate($db,$cfg,$_SERVER);}catch(Throwable $ignored){error_log('DiamondPOS coarse location unavailable');}
+    $db->beginTransaction();try{
+     $q=$db->prepare('SELECT 1 FROM activity_events WHERE token_hash=? AND at>=? LIMIT 1');$q->execute([$row['hash'],gmdate('Y-m-d\TH:i:s\Z',time()-60)]);$duplicate=$q->fetchColumn();
+     $q=$db->prepare('SELECT 1 FROM suppressions WHERE email=?');$q->execute([$row['email']]);$suppressed=$q->fetchColumn();
+     if(!$duplicate&&!$suppressed){$q=$db->prepare('INSERT INTO activity_events(event_key,delivery_key,kind,at,url,token_hash,location_json) VALUES(?,?,?,?,?,?,?)');$q->execute([bin2hex(random_bytes(32)),$row['delivery_key'],$row['kind'],gmdate('Y-m-d\TH:i:s\Z'),$row['url'],$row['hash'],$location?json_encode($location):null]);}
+     $db->commit();
+    }catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('DiamondPOS activity record unavailable');}
+   }
   }
  }
  if($action==='click'){
@@ -46,8 +52,8 @@ function prepareTracking(PDO $db,array $body,string $public):never {
   $db->commit();jsonOut(['ok'=>true,'version'=>1,'suppressed'=>false,'pixelUrl'=>$pixel,'clickUrls'=>(object)$clicks]);
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }
-function activityFeed(PDO $db,array $body):never {
+function activityFeed(PDO $db,array $body,array $cfg):never {
  $cursor=$body['cursor']??null;if(!is_int($cursor)||$cursor<0)throw new InvalidArgumentException('Invalid activity cursor');
  $max=(int)$db->query('SELECT COALESCE(MAX(id),0) FROM activity_events')->fetchColumn();if($cursor>$max)jsonOut(['ok'=>false,'error'=>'Activity history restored; replay activity history in POS'],409);
- $q=$db->prepare('SELECT id,event_key AS eventKey,delivery_key AS deliveryKey,kind,at,url FROM activity_events WHERE id>? ORDER BY id LIMIT 201');$q->execute([$cursor]);$events=$q->fetchAll(PDO::FETCH_ASSOC);jsonOut(['ok'=>true,'version'=>1,'events'=>array_slice($events,0,200),'hasMore'=>count($events)>200]);
+ $q=$db->prepare('SELECT id,event_key AS eventKey,delivery_key AS deliveryKey,kind,at,url,location_json FROM activity_events WHERE id>? ORDER BY id LIMIT 201');$q->execute([$cursor]);$events=$q->fetchAll(PDO::FETCH_ASSOC);foreach($events as &$event){$event['location']=$event['location_json']?json_decode($event['location_json'],true):null;unset($event['location_json']);}unset($event);jsonOut(['ok'=>true,'geo'=>geographyStatus($db,$cfg),'version'=>1,'events'=>array_slice($events,0,200),'hasMore'=>count($events)>200]);
 }

@@ -1,15 +1,17 @@
-# DiamondPOS v0.3.46 — Confirmed marketing re-subscriptions
+# DiamondPOS v0.3.47 — Confirmed marketing re-subscriptions
 
-This update adds a website request/confirmation page and a staff request button. The Store Server sends confirmation emails through the SMTP account you already use. Only a valid explicit customer confirmation can remove an unsubscribe; importing a spreadsheet or checking the box still cannot override it. It also reduces campaign-editor typing delays.
+For the new approximate location map and charts, start with **GEOGRAPHY-SETUP.md**; its optional private provider-key configuration is required for new map markers. Maps/charts are inside POS Marketing.
+
+This cumulative update includes the website request/confirmation page and a staff request button. The Store Server sends confirmation emails through the SMTP account you already use. Only a valid explicit customer confirmation can remove an unsubscribe; importing a spreadsheet or checking the box still cannot override it. It also reduces campaign-editor typing delays.
 
 No hosting upload, real email, Git commit/push or release was performed here.
 
 ## Upgrade your working setup
 
 1. Pause campaigns and back up the POS Store Server plus the private cPanel marketing configuration/database. Save the current public index.php so you have its configured private path.
-2. Extract **DiamondPOS-cPanel-marketing-v0.3.46.zip** into the existing website document root. Its pos-marketing folder contains **index.php, tracking.php, subscriptions.php and .htaccess**. Upload all four. If uploading files individually, upload the helper PHP files before index.php. Keep your existing pos-approval pages separate.
+2. Extract **DiamondPOS-cPanel-marketing-v0.3.47.zip** into the existing website document root. Its pos-marketing folder contains **index.php, tracking.php, subscriptions.php, geography.php and .htaccess**. Upload all five. If uploading files individually, upload the helper PHP files before index.php. Keep your existing pos-approval pages separate.
 3. Restore your actual **configPath** line near the top of the new index.php using the old file as reference. The download uses a placeholder. **Keep your existing private configuration, API key and marketing.sqlite** outside public_html; never replace them with empty/example data. No key rotation, PHP mail() configuration or second SMTP account is needed. PHP 8.3/8.4 with PDO SQLite remains required. New private tables/columns are added automatically without removing old unsubscribe or tracking tokens.
-4. Copy the source overlay into your v0.3.45 Git project. Update the Store Server first, then every till. Schema 33 stores confirmation evidence, request delivery audit and durable opt-out identities. The website consent API now requires consent protocol 2: older Store Server versions pause consent syncing/sending until updated. Keep campaigns paused during the short website/server upgrade window.
+4. Copy the source overlay into your v0.3.45 Git project. Update the Store Server first, then every till. Schema 34 includes schema 33 and stores confirmation evidence, request delivery audit and durable opt-out identities. The website consent API now requires consent protocol 2: older Store Server versions pause consent syncing/sending until updated. Keep campaigns paused during the short website/server upgrade window.
 5. Under **Settings → Email**, save your existing website URL/key only if they changed. Check connection / sync now, then Process confirmation requests now. Request status and recent confirmed permissions appear below the unsubscribe list. The server must remain running with working SMTP for confirmation delivery and consent sync.
 
 ## Build, verify and release
@@ -28,10 +30,10 @@ After the self-address checks below pass:
 ```powershell
 git status --short
 git add .
-git commit -m "Add confirmed marketing resubscriptions and improve campaign typing"
+git commit -m "Add campaign location map and analytics charts"
 git push origin main
-git tag v0.3.46
-git push origin v0.3.46
+git tag v0.3.47
+git push origin v0.3.47
 ```
 
 Use that tag only if unused; never move a published tag. If it already exists, choose the next unused release version. GitHub Actions sets installer version from the tag; package.json retains its development version.
@@ -102,7 +104,7 @@ A website campaign composer/provider webhook/inbox reader is not included. Reply
 
 ## Verification provided
 
-261 regression checks, TypeScript and production build passed. Real local PHP/SQLite HTTP tests cover old unsubscribe links, tracking, public requests, expiration, confirmation-only re-subscribe, repeated/stale links, protocol protection and restore intent. A real PHP-to-POS SQLite integration test covers queued confirmation through mocked SMTP, re-subscribe sync, restoration and later opt-out. No real email was sent.
+268 regression checks, TypeScript and production build passed. Real local PHP/SQLite HTTP tests cover old unsubscribe links, tracking, public requests, expiration, confirmation-only re-subscribe, repeated/stale links, protocol protection and restore intent. A real PHP-to-POS SQLite integration test covers queued confirmation through mocked SMTP, re-subscribe sync, restoration and later opt-out. No real email was sent.
 
 With PHP/PDO SQLite installed, optional checks are:
 

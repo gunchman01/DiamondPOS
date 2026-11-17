@@ -14,6 +14,14 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.47 - 17 Nov 2026
+> Update the Store Server first, then tills. Upgrade all cPanel marketing files, preserving private data and the configured path. New map markers require optional private geolocation setup.
+- **Campaign insights:** interactive world/U.S. mainland map of approximate request locations, with open/click markers, zoom, pan and location details.
+- New graphs for daily opens/clicks, Central-Time activity by hour, recipient engagement and top locations. Choose7/30/90 days or all time; export report data to Excel.
+- Totals distinguish mapped activity from unknown locations. Older opens without stored geography stay unknown; no customer-address guesses are added.
+- Optional private IPGeolocation.io lookup uses coarse coordinates, caching, a daily cap and safe unknown-location fallback. Location/provider issues do not drop ordinary tracking counts.
+- Includes previous confirmed re-subscription and typing improvements. Consent checks, tests/transactional separation and old link functionality remain in place.
+
 ## v0.3.46 - 17 Nov 2026
 > Update the Store Server first, then all tills. Upgrade the cPanel marketing service, preserving the private configuration/database and your configured path.
 - **Subscribe again:** customers can request an email confirmation on the website, or staff can request one from a saved customer. Permission returns only after the customer explicitly confirms a valid link.

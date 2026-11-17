@@ -1,3 +1,4 @@
+import { registerAnalyticsRoutes } from './marketing/analytics'
 import { registerSubscriptionRoutes, startSubscriptionScheduler } from './marketing/subscriptions'
 import { registerTrackingRoutes, startActivityScheduler } from './marketing/tracking'
 import { registerConsentRoutes, startConsentScheduler } from './marketing/consent'
@@ -356,6 +357,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   registerConsentRoutes(app, db)
   registerSubscriptionRoutes(app,db,readSettings)
   registerTrackingRoutes(app, db)
+  registerAnalyticsRoutes(app,db)
   registerMarketingRoutes(app, db, readSettings)
 
   // ----- Work orders (repairs) + customer units -----------------------------

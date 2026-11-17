@@ -68,7 +68,7 @@ ${c.flyerSrc ? `<tr><td style="padding:0"><img src="${esc(c.flyerSrc)}" width="6
 You're receiving this email because you asked to hear from ${esc(c.storeName)}.<br>
 ${esc(c.storeAddress).replace(/\n/g, '<br>')}<br>
 ${c.unsubscribeUrl ? `<a href="${esc(c.unsubscribeUrl)}" style="color:#9b0c23">Unsubscribe from marketing emails</a>.<br>` : ''}To unsubscribe by email, reply with <b>UNSUBSCRIBE</b> or email <a href="mailto:${esc(c.replyTo)}?subject=Unsubscribe" style="color:#9b0c23">${esc(c.replyTo)}</a>.
-${c.pixelUrl ? '<br>Marketing emails may record image loads and link clicks.' : ''}
+${c.pixelUrl ? '<br>Marketing emails may record image loads, link clicks and approximate request locations.' : ''}
 </td></tr>
 </table></td></tr></table>${c.pixelUrl ? `<img src="${esc(c.pixelUrl)}" width="1" height="1" alt="" style="border:0;width:1px;height:1px">` : ''}</body></html>`
 }
@@ -83,7 +83,7 @@ export function mailerText(c: MailerContent): string {
     '---',
     `You're receiving this email because you asked to hear from ${c.storeName}.`,
     c.storeAddress,
-    c.pixelUrl ? 'Marketing emails may record image loads and link clicks.' : '',
+    c.pixelUrl ? 'Marketing emails may record image loads, link clicks and approximate request locations.' : '',
     c.unsubscribeUrl ? `Unsubscribe from marketing emails: ${c.unsubscribeUrl}` : '',
     `To unsubscribe by email, reply with UNSUBSCRIBE or email ${c.replyTo}.`
   ]

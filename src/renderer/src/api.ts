@@ -1,3 +1,4 @@
+import type { CampaignAnalytics } from '../../shared/campaignAnalytics'
 import type { MarketingConsentView, MarketingSubscriber } from '../../shared/marketingConsent'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
 import type { EndOfDayReport, EndOfDayCloseout, EndOfDayCloseRequest } from '../../shared/endOfDay'
@@ -207,6 +208,7 @@ export const api = {
   marketingActivity: () => request<{enabled:boolean;lastSyncAt:string|null;error:string|null}>('GET','/api/marketing/activity'),
   syncMarketingActivity: () => request<{enabled:boolean;lastSyncAt:string|null;error:string|null}>('POST','/api/marketing/activity/sync'),
   replayMarketingActivity: () => request<{enabled:boolean;lastSyncAt:string|null;error:string|null}>('POST','/api/marketing/activity/replay'),
+  campaignAnalytics: (id:number,days:number|null=30) => request<CampaignAnalytics>('GET',`/api/marketing/campaigns/${id}/analytics?days=${days??'all'}`),
   mkCampaigns: () => request<Campaign[]>('GET', '/api/marketing/campaigns'),
   mkCampaign: (id: number,includeFlyer=true) => request<Campaign>('GET', `/api/marketing/campaigns/${id}${includeFlyer?'':'?summary=1'}`),
   mkCreate: (c: CampaignInput) => request<Campaign>('POST', '/api/marketing/campaigns', c),

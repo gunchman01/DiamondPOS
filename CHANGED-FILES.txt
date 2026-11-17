@@ -1,30 +1,47 @@
-DiamondPOS v0.3.46 — confirmed re-subscription and campaign typing
-Baseline main: 3fb26375a27e200487977c86ddb1d4754c546940 (v0.3.45)
-Copy over existing project; no deletions required. Schema 33. Update Store Server first then all tills.
-Upgrade all4 cPanel public files; preserve private config/database and custom configPath.
-261 regression checks, typecheck/build, real PHP HTTP and PHP-to-POS integration tests passed.
-No actual email, Git commit/push/tag or hosting deployment performed.
-Git commands and rollout steps are in START-HERE.md and extras/cpanel-marketing/CPANEL-SETUP.md.
+DiamondPOS v0.3.47 — campaign maps and graphs
+Cumulative source overlay for v0.3.45/v0.3.46. Baseline main: 3fb26375a27e200487977c86ddb1d4754c546940.
+Includes prior confirmed re-subscription and typing changes. Schema 34 includes schema 33.
+Update Store Server first, then all tills. No deletions required.
+Upload all5 public cPanel files; preserve private config/key/database and restore custom configPath.
+Maps require optional user-owned private geolocation key/cURL; charts work without it.
+268 regression checks, typecheck/build, PHP HTTP/provider-fixture/integration checks passed.
+No actual external lookup/email, Git commit/push/tag or deployment performed.
+Git commands in START-HERE.md and both cPanel guides.
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
 docs/PROJECT_NOTES.md
 extras/cpanel-marketing/CPANEL-SETUP.md
+extras/cpanel-marketing/GEOGRAPHY-SETUP.md
+extras/cpanel-marketing/MAP-DATA-NOTICE.md
+extras/cpanel-marketing/private/marketing-config.example.php
+extras/cpanel-marketing/public/geography.php
 extras/cpanel-marketing/public/index.php
 extras/cpanel-marketing/public/subscriptions.php
+extras/cpanel-marketing/public/tracking.php
 src/main/server/index.ts
+src/main/server/marketing/analytics.ts
 src/main/server/marketing/consent.ts
 src/main/server/marketing/routes.ts
 src/main/server/marketing/subscriptions.ts
+src/main/server/marketing/tracking.ts
 src/main/server/migrations.ts
 src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
+src/renderer/src/maps/worldLand.ts
+src/renderer/src/screens/CampaignActivity.tsx
+src/renderer/src/screens/CampaignDashboard.tsx
 src/renderer/src/screens/CustomerEditor.tsx
 src/renderer/src/screens/MailerEditor.tsx
 src/renderer/src/screens/MailerPreview.tsx
 src/renderer/src/screens/MarketingConsentSettings.tsx
+src/renderer/src/styles.css
+src/shared/campaignAnalytics.ts
+src/shared/mailerTemplate.ts
+tests/cpanel/geography.php
 tests/cpanel/marketing-service.py
+tests/marketing-analytics.ts
 tests/marketing-consent.ts
 tests/marketing-php.ts
 tests/marketing-resubscribe.ts

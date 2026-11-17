@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
 import nodemailer from 'nodemailer'
+import Database from 'better-sqlite3'
+import { campaignAnalytics } from '../src/main/server/marketing/analytics'
 import { processSubscriptionRequests } from '../src/main/server/marketing/subscriptions'
 import { saveSmtp } from '../src/main/server/marketing/mailer'
 import { readSettings } from '../src/main/server'
@@ -31,9 +33,14 @@ async function main(){
   assert.ok(delivery.pixelUrl&&delivery.clickUrls)
   const image=await fetcher(delivery.pixelUrl!);assert.equal(image.headers.get('content-type'),'image/gif');assert.ok((await image.arrayBuffer()).byteLength>0)
   const click=await fetcher(delivery.clickUrls![destination],{redirect:'manual'});assert.equal(click.status,302);assert.equal(click.headers.get('location'),destination)
+  // Deterministic coarse-location fixture: no real IP is sent to a provider in this test.
+  const web=new Database(webDb);web.prepare('UPDATE activity_events SET location_json=?').run(JSON.stringify({city:'Tulsa',region:'Oklahoma',country:'United States',countryCode:'US',latitude:36.2,longitude:-96,source:'ipgeolocation.io'}));web.close()
   await syncMarketingActivity(db,fetcher);await syncMarketingActivity(db,fetcher)
   const rows=db.prepare('SELECT kind,COUNT(*) n FROM marketing_activity WHERE send_id=? GROUP BY kind ORDER BY kind').all(send)
   assert.deepEqual(rows,[{kind:'click',n:1},{kind:'open',n:1}])
+  db.prepare("UPDATE marketing_sends SET status='sent',tracking_active=1 WHERE id=?").run(send)
+  const analytics=campaignAnalytics(db,campaign,null);assert.equal(analytics.locations[0].city,'Tulsa');assert.equal(analytics.totals.mappedOpens,1);assert.equal(analytics.totals.mappedClicks,1)
+
   const token=new URL(delivery.unsubscribeUrl).searchParams.get('token')!
   const unsubscribe=await fetch(local,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token,confirm:'yes'})});assert.match(await unsubscribe.text(),/You are unsubscribed/)
   await syncMarketingConsent(db,fetcher)
@@ -62,7 +69,7 @@ async function main(){
   updateCustomer(db,customer,{...getCustomer(db,customer)!,okToEmail:false});await syncMarketingConsent(db,fetcher)
   const stale=await fetcher(confirmation,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:confirmationToken,confirm:'yes'})});assert.match(await stale.text(),/New confirmation needed/)
   await syncMarketingConsent(db,fetcher);assert.equal(getCustomer(db,customer)!.okToEmail,false)
-  console.log('PASS real PHP ↔ POS SQLite: image/click tracking, unsubscribe, queued confirmation through mocked SMTP, scanner-safe GET, explicit re-subscription, restore/replay, and new opt-out invalidating the old link')
+  console.log('PASS real PHP ↔ POS SQLite: coarse map fixture/analytics, image/click tracking, unsubscribe, queued confirmation through mocked SMTP, scanner-safe GET, explicit re-subscription, restore/replay, and new opt-out invalidating the old link')
  }catch(e){console.error(errors);throw e}finally{child.kill();await new Promise<void>(r=>{if(child.exitCode!==null)r();else child.once('exit',()=>r())});db.close();fs.rmSync(dir,{recursive:true,force:true})}
 }
 void main().catch(e=>{console.error(e);process.exitCode=1})

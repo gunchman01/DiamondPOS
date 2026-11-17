@@ -52,7 +52,7 @@ function publicSubscription(PDO $db,array $cfg,string $action):never {
    subscriptionPage('Marketing subscription confirmed','Thank you. You have confirmed marketing emails from '.$store.'. The shop POS will update when it next connects. A newer opt-out still takes priority; emails already skipped are not resent.');
   }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
  }
- subscriptionPage('Confirm your subscription','Click below only if you want marketing emails from '.$store.'. Emails may record estimated opens and link clicks. You can unsubscribe at any time. Viewing this page does not change your preferences.','<form method="post"><input type="hidden" name="token" value="'.$e($token).'"><input type="hidden" name="confirm" value="yes"><button>Confirm marketing subscription</button></form>');
+ subscriptionPage('Confirm your subscription','Click below only if you want marketing emails from '.$store.'. Emails may record estimated opens, link clicks and approximate request locations. You can unsubscribe at any time. Viewing this page does not change your preferences.','<form method="post"><input type="hidden" name="token" value="'.$e($token).'"><input type="hidden" name="confirm" value="yes"><button>Confirm marketing subscription</button></form>');
 }
 function subscriptionApi(PDO $db,array $body,string $action,string $public):never {
  if(($body['consentVersion']??null)!==2)jsonOut(['ok'=>false,'error'=>'Update the Store Server for confirmed subscriptions'],409);

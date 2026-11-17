@@ -669,6 +669,10 @@ export const migrations: Migration[] = [
   ALTER TABLE marketing_consent_outbox ADD COLUMN change_id TEXT;
   CREATE TABLE marketing_consent_confirmations(request_id TEXT PRIMARY KEY,email TEXT NOT NULL,confirmed_at TEXT NOT NULL,website_url TEXT NOT NULL);
   CREATE TABLE marketing_subscription_requests(request_id TEXT PRIMARY KEY,email TEXT NOT NULL,requested_at TEXT NOT NULL,sent_at TEXT,status TEXT NOT NULL DEFAULT 'queued',error TEXT);
+ `},
+ {version:34,name:'coarse campaign activity geography',up:`
+  ALTER TABLE marketing_activity ADD COLUMN location_json TEXT;
+  CREATE INDEX idx_marketing_activity_time ON marketing_activity(send_id,at);
  `}
 
 ]

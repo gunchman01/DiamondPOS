@@ -32,9 +32,10 @@ try {
   }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
  };
  require_once __DIR__.'/tracking.php';trackingSchema($db);
+ require_once __DIR__.'/geography.php';geographySchema($db);
  $action=(string)($_GET['action']??'');
  if(in_array($action,['subscribe','confirmSubscription'],true))publicSubscription($db,$cfg,$action);
- if(in_array($action,['open','click'],true))trackingPublic($db,$action);
+ if(in_array($action,['open','click'],true))trackingPublic($db,$action,$cfg);
  if($action===''){
   $token=(string)($_POST['token']??$_GET['token']??'');
   if(!preg_match('/^[a-f0-9]{64}$/iD',$token))page('Marketing preferences','This link is invalid. Please contact the shop to stop marketing emails.');
@@ -49,7 +50,7 @@ try {
  $body=json_decode(file_get_contents('php://input'),true,64,JSON_THROW_ON_ERROR);if(!is_array($body))throw new InvalidArgumentException('Expected object');
  if($action==='capabilities')jsonOut(['ok'=>true,'consentVersion'=>2]);
  if($action==='prepareTracking')prepareTracking($db,$body,$public);
- if($action==='activity')activityFeed($db,$body);
+ if($action==='activity')activityFeed($db,$body,$cfg);
  if(in_array($action,['requestSubscription','subscriptionRequests','prepareSubscription','subscriptionSent','subscriptionIgnored'],true))subscriptionApi($db,$body,$action,$public);
  if($action==='suppress'){
   if(($body['consentVersion']??null)!==2)jsonOut(['ok'=>false,'error'=>'Update the Store Server for confirmed subscriptions'],409);
