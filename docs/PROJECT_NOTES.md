@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 16 November 2026 (v0.3.41 sale business date/time)_
+_Last updated: 16 November 2026 (v0.3.43 customer equipment/history)_
 
 ---
 
@@ -70,6 +70,26 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.43 — customer equipment and service history display
+Added authenticated read-only /api/customers/:id/equipment, returning existing owned customer_units with customer+unit-scoped work-order history (all stages, including closed). Exposes inactive units and serialized-sale purchase links; no creation/migration/stock action. Positive integer/customer existence validation prevents misleading empty results for invalid owners.
+
+CustomerEditor right column embeds CustomerEquipmentPanel, with fresh loads, explicit refresh, expandable details and purchase receipt links through existing SaleDialog. Work-order history opens a read-only portal dialog for reported problem, diagnosis, work done, notes, parts/charges before tax and audit history. No nested form or ticket edit/payment controls. Existing duplicate unit records are not automatically merged. Phone/photos remain proposed, not implemented.
+
+Final typecheck/build and 212 SQLite/API regression checks passed, including unsold intake units with active+closed tickets, ownership isolation, inactive equipment, non-mutating reads, serialized-sale linkage, pairing and actual unit creation/check-in → equipment refresh. Windows visual checks remain local. Bundle is cumulative over main 6be322ff0553da169b660e26e50468db887c91b0 / v0.3.41, including pending v0.3.42 End of Day/schema 30. No commit/push/tag performed.
+
+
+### v0.3.42 — researched End of Day / drawer reconciliation
+Based on Intuit QBPOS User Guide cash-drawer/X-Z terminology and supported DiamondPOS data. Existing Home End of Day placeholder now routes to a dedicated screen, optional navigation entry and Reports shortcut. Source reference and deviations documented in docs/END_OF_DAY_REFERENCE.md.
+
+Migration 30 adds idempotent end_day_closeouts request/hash/snapshot table. Authenticated routes preview calendar-day store/per-till report, list tills/history and save a fixed server-generated snapshot. Canonical source hash excludes generated time but includes underlying report values; stale saves reject 409. Save retries return the original snapshot and mismatched-ID payloads reject. Renderer persists pending save per server until definite completion/rejection. No closeout edits/deletes or accounting postings.
+
+Business-date sales aggregate completed receipts, returns/tax, exemptions, account charges, recorded regular-price reductions and known linked-return reversals. Actual entry-day tenders include all original posted payment records (even subsequently voided), cash change once, account payments, and original-method void reversals at actual void till/time. This preserves cross-day cash flow with editable business dates. Till filtering uses original till for payment entry and void till for reversal. Void payment note is shown; actual refund/cancel must be confirmed outside reporting. Optional cash adjustments are reconciliation inputs only, requiring notes.
+
+Fixed snapshots include by/notes/counts, calculated over-short/deposit and optional terminal/check variances. Manual HTML full-page print and multi-sheet Excel export. No reset/lock, since-last-close shifts, bill/coin counts, employee authentication, gift cards, reason-coded discounts, integrated terminal settlement, auto-QB or automatic backup/print. Existing daily API is retained for compatibility; new screen uses dedicated endpoints.
+
+Validation: 207 SQLite/API regression checks including returns, account payments, cash change, till filtering, tax, given/returned markdowns, backdated/future entry money, void reversals, reconciliation, stale-source and duplicate-ID guards, fixed saved history and HTML escaping. Typecheck/build passed; Windows visual/hardware printing remains a store check. Baseline main 6be322ff0553da169b660e26e50468db887c91b0 / v0.3.41. No Git commit, push or tag created; no live database/QB transaction modified.
+
 
 ### v0.3.41 — sale business date/time and entry audit
 Migration 29 adds sales.recorded_at/date_overridden and held_sales.sale_at; backfills old entry times from unchanged created_at. Existing created_at is explicitly the business timestamp so receipt/history/report/QuickBooks SQL retains consistent behavior. createSale validates canonical ISO before writes, sets recorded_at to actual server UTC, and applies the business timestamp before account invoice/due-date creation. Request hashes freeze the date across retries. No completed-sale date-edit endpoint.
@@ -488,6 +508,12 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Verify Customer Equipment on Windows with a real repair intake unit. Proposed next feature: limited store-Wi-Fi mechanic phone access and unit/work-order photos, including backup/restore of photo data. Not yet implemented.
+
+
+- Wednesday store rehearsal: verify End of Day per-till vs all-till totals, actual drawer/terminal counts, manual printer layout and saved closeout reprints.
+
 
 - Validate v0.3.41 on Windows and QB test company: normal/past/future dates, receipt/report time zones and deferred account invoices. Confirm vendor event requirements separately; no automatic discount rule added.
 

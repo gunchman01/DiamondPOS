@@ -1,3 +1,4 @@
+import { registerEndOfDayRoutes } from './endOfDay'
 import { saleInstant } from '../../shared/saleDates'
 import { registerAccountRoutes,createAccountInvoice } from './accounts'
 import { startApprovalScheduler } from './approvals'
@@ -296,6 +297,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   registerVendorRoutes(app, db)
   registerAccountRoutes(app, db,quickBooksSyncing)
   registerReportRoutes(app, db)
+  registerEndOfDayRoutes(app, db)
 
   // Every customer, for Export to Excel
   app.get('/api/customers/all', (_req, res) => res.json(allCustomers(db)))

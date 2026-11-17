@@ -5,6 +5,7 @@ import type { MenuEntry } from '../menus'
 
 /** Tabs that already exist; tiles for these open the real page. */
 export type NavTarget =
+  | 'endofday'
   | 'sell'
   | 'products'
   | 'customers'
@@ -47,7 +48,7 @@ const POS: Section = {
     { kind: 'arrow', col: 6, row: 1, dir: 'right' },
     { kind: 'tile', col: 7, row: 1, icon: 'salesHistory', label: 'Sales History', go: 'reports' },
     { kind: 'arrow', col: 8, row: 1, dir: 'right' },
-    { kind: 'tile', col: 9, row: 1, icon: 'endOfDay', label: 'End of Day' },
+    { kind: 'tile', col: 9, row: 1, icon: 'endOfDay', label: 'End of Day', go: 'endofday' },
     { kind: 'arrow', col: 5, row: 2, dir: 'both' },
     { kind: 'tile', col: 5, row: 3, icon: 'heldReceipts', label: 'Held Receipts', go: 'held' }
   ]

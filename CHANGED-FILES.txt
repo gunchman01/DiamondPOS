@@ -1,22 +1,27 @@
-DiamondPOS v0.3.41 — overlay against main 2a08212a58d5b6ce725bfb69be06f00a01712a15 / v0.3.40
+DiamondPOS v0.3.43 — cumulative overlay against main 6be322ff0553da169b660e26e50468db887c91b0 / v0.3.41; includes v0.3.42 End of Day
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
+docs/END_OF_DAY_REFERENCE.md
 docs/PROJECT_NOTES.md
-src/main/server/held.ts
+src/main/server/endOfDay.ts
 src/main/server/index.ts
 src/main/server/migrations.ts
-src/main/server/quickbooks/accountSync.ts
-src/main/server/quickbooks/queue.ts
-src/main/server/reports.ts
+src/main/server/workorders.ts
+src/renderer/src/App.tsx
+src/renderer/src/api.ts
+src/renderer/src/endOfDayPrint.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/SaleDialog.tsx
-src/renderer/src/screens/Sell.tsx
+src/renderer/src/menus.ts
+src/renderer/src/screens/CustomerEditor.tsx
+src/renderer/src/screens/CustomerEquipmentPanel.tsx
+src/renderer/src/screens/DailyCloseout.tsx
+src/renderer/src/screens/Home.tsx
+src/renderer/src/screens/Reports.tsx
 src/renderer/src/styles.css
-src/shared/held.ts
-src/shared/reports.ts
-src/shared/saleDates.ts
-src/shared/types.ts
+src/shared/customerEquipment.ts
+src/shared/endOfDay.ts
+tests/customer-equipment.ts
+tests/end-of-day.ts
 tests/regressions.ts
-tests/sale-dates.ts

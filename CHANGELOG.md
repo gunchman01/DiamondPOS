@@ -14,6 +14,22 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.43 - 16 Nov 2026
+- **Customer Equipment:** open a customer to see their existing units, including equipment checked in for repair even if it was not bought at Diamond P.
+- Expand a unit for brand, model, serial number, hours, notes and purchase information. Purchase receipts open through the existing receipt view.
+- Shows active and completed work-order history per unit. Open a ticket for read-only problem/diagnosis/work-done/charge/history details; make changes and take payment from Work Orders.
+- Refresh equipment to pick up newly created units/tickets while the customer window is open. Uses existing links and creates no duplicate units or stock movements.
+- The equipment addition needs no new database migration. Update the Store Server first for its new read-only endpoint, then tills. This source package also includes v0.3.42 End of Day and migration 30 if not yet installed.
+
+## v0.3.42 - 16 Nov 2026
+> Update the Store Server PC first, then all tills.
+- **End of Day is now live:** the existing Home icon opens a QBPOS-style store summary and drawer reconciliation. Also available from Reports → End of Day & receipts and the optional navigation entry.
+- Sales, returns, tax, account charges, tax-exempt totals, recorded price reductions given/returned, payment-method totals, card brands, account payments, voids, noncash detail and per-till totals.
+- Enter opening/counted/leave cash, optional other cash movements with notes, terminal/check totals and your name. Calculates expected cash, over/short and cash deposit. Choose one till or all tills.
+- Saves fixed numbered closeout snapshots with retry protection. Later changes require a new snapshot; stale previews must be refreshed. Print full-page reports or export Excel manually.
+- Business sales use the selected sale date; drawer money uses actual entry dates and void reversals use actual void dates, so backdated/future sales do not distort today's cash count.
+- Migration 30 adds saved closeout records. Reporting does not reset/lock the day, settle cards, run QuickBooks sync or print automatically. No website upload needed.
+
 ## v0.3.41 - 16 Nov 2026
 > Update the Store Server PC first, then all tills.
 - **Sale date and time:** checkout defaults to now. Tick Choose sale date and time to record the day/time of an open-house sale, including a past or future date.

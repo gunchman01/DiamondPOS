@@ -1,3 +1,4 @@
+import type { CustomerEquipment } from '../../shared/customerEquipment'
 import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
 /**
  * WORK ORDERS (repairs) and CUSTOMER UNITS (equipment).
@@ -170,6 +171,15 @@ const toUnit = (r: UnitRow): CustomerUnit => ({
   notes: r.notes,
   active: r.active === 1
 })
+
+/** Customer-owned equipment, including repair intake units never purchased here. Read-only. */
+export function customerEquipment(db: DB, customerId: number): CustomerEquipment[] {
+  if (!Number.isSafeInteger(customerId) || customerId <= 0) throw new WoError(400, 'Choose a valid customer')
+  if (!db.prepare('SELECT 1 FROM customers WHERE id=?').get(customerId)) throw new WoError(404, 'Customer not found')
+  const units = db.prepare('SELECT * FROM customer_units WHERE customer_id=? ORDER BY active DESC,id DESC').all(customerId) as UnitRow[]
+  const tickets = db.prepare('SELECT id,status,created_at,updated_at,problem FROM work_orders WHERE customer_id=? AND unit_id=? ORDER BY id DESC')
+  return units.map((u) => ({ unit: toUnit(u), workOrders: (tickets.all(customerId,u.id) as {id:number;status:WoStatus;created_at:string;updated_at:string;problem:string}[]).map((w)=>({id:w.id,number:woNumber(w.id),status:w.status,createdAt:iso(w.created_at)!,updatedAt:iso(w.updated_at)!,problem:w.problem})) }))
+}
 
 export function getUnit(db: DB, id: number): CustomerUnit | null {
   const r = db.prepare('SELECT * FROM customer_units WHERE id = ?').get(id) as UnitRow | undefined
@@ -482,6 +492,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
   )
 
   // ================= Units =================
+  app.get('/api/customers/:id/equipment', wrap((req,res) => res.json(customerEquipment(db, Number(req.params.id)))))
+
   app.get('/api/customers/:id/units', (req, res) => {
     const rows = db
       .prepare('SELECT * FROM customer_units WHERE customer_id = ? ORDER BY active DESC, id DESC')

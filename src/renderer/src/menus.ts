@@ -7,6 +7,7 @@ import type { IconName } from './icons'
 
 /** Screens the app can show */
 export type Screen =
+  | 'endofday'
   | 'home'
   | 'sell'
   | 'products'
@@ -36,6 +37,7 @@ export interface MenuEntry {
 
 /** Everything that can go in a menu */
 export const MENU_ENTRIES: MenuEntry[] = [
+  { id: 'endofday', label: 'End of Day', icon: 'endOfDay', screen: 'endofday' },
   { id: 'vendors', label: 'Vendor List', icon: 'vendorList', screen: 'vendors' },
   { id: 'home', label: 'Go to the Home screen', icon: 'home', screen: 'home' },
   { id: 'sell', label: 'Make a sale', icon: 'makeSale', screen: 'sell' },
@@ -65,7 +67,7 @@ export interface MenuConfig {
 }
 
 export const DEFAULT_MENUS: MenuConfig = {
-  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'vendors', 'receive', 'tags', 'reports', 'settings', 'help'],
+  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'vendors', 'receive', 'tags', 'reports', 'endofday', 'settings', 'help'],
   home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'vendors', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
 }
 

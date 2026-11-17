@@ -1,113 +1,75 @@
 import { useEffect, useState } from 'react'
-import type { DailyReport, SaleSummary } from '../../../shared/types'
-import { api } from '../api'
-import { dateTime, money, today } from '../format'
-import PrintChooser from '../PrintChooser'
-import type { Sale } from '../../../shared/types'
+import type { EndOfDayReport, EndOfDayCloseout, EndOfDayCloseRequest, DrawerInputs, DrawerResult } from '../../../shared/endOfDay'
+import { reconcileDrawer } from '../../../shared/endOfDay'
+import { api, serverBaseUrl } from '../api'
+import { dateTime, money, today, parseMoney } from '../format'
+import { currentPrintSettings } from '../printing'
+import { eodHtml, eodSummaryRows } from '../endOfDayPrint'
+import { writeSpreadsheet } from '../spreadsheet'
 import SaleDialog from './SaleDialog'
-
-/** End-of-day totals across ALL tills, plus a list of sales with reprint. */
-export default function DailyCloseout() {
-  const [date, setDate] = useState(today())
-  const [report, setReport] = useState<DailyReport | null>(null)
-  const [sales, setSales] = useState<SaleSummary[]>([])
-  const [error, setError] = useState('')
-  const [viewSale, setViewSale] = useState<number | null>(null)
-  const [refresh,setRefresh]=useState(0)
-
-  useEffect(() => {
-    setError('')
-    Promise.all([api.dailyReport(date), api.listSales(date)])
-      .then(([r, s]) => {
-        setReport(r)
-        setSales(s)
-      })
-      .catch((e) => setError(e.message))
-  }, [date,refresh])
-
-  const [printing, setPrinting] = useState<Sale | null>(null)
-  async function reprint(id: number) {
-    try {
-      setPrinting(await api.getSale(id))
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
-
-
-  return (
-    <div className="page">
-      <div className="row between">
-        <h2>Daily report</h2>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </div>
-      {error && <div className="error-text">{error}</div>}
-
-      {report && (
-        <div className="stats">
-          <Stat label="Sales" value={String(report.saleCount)} />
-          <Stat label="Total takings (after refunds)" value={money(report.totalCents)} />
-          <Stat label="Charged to account" value={money(report.accountChargesCents??0)}/>
-          <Stat label="Account payments received" value={money(report.accountPaymentsCents??0)}/>
-          <Stat label="Sales tax" value={money(report.taxCents)} />
-          <Stat label="Cash (net of change)" value={money(report.cashCents)} />
-          <Stat label="Card (terminal)" value={money(report.cardCents)} />
-          <Stat label="Checks" value={money(report.checkCents ?? 0)} />
-          <Stat label={`Tax exempt sales (${report.taxExemptCount})`} value={`−${money(report.taxExemptCents)}`} />
-          <Stat label={`Returns (${report.refundCount ?? 0})`} value={`−${money(report.refundCents ?? 0)}`} />
-        </div>
-      )}
-      <p className="muted small">
-        Tip: compare “Card (terminal)” with the settlement total printed by the card terminal at end of day.
-      </p>
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Time</th>
-            <th>Till</th>
-            <th>Customer</th>
-            <th className="r">Total</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {sales.map((s) => (
-            <tr key={s.id} className="clickable" title="Open this receipt" onClick={() => setViewSale(s.id)}>
-              <td>{s.id}{s.status==='void'&&<span className="pill refund-pill">VOID</span>}</td>
-              <td>{dateTime(s.createdAt)}</td>
-              <td>{s.tillName}</td>
-              <td>
-                {s.customerName ?? ''}
-                {s.hasReturn && <span className={s.totalCents < 0 ? 'pill refund-pill' : 'pill'}>{s.totalCents < 0 ? 'Refund' : 'Exchange'}</span>}
-              </td>
-              <td className="r">{money(s.totalCents)}</td>
-              <td className="r">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    reprint(s.id)
-                  }}
-                >
-                  Reprint
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {viewSale !== null && <SaleDialog saleId={viewSale} onClose={() => {setViewSale(null);setRefresh(n=>n+1)}} />}
-      {printing && <PrintChooser sale={printing} onDone={() => setPrinting(null)} onCancel={() => setPrinting(null)} />}
-    </div>
-  )
+const initial={opening:'0.00',counted:'',leave:'0.00',extraIn:'0.00',extraOut:'0.00',card:'',check:'',by:'',notes:''}
+type Draft=typeof initial
+function drawer(d:Draft):DrawerInputs|null {
+ const vals=[d.opening,d.counted,d.leave,d.extraIn,d.extraOut].map(v=>v.trim()?parseMoney(v):NaN)
+ if(vals.some(n=>!Number.isSafeInteger(n)||n<0||n>1e10))return null
+ const card=d.card.trim()?parseMoney(d.card):null,check=d.check.trim()?parseMoney(d.check):null
+ if((card!==null&&(!Number.isSafeInteger(card)||Math.abs(card)>1e10))||(check!==null&&(!Number.isSafeInteger(check)||Math.abs(check)>1e10)))return null
+ return {openingCents:vals[0],countedCashCents:vals[1],leaveCents:vals[2],extraInCents:vals[3],extraOutCents:vals[4],cardActualCents:card,checkActualCents:check,by:d.by.trim(),notes:d.notes.trim()}
 }
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="card stat">
-      <div className="muted small">{label}</div>
-      <div className="stat-value">{value}</div>
-    </div>
-  )
+export default function DailyCloseout(){
+ const pendingKey='diamondpos:eod:pending:'+serverBaseUrl()
+ const [pending,setPending]=useState<EndOfDayCloseRequest|null>(()=>{try{return JSON.parse(localStorage.getItem(pendingKey)??'null')}catch{return null}})
+ const [date,setDate]=useState(pending?.date??today()),[till,setTill]=useState<string|null>(pending?.till??null),[tills,setTills]=useState<string[]>([])
+ const [report,setReport]=useState<EndOfDayReport|null>(null),[history,setHistory]=useState<EndOfDayCloseout[]>([]),[view,setView]=useState<EndOfDayCloseout|null>(null)
+ const [draft,setDraft]=useState<Draft>(initial),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[refresh,setRefresh]=useState(0),[saleId,setSaleId]=useState<number|null>(null),[store,setStore]=useState('DiamondPOS')
+ useEffect(()=>{api.getSettings().then(s=>setStore(s.storeName)).catch(()=>{});api.endOfDayTills().then(setTills).catch(e=>setError(e.message))},[])
+ useEffect(()=>{let cancelled=false;setLoading(true);setReport(null);setHistory([]);setView(null);setError('');Promise.all([api.endOfDay(date,till),api.endOfDayCloseouts(date),api.endOfDayTills()]).then(([r,h,names])=>{if(!cancelled){setReport(r);setHistory(h);setTills(names)}}).catch(e=>{if(!cancelled)setError(e.message)}).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true}},[date,till,refresh])
+ const current=view?.report??report,counts=view?.inputs??drawer(draft),reconciliation=view?.reconciliation??(current&&counts?reconcileDrawer(current,counts):null)
+ function set(key:keyof Draft,value:string){setDraft(d=>({...d,[key]:value}))}
+ async function save(){
+  if(!current||view)return
+  const inputs=drawer(draft)
+  if(!pending&&(!inputs||!inputs.by||inputs.leaveCents>inputs.countedCashCents)){setError('Enter counted cash, valid amounts, your name, and cash left no greater than the count.');return}
+  if(!pending&&!confirm('Save this closeout snapshot? It does not lock the day or reset totals. Later transactions require a new snapshot.'))return
+  setBusy(true);setError('');setNotice('')
+  try{
+   const body:EndOfDayCloseRequest=pending??{requestId:crypto.randomUUID(),date:current.date,till:current.till,sourceHash:current.sourceHash,inputs:inputs!}
+   localStorage.setItem(pendingKey,JSON.stringify(body));setPending(body)
+   const saved=await api.saveEndOfDay(body)
+   localStorage.removeItem(pendingKey);setPending(null);setView(saved);setNotice(`Closeout #${saved.id} saved. Printing remains manual.`);setHistory(await api.endOfDayCloseouts(saved.report.date))
+  }catch(e){if((e as {definite?:boolean}).definite){localStorage.removeItem(pendingKey);setPending(null)}setError((e as Error).message)}finally{setBusy(false)}
+ }
+ async function print(){if(!current)return;setError('');try{const settings=await currentPrintSettings();await window.pos.print({html:eodHtml(current,store,counts,reconciliation,view?.id),printer:settings.fullPagePrinter,letter:true});setNotice('End-of-day report sent to the full-page printer.')}catch(e){setError((e as Error).message)}}
+ function exportFile(){if(!current)return;try{writeSpreadsheet(`DiamondPOS End of Day ${current.date}${view?'-closeout-'+view.id:''}.xlsx`,[
+  {name:'Summary',headers:['Field','Value'],rows:[{Field:'Date',Value:current.date},{Field:'Till',Value:current.till??'All tills'},{Field:'Saved closeout',Value:view?.id??'Live preview'},{Field:'Receipt count',Value:current.business.receiptCount},{Field:'Refund receipt count',Value:current.business.refundReceiptCount},{Field:'Exchange count',Value:current.business.exchangeCount},{Field:'Tax-exempt receipt count',Value:current.business.exemptCount},{Field:'Actual-date net payments',Value:current.netPaymentsCents/100},{Field:'Account payments received',Value:current.accountPaymentsCents/100},...eodSummaryRows(current).map(([Field,n])=>({Field,Value:n/100}))]},
+  {name:'Tender movement',headers:['Method','Entries','Received','Paid out','Net'],rows:current.tenders.map(t=>({Method:t.label,Entries:t.count,Received:t.inCents/100,'Paid out':t.outCents/100,Net:t.netCents/100}))},
+  {name:'Card brands',headers:['Brand','Entries','Received','Paid out','Net'],rows:current.cards.map(t=>({Brand:t.label,Entries:t.count,Received:t.inCents/100,'Paid out':t.outCents/100,Net:t.netCents/100}))},
+  {name:'Payment detail',headers:['Time','Type','Receipt','Customer','Till','Method','Brand','Check number','Amount'],rows:current.events.map(e=>({Time:dateTime(e.at),Type:e.kind,Receipt:e.receiptId??'',Customer:e.customer,Till:e.till,Method:e.method,Brand:e.brand??'','Check number':e.method==='check'?e.reference??'':'',Amount:e.cents/100}))},
+  {name:'Sales',headers:['Receipt','Business time','Till','Customer','Amount','On account'],rows:current.receiptRows.map(s=>({Receipt:s.id,'Business time':dateTime(s.at),Till:s.till,Customer:s.customer,Amount:s.totalCents/100,'On account':s.onAccount?'Yes':'No'}))},
+  {name:'By till',headers:['Till','Business-date receipts','Receipt total','Actual-date net payments'],rows:current.tills.map(t=>({Till:t.name,'Business-date receipts':t.receiptCount,'Receipt total':t.salesCents/100,'Actual-date net payments':t.paymentNetCents/100}))},
+  {name:'Voids',headers:['Receipt','Time','Till','By','Reason','Payment handling','Original amount'],rows:current.voids.map(v=>({Receipt:v.receiptId,Time:dateTime(v.at),Till:v.till,By:v.by,Reason:v.reason,'Payment handling':v.paymentNote,'Original amount':v.totalCents/100}))},
+  {name:'Drawer',headers:['Field','Value'],rows:counts&&reconciliation?[...Object.entries(counts),...Object.entries(reconciliation)].map(([Field,value])=>({Field,Value:typeof value==='number'?value/100:value??'Not counted'})):[{Field:'Status',Value:'Not counted'}]}
+ ]);setNotice('End-of-day spreadsheet exported.')}catch(e){setError((e as Error).message)}}
+ return <div className="page wide eod-page"><div className="row between"><h2>End of Day</h2><div className="row gap"><input aria-label="Report date" type="date" value={date} disabled={busy||!!pending} onChange={e=>{setDate(e.target.value);setDraft(initial)}}/><select aria-label="Till" value={till??''} disabled={busy||!!pending} onChange={e=>{setTill(e.target.value||null);setDraft(initial)}}><option value="">All tills — Store Close</option>{tills.map(t=><option key={t}>{t}</option>)}</select><button disabled={busy} onClick={()=>setRefresh(n=>n+1)}>Refresh / live report</button><button disabled={!current||busy} onClick={print}>Print report</button><button disabled={!current||busy} onClick={exportFile}>Export to Excel</button></div></div>
+ {error&&<p className="error-text" role="alert">{error}</p>}{notice&&<p className="ok-text">{notice}</p>}
+ {pending&&<div className="eod-note"><b>Check an unconfirmed closeout save.</b> Retry the original request before creating another snapshot. <button disabled={busy} onClick={save}>Check / retry original save</button></div>}
+ {loading&&<p>Loading report…</p>}
+ {current&&<><p className="eod-note"><b>{view?`Saved closeout #${view.id} · ${dateTime(view.savedAt)}`:'Live status — not a saved closeout'}</b> · {current.date} · {current.till??'All tills'} · {current.timeZone}. Calendar-day report, not a shift reset. Saved snapshots stay unchanged; later sales/voids require a new snapshot.</p>
+ <h3>Sales by selected business date</h3><p>{current.business.receiptCount} receipts · {current.business.refundReceiptCount} refund receipts · {current.business.exchangeCount} exchanges · {current.business.exemptCount} tax-exempt receipts</p><div className="stats">{eodSummaryRows(current).map(([label,n])=><div className="card stat" key={label}><div className="muted small">{label}</div><div className="stat-value">{money(n)}</div></div>)}</div><p className="small muted">Voids are excluded. Price reductions compare saved regular prices with sold prices; {current.business.reductionUnknownLines} item lines have no comparison price. {current.business.returnReductionUnknownLines} return lines lack an original comparison price. Discount reasons are not tracked.</p>
+ <h3>Money handled on the actual entry / refund date</h3><p className="small muted">This can differ from business-date sales when tickets are backdated or future-dated. Account payments are money received, not new sales. Void reversals use the original tender methods; verify the payment-handling notes and terminal. They assume the separately confirmed refund/cancellation was completed.</p><Tender rows={current.tenders}/><p>Net payments: <b>{money(current.netPaymentsCents)}</b> · Account payments received (included): <b>{money(current.accountPaymentsCents)}</b></p><h4>Card brands</h4><Tender rows={current.cards}/>
+ <h3>Drawer count and deposit {current.till?'— '+current.till:'— combined totals for all tills'}</h3>
+ {!view?<><p className="small muted">Count this till, or enter combined counts if All tills is selected. Other cash in/out is for unrecorded non-sale movements only; do not repeat refunds/account payments. These adjustments do not post to QuickBooks.</p><div className="eod-inputs">{([['opening','Opening cash'],['counted','Actual cash counted'],['leave','Cash to leave in drawer'],['extraIn','Other cash paid in'],['extraOut','Other cash paid out'],['card','Terminal net total (optional)'],['check','Counted check total (optional)']] as [keyof Draft,string][]).map(([key,label])=><label key={key}>{label}<input inputMode="decimal" value={draft[key]} disabled={busy||!!pending} onChange={e=>set(key,e.target.value)}/></label>)}<label>Counted by<input value={draft.by} maxLength={100} disabled={busy||!!pending} onChange={e=>set('by',e.target.value)}/></label><label className="eod-notes">Notes / explain other cash in or out<textarea value={draft.notes} maxLength={2000} disabled={busy||!!pending} onChange={e=>set('notes',e.target.value)}/></label></div></>:<p>Counted by <b>{view.inputs.by}</b> · Notes: {view.inputs.notes||'None'}</p>}
+ {counts&&reconciliation?<Reconciliation inputs={counts} result={reconciliation}/>:<p>Enter a valid cash count to calculate over/short and deposit.</p>}
+ {!view&&<button className="primary" disabled={busy||!!pending} onClick={save}>{busy?'Saving…':'Save counted closeout'}</button>}
+ <h3>By till</h3><table className="table"><thead><tr><th>Till</th><th>Business-date receipts</th><th>Receipt total</th><th>Actual-date net payments</th></tr></thead><tbody>{current.tills.map(t=><tr key={t.name}><td>{t.name}</td><td>{t.receiptCount}</td><td>{money(t.salesCents)}</td><td>{money(t.paymentNetCents)}</td></tr>)}</tbody></table>
+ <details><summary>Non-cash payment detail ({current.events.filter(e=>e.method!=='cash').length})</summary><table className="table"><thead><tr><th>Time</th><th>Type</th><th>Receipt / customer</th><th>Till</th><th>Method / brand</th><th>Check #</th><th>Amount</th></tr></thead><tbody>{current.events.filter(e=>e.method!=='cash').map(e=><tr key={e.key}><td>{dateTime(e.at)}</td><td>{e.kind}</td><td>{e.receiptId&&<button onClick={()=>setSaleId(e.receiptId)}>#{e.receiptId}</button>} {e.customer}</td><td>{e.till}</td><td>{e.method} {e.brand}</td><td>{e.method==='check'?e.reference:''}</td><td>{money(e.cents)}</td></tr>)}</tbody></table></details>
+ <details><summary>Business-date receipts ({current.receiptRows.length})</summary><table className="table"><thead><tr><th>Receipt</th><th>Time</th><th>Till</th><th>Customer</th><th>Total</th></tr></thead><tbody>{current.receiptRows.map(s=><tr key={s.id}><td><button onClick={()=>setSaleId(s.id)}>#{s.id}</button>{s.onAccount?' On account':''}</td><td>{dateTime(s.at)}</td><td>{s.till}</td><td>{s.customer}</td><td>{money(s.totalCents)}</td></tr>)}</tbody></table></details>
+ <details><summary>Voids recorded on selected day ({current.voids.length})</summary><table className="table"><thead><tr><th>Receipt</th><th>Time</th><th>Till</th><th>By</th><th>Reason</th><th>Payment handling</th><th>Original amount</th></tr></thead><tbody>{current.voids.map(v=><tr key={v.receiptId}><td><button onClick={()=>setSaleId(v.receiptId)}>#{v.receiptId}</button></td><td>{dateTime(v.at)}</td><td>{v.till}</td><td>{v.by}</td><td>{v.reason}</td><td>{v.paymentNote}</td><td>{money(v.totalCents)}</td></tr>)}</tbody></table></details>
+ <p className="muted small">Settle the standalone card terminal, run QuickBooks Web Connector and verify backups separately. This report does not settle cards, send sales, lock the day or print automatically.</p>
+ </>}
+ <h3>Saved closeouts for {date}</h3><div className="row gap">{history.filter(h=>!till||h.report.till===till).map(h=><button key={h.id} disabled={busy||!!pending} onClick={()=>{setView(h);setNotice('Viewing a fixed saved snapshot. Refresh / live report returns to current totals.')}}>#{h.id} · {h.report.till??'All tills'} · {dateTime(h.savedAt)} · {h.inputs.by}</button>)}{history.length===0&&<span>No saved closeouts.</span>}</div>
+ {saleId!==null&&<SaleDialog saleId={saleId} onClose={()=>{setSaleId(null);if(!view)setRefresh(n=>n+1)}}/>}
+ </div>
 }
+function Tender({rows}:{rows:EndOfDayReport['tenders']}){return <table className="table"><thead><tr><th>Method</th><th>Payment entries</th><th>Received</th><th>Paid out / reversals</th><th>Net</th></tr></thead><tbody>{rows.map(t=><tr key={t.method}><td>{t.label}</td><td>{t.count}</td><td>{money(t.inCents)}</td><td>{money(t.outCents)}</td><td>{money(t.netCents)}</td></tr>)}</tbody></table>}
+function Reconciliation({inputs:i,result:r}:{inputs:DrawerInputs;result:DrawerResult}){return <div className="stats">{([['Expected cash',r.expectedCashCents],['Counted cash',i.countedCashCents],['Over (+) / Short (-)',r.cashOverShortCents],['Leave in drawer',i.leaveCents],['Cash deposit',r.depositCashCents],['Terminal difference',r.cardOverShortCents],['Check difference',r.checkOverShortCents]] as [string,number|null][]).map(([label,n])=><div className="card stat" key={label}><div className="muted small">{label}</div><div className="stat-value">{n===null?'Not counted':money(n)}</div></div>)}</div>}

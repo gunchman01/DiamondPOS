@@ -1,3 +1,4 @@
+import CustomerEquipmentPanel from './CustomerEquipmentPanel'
 import CustomerAccountDialog from './CustomerAccount'
 import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
@@ -358,6 +359,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
 
           {/* ----- Column 3 ----- */}
           <div className="id-col">
+            {editingId !== null ? <CustomerEquipmentPanel customerId={editingId} onSale={setViewSale} /> : <fieldset className="id-panel"><legend>Customer Equipment</legend><p className="muted small">Save the customer to view linked equipment.</p></fieldset>}
             <fieldset className="id-panel grow">
               <legend>History</legend>
               <div className="history-list">

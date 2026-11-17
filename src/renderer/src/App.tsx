@@ -1,3 +1,4 @@
+import DailyCloseout from './screens/DailyCloseout'
 import Vendors from './screens/Vendors'
 import { drawerConfig } from '../../shared/drawer'
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +26,7 @@ import { Icons } from './icons'
 import { menuEntries, type Intent, type MenuEntry } from './menus'
 
 type Tab =
+  | 'endofday'
   | 'home'
   | 'sell'
   | 'products'
@@ -42,6 +44,7 @@ type Tab =
   | 'vendors'
 /** Screen names shown in the header (navigation is done from the Home screen) */
 const TITLES: Record<Tab, string> = {
+  endofday: 'End of Day',
   home: 'Home',
   sell: 'Make a Sale',
   products: 'Item List',
@@ -61,6 +64,7 @@ const TITLES: Record<Tab, string> = {
 
 /** Help section to open for each screen (ids are the manual's "## " headings, slugified) */
 const HELP_TOPIC: Record<Tab, string> = {
+  endofday: 'end-of-day-closeout',
   home: 'the-home-screen',
   sell: 'making-a-sale',
   products: 'items',
@@ -268,6 +272,7 @@ export default function App() {
             }}
           />
         )}
+        {tab === 'endofday' && <DailyCloseout />}
         {tab === 'reports' && <Reports />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}

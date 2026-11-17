@@ -271,7 +271,7 @@ The iPad on the counter shows the store logo until a till sends it the sign-up f
 > Tablet won't connect? See **Kiosk tablet won't connect** below for step-by-step checks.
 
 ## Sales history and reports
-Open **Sales History** or **Reports**, choose **Daily closeout & receipts**, and pick a date.
+Open **Sales History** or **Reports**, choose **End of Day & receipts**, and pick a date.
 - Totals across all tills: number of sales, takings (after refunds), tax, **cash** (after change), **card**, tax-exempt sales and **returns**.
 - Every sale is listed with its till and customer. Refunds and exchanges are marked. Click a sale to open the full receipt, or **Reprint** for a printed copy.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
@@ -456,7 +456,7 @@ Vendor records, payment terms and purchases are not sent to QuickBooks. The exis
 
 ## Reports
 
-Open **Reports** in the left navigation or on Home. Choose Sales, Inventory or Receiving. Select a ready-made report to open its options, then click **Run report**. **Daily closeout & receipts** keeps the existing date-based totals, receipt viewing and reprinting.
+Open **Reports** in the left navigation or on Home. Choose Sales, Inventory or Receiving. Select a ready-made report to open its options, then click **Run report**. **End of Day & receipts** opens the store/till closeout report, receipt details and manual reprinting.
 
 Ready-made reports include sales by day, receipt register, customer and till summaries, refunds/exchanges, a void audit, inventory valuation, low stock/reorder, stock by department/vendor, a receiving register, receiving by vendor and open receiving drafts.
 
@@ -591,7 +591,7 @@ The folder remains `%APPDATA%\DiamondPOS\data\backups` on the server PC (the act
 
 The Sell checkout panel defaults to **actual checkout time**. For an open-house or other sale entered later, tick **Choose sale date and time** and select the business date/time. Past and future dates are accepted. The field uses the till PC's local time and is sent as an unambiguous UTC timestamp; keep Store Server/till Windows time zones set consistently for your shop (America/Chicago for Diamond P).
 
-The selected business date/time appears on receipts, Sale History and daily/ad hoc sales reports, and becomes the QuickBooks transaction date. This moves the entire receipt and its tenders to that date in sales/closeout reporting. The actual server time when it was entered is saved separately. Sale details identifies manually selected dates and shows **Entered**; ad hoc Sales reports also offer **Sale time**, **Entered at**, and **Date selected manually**. Existing sales keep their original dates, with the same timestamp copied to their historical entry field.
+The selected business date/time appears on receipts, Sale History and daily/ad hoc sales reports, and becomes the QuickBooks transaction date. Business-date sales reports place the receipt on that date. As of v0.3.42, the End of Day money/drawer section separately uses actual entry dates, so cash handled today stays in today's drawer count. The actual server time when it was entered is saved separately. Sale details identifies manually selected dates and shows **Entered**; ad hoc Sales reports also offer **Sale time**, **Entered at**, and **Date selected manually**. Existing sales keep their original dates, with the same timestamp copied to their historical entry field.
 
 A date chosen before **Hold** is saved with the held ticket and recalled with it. Uncheck the date option to use checkout time when completing instead. After completion or putting a ticket on hold, the new sale defaults back to actual checkout time. Unknown checkout/hold response recovery reuses the saved request and chosen date. Completed sale dates are not editable; this does not rewrite existing or previously synced transactions.
 
@@ -600,3 +600,45 @@ Future-dated completed sales and unpaid account invoices are deferred until the 
 Completing a future-dated sale still collects/records payment and removes stock **now**. It is not a delayed stock/payment scheduler. Use a held ticket to prepare a sale that is not yet ready to complete; held stock is reserved under the existing hold rules. This feature does not automatically give a 10% discount or determine a vendor's event eligibility. Set the agreed item price using the existing price controls and verify the total before completion.
 
 Update the Store Server first, then tills. A till checks that the server supports selected sale dates before posting one. Migration 29 adds audit timestamps and a held date field; it does not alter the dates of historical receipts. Test ordinary, backdated and future receipts in your QuickBooks test company before relying on event reporting.
+
+
+## End of Day closeout
+
+Open the existing **End of Day** Home icon, the optional navigation entry, or **Reports → End of Day & receipts**. Select a local calendar date and **All tills — Store Close** or one till. This is a QBPOS-style summary plus drawer count for the data DiamondPOS records, not an exact copy of every QBPOS feature. It is a calendar-day report, not a since-last-close shift reset. Generating/saving does not lock transactions, reset totals, settle a terminal, send data to QuickBooks, back up data or print.
+
+### Two date bases
+
+**Sales by selected business date** uses the date on the receipt. It shows receipt/refund/exchange counts; sales before returns (after discounts/credits); returns before tax; net sales; net tax; total including tax; account charges; tax-exempt net/counts; and known item price reductions given, returned and net. Voids are excluded from these live sales totals. Price reductions compare the saved regular price with the sold item price and reverse known reductions on receipt-linked returns; missing comparison prices/no-receipt returns are identified as unknown. Discount reasons are not tracked. Older inclusive-tax lines may lack complete tax/discount comparisons.
+
+**Money handled on the actual entry/refund date** uses the server entry timestamp (historical fallback: original created time). This handles tickets backdated/future-dated in v0.3.41. It lists received, paid out/reversed and net amounts for cash, checks and standalone-terminal cards, with card-brand detail, account payments and itemized noncash entries. Cash is net of change. Account charges are not cash tenders; account payments are not new revenue. Mixed exchanges show merchandise returned in Sales, while tender totals show only the actual net payment/refund recorded.
+
+Voids create report reversals on the void date and the till entered in the void workflow, using the original receipt's payment methods. Verify the payment-handling note and terminal: reporting assumes the separately confirmed refund/cancellation happened with those methods. It does not move real money. Same-day original payment/reversal nets to zero; cross-day original payments stay on their actual entry day. Void details list receipt, time, till, operator, reason and payment-handling note.
+
+### Count and reconcile
+
+For a single till, enter that drawer's **Opening cash**, **Actual cash counted**, and **Cash to leave**. All tills requires combined amounts across the store; do not enter one drawer's count against store totals. Optional **Other cash paid in/out** records count-only movements not already in the POS ledger; explain them in Notes. Do not duplicate sales, refunds or account payments. These fields do not create a payout ledger, sale or QuickBooks posting. Counts are amount totals, not bill/coin denomination counts.
+
+Expected cash = opening cash + actual-date net cash payments + other cash in − other cash out. Over/short = counted cash − expected cash (positive is over). Cash deposit = counted cash − cash left. Cash left cannot exceed counted. Optionally enter terminal/check net totals to see differences against POS payment totals; these are not automatic bank-settlement values. Enter your name and notes before saving.
+
+### Save, print and export
+
+**Save counted closeout** creates a numbered, fixed snapshot of the displayed report, inputs, reconciliation, name and notes. It detects transaction changes since preview and asks you to refresh/review instead of silently saving stale numbers. An unconfirmed network save retains its original request for **Check / retry original save**, including after restarting the screen; retry does not create another snapshot. The typed name is an audit label, not authenticated manager approval.
+
+Saved snapshots appear by date and till. Open one to view/print/export its original values; **Refresh / live report** returns to current transactions. Later entries, refunds or voids do not rewrite saved snapshots. Create a new one after reviewing late changes. Closeout snapshots do not automatically carry opening float to the next day or prevent multiple closes for a date.
+
+**Print report** sends a full-page report to the configured full-page printer (Windows default if unset). No printing occurs on save. **Export to Excel** includes summary, payment methods, card brands, money detail, sales, voids, per-till totals and drawer calculations. Receipt buttons open original receipt details for the existing manual reprint/void workflow. Report print/export without a cash count is a status report marked not counted, not a saved drawer close.
+
+At closing, separately reconcile/settle the standalone card terminal, run QuickBooks Web Connector and verify backup status. Gift cards/store credits, discount reason codes, cashier/shift accounting and integrated card settlement are not implemented and are not fabricated by this report.
+
+
+## Customer equipment and service history
+
+Open **Customer List**, then open a saved customer. **Customer Equipment** appears in the right-hand column above receipt History. The first line shows the linked unit count; each unit shows its label, serial and work-order count. Expand it for unit type, brand, model, serial, hours, notes and purchase information. A **Receipt #** link opens the original purchase receipt when a recorded Diamond P sale exists. “Purchase not recorded at Diamond P” does not assert where it was bought; repair intake units may have no sale.
+
+This reads existing customer-unit links: units added in work-order check-in and serialized units sold to a customer are included automatically. A unit does not need a completed sale or a completed repair to appear. Inactive units remain visible with an Inactive badge. Existing duplicate unit records are not merged automatically, and viewing equipment does not create a new unit or change inventory.
+
+Each unit lists all associated work orders, including open and Picked Up/closed tickets, with ticket number, stage, check-in timestamp and reported problem. Click a ticket to read its problem, diagnosis, work done, internal notes, parts/charges before tax and history. This service-history view is read-only; open the normal Work Orders screen to edit the ticket, change stage or take payment. Work-order history uses the existing saved unit and customer IDs rather than searching by a possibly repeated serial number.
+
+Use **Refresh equipment** after another till checks in or updates a unit/ticket while this customer window remains open. Reopening the customer loads fresh data. New unsaved customers show a Save-first message. If no units are linked, the page says so; customer spreadsheet contact imports alone do not create equipment records.
+
+This update is the customer equipment/history display. Phone access, intake image upload and photo storage/backup are separate future work and are not available in this release. Update the server before tills so the new equipment endpoint is present.

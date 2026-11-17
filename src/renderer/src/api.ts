@@ -1,3 +1,5 @@
+import type { CustomerEquipment } from '../../shared/customerEquipment'
+import type { EndOfDayReport, EndOfDayCloseout, EndOfDayCloseRequest } from '../../shared/endOfDay'
 import type { BackupOverview, BackupSettings } from '../../shared/backups'
 import type { CustomerAccount,AccountPaymentRequest } from '../../shared/accounts'
 import type { ApprovalConfig } from '../../shared/approvals'
@@ -90,6 +92,11 @@ async function request<T>(method: string, path: string, body?: unknown, base = b
 }
 
 export const api = {
+  customerEquipment: (id:number) => request<CustomerEquipment[]>('GET', `/api/customers/${id}/equipment`),
+  endOfDay: (date:string,till:string|null) => request<EndOfDayReport>('GET', `/api/end-of-day?date=${encodeURIComponent(date)}${till?'&till='+encodeURIComponent(till):''}`),
+  endOfDayTills: () => request<string[]>('GET','/api/end-of-day/tills'),
+  endOfDayCloseouts: (date:string) => request<EndOfDayCloseout[]>('GET','/api/end-of-day/closeouts?date='+encodeURIComponent(date)),
+  saveEndOfDay: (body:EndOfDayCloseRequest) => request<EndOfDayCloseout>('POST','/api/end-of-day/closeouts',body),
   backups: () => request<BackupOverview>('GET', '/api/backups', undefined, undefined, undefined, 60000),
   saveBackupSettings: (settings: BackupSettings) => request<BackupOverview>('PUT', '/api/backups/settings', settings, undefined, undefined, 60000),
   runBackup: () => request<BackupOverview>('POST', '/api/backups/run', {}, undefined, undefined, 180000),
