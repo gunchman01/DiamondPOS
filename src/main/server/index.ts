@@ -1,3 +1,4 @@
+import { registerTrackingRoutes, startActivityScheduler } from './marketing/tracking'
 import { registerConsentRoutes, startConsentScheduler } from './marketing/consent'
 import { registerEndOfDayRoutes } from './endOfDay'
 import { saleInstant } from '../../shared/saleDates'
@@ -96,6 +97,7 @@ class HttpError extends Error {
 let httpServer: Server | null = null
 let db: DB | null = null
 let stopApprovals: (()=>Promise<void>) | null = null
+let stopActivity:(()=>Promise<void>)|null=null
 let stopConsent: (()=>Promise<void>) | null = null
 let stopBackups: (() => Promise<void>) | null = null
 
@@ -122,12 +124,14 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     httpServer = listener
     stopBackups = startBackupScheduler(opened, path.join(path.dirname(opts.dbFile), 'backups'))
     stopConsent = startConsentScheduler(opened)
+    stopActivity = startActivityScheduler(opened)
     await startMarketingSender(opened, readSettings)
     console.log(`[server] Listening on port ${opts.port}`)
   } catch (error) {
     await stopApprovals?.();stopApprovals=null
     await stopMarketingSender()
     await stopConsent?.(); stopConsent=null
+    await stopActivity?.(); stopActivity=null
     if (stopBackups) await stopBackups()
     stopBackups = null
     if (listener) await new Promise<void>((resolve) => listener!.close(() => resolve()))
@@ -142,6 +146,7 @@ export async function stopServer(): Promise<void> {
   await stopApprovals?.();stopApprovals=null
   await stopMarketingSender()
   await stopConsent?.(); stopConsent=null
+  await stopActivity?.(); stopActivity=null
   if (stopBackups) await stopBackups()
   stopBackups = null
   if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
@@ -342,6 +347,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Marketing mailers (email) -----------------------------------------
   registerConsentRoutes(app, db)
+  registerTrackingRoutes(app, db)
   registerMarketingRoutes(app, db, readSettings)
 
   // ----- Work orders (repairs) + customer units -----------------------------

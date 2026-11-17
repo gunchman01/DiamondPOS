@@ -5,7 +5,7 @@ import type { DB } from '../db'
 import type { StoreSettings } from '../../../shared/types'
 import type { Campaign, CampaignSend, SmtpSettings } from '../../../shared/marketing'
 import { audienceOptions, normaliseAudience, runAudience } from './audience'
-import { getSmtp, saveSmtp, sendMailer, sendSmtpTest, smtpProblems, smtpView } from './mailer'
+import { isCampaignSending, getSmtp, saveSmtp, sendMailer, sendSmtpTest, smtpProblems, smtpView } from './mailer'
 
 interface CampaignRow {
   id: number
@@ -21,6 +21,9 @@ interface CampaignRow {
   total: number
   sent: number
   skipped: number
+  tracked_sent: number
+  opened: number
+  clicked: number
   failed: number
 }
 
@@ -31,7 +34,10 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
       (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id) AS total,
       (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id AND s.status = 'sent') AS sent,
       (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id = mc.id AND s.status = 'failed') AS failed,
-      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='skipped') AS skipped
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='skipped') AS skipped,
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='sent' AND s.tracking_active=1) AS tracked_sent,
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='sent' AND s.tracking_active=1 AND EXISTS(SELECT 1 FROM marketing_activity a WHERE a.send_id=s.id AND a.kind='open')) AS opened,
+      (SELECT COUNT(*) FROM marketing_sends s WHERE s.campaign_id=mc.id AND s.status='sent' AND s.tracking_active=1 AND EXISTS(SELECT 1 FROM marketing_activity a WHERE a.send_id=s.id AND a.kind='click')) AS clicked
     FROM marketing_campaigns mc`
   const toCampaign = (r: CampaignRow, withFlyer = true): Campaign => ({
     id: r.id,
@@ -47,6 +53,9 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
     sent: r.sent,
     failed: r.failed,
     skipped: r.skipped,
+    trackedSent: r.tracked_sent,
+    opened: r.opened,
+    clicked: r.clicked,
     lastError: r.last_error
   })
   const get = (id: number) => {
@@ -135,8 +144,8 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
   app.post('/api/marketing/campaigns/:id/remove', (req, res) => {
     const c = get(Number(req.params.id))
     if (!c) return fail(res, 404, 'Mailer not found')
-    if (c.status !== 'draft') return fail(res, 409, 'Only drafts can be deleted')
-    db.prepare('DELETE FROM marketing_campaigns WHERE id = ?').run(c.id)
+    if (c.status === 'sending'||isCampaignSending(c.id)) return fail(res,409,'Stop sending first and wait for the current email to finish before deleting this campaign')
+    db.transaction(()=>{db.prepare('DELETE FROM marketing_sends WHERE campaign_id=?').run(c.id);db.prepare('DELETE FROM marketing_campaigns WHERE id=?').run(c.id)})()
     res.json({ ok: true })
   })
 
@@ -198,10 +207,24 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
   app.get('/api/marketing/campaigns/:id/sends', (req, res) => {
     const rows = db
       .prepare(
-        `SELECT ms.customer_id, ms.email, ms.status, ms.error, ms.sent_at, c.first_name, c.last_name, c.company, c.track_as_company
+        `SELECT ms.id,ms.tracking_active,ms.customer_id, ms.email, ms.status, ms.error, ms.sent_at, c.first_name, c.last_name, c.company, c.track_as_company,
+         (SELECT COUNT(*) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='open') AS open_count,
+         (SELECT MIN(at) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='open') AS first_open,
+         (SELECT MAX(at) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='open') AS last_open,
+         (SELECT COUNT(*) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='click') AS click_count,
+         (SELECT MIN(at) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='click') AS first_click,
+         (SELECT MAX(at) FROM marketing_activity a WHERE a.send_id=ms.id AND a.kind='click') AS last_click
          FROM marketing_sends ms JOIN customers c ON c.id = ms.customer_id WHERE ms.campaign_id = ? ORDER BY ms.id`
       )
       .all(Number(req.params.id)) as {
+      id:number
+      tracking_active:number
+      open_count:number
+      first_open:string|null
+      last_open:string|null
+      click_count:number
+      first_click:string|null
+      last_click:string|null
       customer_id: number
       email: string
       status: CampaignSend['status']
@@ -213,6 +236,8 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
       track_as_company: number
     }[]
     const list: CampaignSend[] = rows.map((r) => ({
+      tracked:r.tracking_active===1,openCount:r.open_count,firstOpenedAt:r.first_open,lastOpenedAt:r.last_open,clickCount:r.click_count,firstClickedAt:r.first_click,lastClickedAt:r.last_click,
+      clickedLinks:db.prepare("SELECT url,COUNT(*) AS count,MIN(at) AS firstAt,MAX(at) AS lastAt FROM marketing_activity WHERE send_id=? AND kind='click' GROUP BY url ORDER BY count DESC,url").all(r.id) as CampaignSend['clickedLinks'],
       customerId: r.customer_id,
       name:
         r.track_as_company && r.company ? r.company : [r.first_name, r.last_name].filter(Boolean).join(' ') || r.company || '',

@@ -20,7 +20,7 @@ export function suppressMarketing(db:DB,emailValue:unknown,source='website',at=n
 }
 export function consentConfig(db:DB):MarketingConsentConfig {
  const s=read<Partial<MarketingConsentConfig>>(db,'marketing_consent_config',{})
- return {enabled:s.enabled===true,url:s.url??'',apiKey:s.apiKey??'',clientId:s.clientId??''}
+ return {enabled:s.enabled===true,trackingEnabled:s.trackingEnabled!==false,url:s.url??'',apiKey:s.apiKey??'',clientId:s.clientId??''}
 }
 export function saveConsentConfig(db:DB,b:any):MarketingConsentView {
  if(jobs.has(db))throw new Error('A consent sync is running; retry saving shortly')
@@ -29,20 +29,20 @@ export function saveConsentConfig(db:DB,b:any):MarketingConsentView {
  if(url){const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw new Error('Use the HTTPS marketing service URL without query parameters or credentials');if(!u.pathname.endsWith('index.php'))u.pathname=u.pathname.replace(/\/$/,'')+'/index.php';canonical=u.toString()}
  const apiKey=b?.apiKey?String(b.apiKey).trim():cur.apiKey
  if(apiKey&&!/^[a-f0-9]{64}$/i.test(apiKey))throw new Error('Use the 64-character generated API key')
- const next={enabled:b?.enabled===undefined?cur.enabled:b.enabled===true,url:canonical,apiKey,clientId:cur.clientId||crypto.randomUUID()}
+ const next={trackingEnabled:b?.trackingEnabled===undefined?cur.trackingEnabled:b.trackingEnabled===true,enabled:b?.enabled===undefined?cur.enabled:b.enabled===true,url:canonical,apiKey,clientId:cur.clientId||crypto.randomUUID()}
  if(next.enabled&&(!next.url||!next.apiKey))throw new Error('Enter the website URL and API key before enabling')
- db.transaction(()=>{write(db,'marketing_consent_config',next);if(next.url!==cur.url||next.apiKey!==cur.apiKey){write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run()}})()
+ db.transaction(()=>{write(db,'marketing_consent_config',next);if(next.url!==cur.url||next.apiKey!==cur.apiKey){write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run()}})()
  return consentView(db)
 }
 export function consentView(db:DB):MarketingConsentView {
  const s=consentConfig(db),state=read(db,'marketing_consent_state',{cursor:0,lastSyncAt:null as string|null,error:null as string|null})
- return {enabled:s.enabled,url:s.url,hasKey:!!s.apiKey,clientId:s.clientId,...state,
+ return {enabled:s.enabled,trackingEnabled:s.trackingEnabled,url:s.url,hasKey:!!s.apiKey,clientId:s.clientId,...state,
   suppressedCount:(db.prepare('SELECT COUNT(*) AS n FROM marketing_suppressions').get() as any).n,pendingCount:(db.prepare('SELECT COUNT(*) AS n FROM marketing_consent_outbox').get() as any).n,
   recent:(db.prepare('SELECT email,unsubscribed_at AS at,source FROM marketing_suppressions ORDER BY unsubscribed_at DESC,email LIMIT 100').all() as any[])}
 }
-function ready(db:DB){const cfg=consentConfig(db);if(!cfg.enabled||!cfg.url||!cfg.apiKey)throw unavailable('Configure Website marketing consent in Settings → Email before sending campaigns');return cfg}
+export function ready(db:DB){const cfg=consentConfig(db);if(!cfg.enabled||!cfg.url||!cfg.apiKey)throw unavailable('Configure Website marketing consent in Settings → Email before sending campaigns');return cfg}
 export type ConsentFetch=typeof fetch
-async function remote(cfg:MarketingConsentConfig,action:string,body:unknown,fetcher:ConsentFetch){
+export async function remote(cfg:MarketingConsentConfig,action:string,body:unknown,fetcher:ConsentFetch){
  try{
   const url=new URL(cfg.url);url.searchParams.set('action',action)
   const response=await fetcher(url.toString(),{method:'POST',redirect:'error',headers:{'Content-Type':'application/json','X-DiamondPOS-Key':cfg.apiKey},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)})
@@ -105,7 +105,7 @@ export function registerConsentRoutes(app:express.Express,db:DB){
  app.get('/api/marketing/consent',(_req,res)=>res.json(consentView(db)))
  app.post('/api/marketing/consent/key',(_req,res)=>res.json({apiKey:crypto.randomBytes(32).toString('hex')}))
  app.put('/api/marketing/consent',(req,res)=>{try{res.json(saveConsentConfig(db,req.body))}catch(e){res.status(400).json({error:(e as Error).message})}})
- app.post('/api/marketing/consent/replay',(_req,res)=>{if(jobs.has(db))return res.status(409).json({error:'A sync is running; retry shortly'});write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run();void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
+ app.post('/api/marketing/consent/replay',(_req,res)=>{if(jobs.has(db))return res.status(409).json({error:'A sync is running; retry shortly'});write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run();void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
  app.post('/api/marketing/consent/sync',(_req,res)=>{void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
  app.post('/api/marketing/consent/export',(_req,res)=>{void exportMarketingSubscribers(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
 }

@@ -22,7 +22,9 @@ try {
  @chmod($file,0600);
  $now=fn()=>gmdate('Y-m-d\TH:i:s\Z');
  $suppress=function(string $email)use($db,$now):void{$db->beginTransaction();try{$q=$db->prepare('INSERT OR IGNORE INTO suppressions(email,at) VALUES(?,?)');$at=$now();$q->execute([$email,$at]);if($q->rowCount()){$q=$db->prepare('INSERT INTO events(email,at) VALUES(?,?)');$q->execute([$email,$at]);}$db->commit();}catch(Throwable $e){$db->rollBack();throw $e;}};
+ require_once __DIR__.'/tracking.php';trackingSchema($db);
  $action=(string)($_GET['action']??'');
+ if(in_array($action,['open','click'],true))trackingPublic($db,$action);
  if($action===''){
   $token=(string)($_POST['token']??$_GET['token']??'');
   if(!preg_match('/^[a-f0-9]{64}$/iD',$token))page('Marketing preferences','This link is invalid. Please contact the shop to stop marketing emails.');
@@ -35,6 +37,8 @@ try {
  if(($_SERVER['REQUEST_METHOD']??'')!=='POST')jsonOut(['ok'=>false,'error'=>'Use POST'],405);
  if((int)($_SERVER['CONTENT_LENGTH']??0)>65536)jsonOut(['ok'=>false,'error'=>'Request too large'],413);
  $body=json_decode(file_get_contents('php://input'),true,64,JSON_THROW_ON_ERROR);if(!is_array($body))throw new InvalidArgumentException('Expected object');
+ if($action==='prepareTracking')prepareTracking($db,$body,$public);
+ if($action==='activity')activityFeed($db,$body);
  if($action==='suppress'){$suppress(emailKey($body['email']??null));jsonOut(['ok'=>true]);}
  if($action==='prepare'){
   $email=emailKey($body['email']??null);$q=$db->prepare('SELECT 1 FROM suppressions WHERE email=?');$q->execute([$email]);if($q->fetchColumn())jsonOut(['ok'=>true,'suppressed'=>true]);

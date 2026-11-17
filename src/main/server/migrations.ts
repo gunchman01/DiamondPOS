@@ -656,6 +656,13 @@ export const migrations: Migration[] = [
  {version:31,name:'persistent marketing suppression and outbound opt-out sync',up:`
   CREATE TABLE marketing_suppressions(email TEXT PRIMARY KEY,unsubscribed_at TEXT NOT NULL,source TEXT NOT NULL);
   CREATE TABLE marketing_consent_outbox(email TEXT PRIMARY KEY);
+ `},
+ {version:32,name:'marketing delivery engagement events',up:`
+  ALTER TABLE marketing_sends ADD COLUMN tracking_key TEXT;
+  ALTER TABLE marketing_sends ADD COLUMN tracking_active INTEGER NOT NULL DEFAULT 0;
+  CREATE UNIQUE INDEX idx_marketing_tracking_key ON marketing_sends(tracking_key) WHERE tracking_key IS NOT NULL;
+  CREATE TABLE marketing_activity(event_key TEXT PRIMARY KEY,send_id INTEGER NOT NULL REFERENCES marketing_sends(id) ON DELETE CASCADE,kind TEXT NOT NULL CHECK(kind IN ('open','click')),at TEXT NOT NULL,url TEXT);
+  CREATE INDEX idx_marketing_activity_send ON marketing_activity(send_id,kind,at);
  `}
 
 ]

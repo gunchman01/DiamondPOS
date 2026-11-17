@@ -14,6 +14,17 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.45 - 17 Nov 2026
+> Update the Store Server first, then all tills. Upgrade the existing cPanel marketing service and preserve its private configuration/database.
+- **Service-history audiences:** target customers with any service, mower, handheld or other equipment work orders. Choose completed-only or include in-progress jobs, with check-in date and customer-type filters. No purchase is required.
+- **Delete old campaigns:** remove drafts or finished/stopped campaigns with confirmation. Active/in-flight sends are protected; customer unsubscribe history and old emailed links are preserved.
+- **Campaign activity inside Marketing:** see recipients with detected opens and clicks, first/latest timestamps, observed counts and links clicked. Filter recipients and export results to Excel.
+- Campaign list shows distinct engaged recipients out of tracked messages sent. Older messages are marked untracked; no activity is inferred retroactively.
+- The website collects events and the Store Server syncs about once a minute. Manual sync and history replay preserve accurate counts across retries/restores.
+- Tracking is enabled for future campaigns and can be turned off in Settings → Email. Tests/previews, work-order messages and estimate emails remain separate and untracked.
+- Open detection is estimated. Image privacy features and security scanners affect results; no detected open does not establish unread mail. Forwarding/deleting cannot be identified.
+- Keeps existing unsubscribe links and suppression safeguards. Confirmed unsubscribes stop future engagement collection for that address.
+
 ## v0.3.44 - 17 Nov 2026
 > Update the Store Server first, then every till. Upload/configure the new cPanel service before sending marketing campaigns.
 - **Website unsubscribes:** marketing emails include a confirmation link. Confirmed opt-outs stop future marketing and automatically clear OK to email on all matching customer records.

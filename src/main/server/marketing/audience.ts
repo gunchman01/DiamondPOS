@@ -24,6 +24,9 @@ export function normaliseAudience(a: unknown): Audience {
     .slice(0, 20)
   const months = Number(x.withinMonths)
   return {
+    source:x.source==='service'?'service':'purchases',
+    serviceCategory:['mower','handheld','other'].includes(String(x.serviceCategory))?x.serviceCategory:'any',
+    serviceCompletedOnly:x.serviceCompletedOnly!==false,
     allCustomers: x.allCustomers === true,
     rules,
     withinMonths: Number.isInteger(months) && months > 0 && months <= 240 ? months : null,
@@ -80,6 +83,13 @@ export function runAudience(db: DB, input: unknown, limit = Infinity): AudienceR
                         (SELECT MAX(created_at) FROM sales s WHERE s.customer_id = c.id AND s.status = 'completed') AS last
                  FROM customers c WHERE c.active = 1 ${typeFilter()}`
     rows = db.prepare(sql).all(...params) as Row[]
+  } else if(a.source==='service') {
+    let where="w.status NOT IN ('not_fixed','cancelled') AND NOT(w.status='closed' AND COALESCE((SELECT h.status FROM work_order_history h WHERE h.work_order_id=w.id AND h.status IS NOT NULL AND h.status<>'closed' ORDER BY h.id DESC LIMIT 1),'')='not_fixed')"
+    if(a.serviceCompletedOnly)where+=" AND w.status IN ('ready_pickup','closed')"
+    if(a.serviceCategory!=='any'){where+=' AND u.category=?';params.push(a.serviceCategory!)}
+    if(a.withinMonths){where+=" AND datetime(w.created_at)>=datetime('now',?)";params.push(`-${a.withinMonths} months`)}
+    const service=`SELECT w.customer_id AS cid,COUNT(DISTINCT w.id) AS n,MAX(w.created_at) AS last FROM work_orders w JOIN customer_units u ON u.id=w.unit_id WHERE ${where} GROUP BY w.customer_id`
+    rows=db.prepare(`SELECT c.id,c.first_name,c.last_name,c.company,c.track_as_company,c.email,c.ok_to_email,m.n,m.last FROM (${service}) m JOIN customers c ON c.id=m.cid WHERE c.active=1 ${typeFilter()}`).all(...params) as Row[]
   } else {
     if (a.rules.length === 0) return { matched: 0, recipients: [], excludedNoConsent: 0, excludedNoEmail: 0 }
     // Parameters must be pushed in the order their ? appears in the SQL: time window, then rules, then types

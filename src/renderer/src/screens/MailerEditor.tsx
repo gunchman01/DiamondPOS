@@ -1,3 +1,4 @@
+import CampaignActivity from './CampaignActivity'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Audience, AudienceOptions, AudienceResult, AudienceRule, Campaign, CampaignSend } from '../../../shared/marketing'
 import type { StoreSettings } from '../../../shared/types'
@@ -158,6 +159,7 @@ export default function MailerEditor(props: {
         <button className="link" onClick={props.onClose}>
           ← All mailers
         </button>
+        {c && c.status!=='sending' && <button className="danger" disabled={busy} onClick={()=>{if(!confirm(`Delete campaign "${c.name}" and its local recipient/activity history? This cannot be undone. Customer unsubscribe preferences and emailed links are preserved.`))return;void run(async()=>{await api.mkRemove(c.id);props.onChanged();props.onClose()},'Campaign deleted')}}>Delete campaign</button>}
         {c && c.status !== 'draft' && (
           <span className={`badge ${c.status === 'sent' ? 'new' : c.status === 'sending' ? 'upd' : 'err'}`}>{c.status}</span>
         )}
@@ -182,6 +184,7 @@ export default function MailerEditor(props: {
               Message above the flyer (optional, {'{name}'} = customer's first name)
               <textarea disabled={!editable} rows={4} className="comments" value={message} onChange={(e) => setMessage(e.target.value)} />
             </label>
+            <p className="muted small">Paste full https:// links into the message to make them clickable and track clicks. Links drawn inside a flyer image are not clickable. Campaign tests check appearance but do not collect campaign activity.</p>
             <div className="flyer-box">
               {flyer ? <img src={flyer} alt="Flyer" /> : <span className="muted">No flyer yet. Upload the PNG or JPG you downloaded from Canva.</span>}
             </div>
@@ -212,16 +215,17 @@ export default function MailerEditor(props: {
             <h3>2. Who gets it</h3>
             <div className="row gap">
               <label className="check">
-                <input type="radio" disabled={!editable} checked={!audience.allCustomers} onChange={() => setAudience({ ...audience, allCustomers: false })} />
+                <input type="radio" disabled={!editable} checked={!audience.allCustomers&&audience.source!=='service'} onChange={() => setAudience({ ...audience, allCustomers: false,source:'purchases' })} />
                 Customers who bought…
               </label>
+              <label className="check"><input type="radio" disabled={!editable} checked={!audience.allCustomers&&audience.source==='service'} onChange={()=>setAudience({...audience,allCustomers:false,source:'service',serviceCategory:audience.serviceCategory??'any',serviceCompletedOnly:audience.serviceCompletedOnly??true})}/>Customers with service history</label>
               <label className="check">
                 <input type="radio" disabled={!editable} checked={audience.allCustomers} onChange={() => setAudience({ ...audience, allCustomers: true })} />
                 Everyone on the email list
               </label>
             </div>
 
-            {!audience.allCustomers && (
+            {!audience.allCustomers && audience.source!=='service' && (
               <>
                 {audience.rules.map((r, i) => (
                   <div key={i} className="rule-row">
@@ -267,6 +271,12 @@ export default function MailerEditor(props: {
                 </label>
               </>
             )}
+            {!audience.allCustomers && audience.source==='service' && <>
+              <label>Service history<select disabled={!editable} value={audience.serviceCategory??'any'} onChange={e=>setAudience({...audience,serviceCategory:e.target.value as Audience['serviceCategory']})}><option value="any">Any service / all equipment</option><option value="mower">Mower service</option><option value="handheld">Handheld service</option><option value="other">Other equipment service</option></select></label>
+              <label>Which work orders?<select disabled={!editable} value={audience.serviceCompletedOnly===false?'all':'completed'} onChange={e=>setAudience({...audience,serviceCompletedOnly:e.target.value==='completed'})}><option value="completed">Completed — Ready for Pick Up or Picked Up</option><option value="all">Any non-cancelled work order, including in progress</option></select></label>
+              <label>Checked in<select disabled={!editable} value={audience.withinMonths??''} onChange={e=>setAudience({...audience,withinMonths:e.target.value?Number(e.target.value):null})}>{WINDOWS.map(w=><option key={w.label} value={w.value??''}>{w.label}</option>)}</select></label>
+              <p className="muted small">Uses work orders linked to the customer and the equipment category recorded on the unit. They do not need to have bought the equipment here. Not Fixed/cancelled tickets are excluded. The date range uses work-order check-in date. Email permission and unsubscribes still apply.</p>
+            </>}
             {props.options.customerTypes.length > 0 && (
               <div className="row gap small">
                 <span className="muted">Customer types:</span>
@@ -383,7 +393,7 @@ export default function MailerEditor(props: {
                   <div className="progress-row">
                     <progress max={Math.max(1, c.total)} value={c.sent + c.failed} />
                     <span>
-                      {c.sent} sent · {c.failed} failed · {c.total} total
+                      {c.sent} sent · {c.skipped??0} skipped · {c.failed} failed · {c.total} total
                     </span>
                   </div>
                   {c.lastError && <div className="error-text">{c.lastError}</div>}
@@ -426,6 +436,7 @@ export default function MailerEditor(props: {
           </div>
         </div>
       </div>
+      {id && c && c.status!=='draft' && <CampaignActivity campaignId={id}/>}
     </div>
   )
 }

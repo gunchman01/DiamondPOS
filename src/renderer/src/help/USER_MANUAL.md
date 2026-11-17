@@ -650,3 +650,21 @@ Configure the cPanel consent service through Settings → Email → Website mark
 Saved unsubscribes survive customer edits/imports and backups. They cannot be reversed with the checkbox; a future fresh-consent workflow is required. If a customer replies asking to unsubscribe, staff must uncheck OK to email and save; this immediately blocks local marketing and queues the website opt-out. Recent unsubscribes, last successful sync and pending opt-out uploads appear in Email settings. Queued recipients whose consent/address/active status changed are skipped.
 
 Export eligible contacts first synchronizes suppression and produces a deduplicated CSV. A website sender must still check the suppression service before each recipient; an older export never overrides unsubscribes. The website campaign dashboard is not included in this update. After restoring POS or website data, use Replay suppression history; separately back up the private cPanel database so old unsubscribe links remain valid. Emails already handed to SMTP cannot be recalled.
+
+## Campaign opens and clicks (v0.3.45)
+
+Marketing → Mailers shows distinct recipients with detected opens/clicks out of successfully sent messages containing tracking. Open a campaign and scroll to Campaign activity for recipient status, observed counts, first/latest timestamps and individual clicked links. Filter the list or export all recipients to Excel. Sync activity now updates from the website; the Store Server also syncs approximately every minute. Replay activity history rereads all campaigns without duplicating recorded events, useful after restoring a backup. Activity errors leave existing results available and show that the feed is stale.
+
+Paste full HTTP/HTTPS URLs in the message to make clickable, trackable links. A link drawn into a flyer image is not clickable. No tracking is added to previews, Send test, SMTP configuration tests, work-order messages or estimates. Test with an actual campaign limited to your own opted-in address. Settings → Email controls tracking for future campaign sends; older sent links can still collect activity. Existing unsubscribe controls remain separate, and an opted-out address stops generating new activity.
+
+An open is an observed image load, not confirmed reading. No open detected does not mean unread. Privacy features, image blocking/caching and automated scanners can affect both opens and clicks. Forwarded copies retain the original recipient's identity; forwards and deletes cannot be detected. Sent means SMTP accepted the message, not confirmation of inbox delivery. Messages sent before tracking was included remain untracked.
+
+Upgrade the cPanel public files using extras/cpanel-marketing/CPANEL-SETUP.md before sending tracked campaigns. Keep the same private configuration/key/database and restore your custom configPath in index.php. Back up the website database separately; POS backups contain only already synchronized activity. After restore, replay both activity and suppression histories using their separate buttons.
+
+### Service-history audiences
+
+In the mailer audience builder, choose Customers with service history. Select any service or mower/handheld/other equipment. Completed means the ticket is Ready for Pick Up or Picked Up; the alternate choice includes in-progress, non-cancelled work orders. Not Fixed tickets are excluded, including picked-up jobs whose previous recorded stage was Not Fixed. Choose a check-in date lookback and optional customer types. Customers only need a linked work order, not a sale or purchase from Diamond P. Marketing permission, active status, duplicate-address handling and unsubscribes still apply. The date range is based on check-in date rather than completion or last edit.
+
+### Delete old campaigns
+
+Use Delete on the mailer list or Delete campaign inside its editor and confirm. This permanently removes the local campaign and its recipient/activity history. Customer records and unsubscribe preferences remain. Stop sending first; if an email is already being handed to SMTP, wait for it to finish before deleting. Existing emailed links stay functional, and old activity does not recreate deleted campaigns. A restore of an earlier POS backup can restore previously deleted campaigns.

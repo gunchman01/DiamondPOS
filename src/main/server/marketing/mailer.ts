@@ -1,4 +1,6 @@
-import { prepareMarketingSend, isMarketingSuppressed, normalizedEmail, MarketingSuppressed } from './consent'
+import { prepareDelivery } from './tracking'
+import { messageLinks } from '../../../shared/mailerTemplate'
+import { consentConfig, isMarketingSuppressed, normalizedEmail, MarketingSuppressed } from './consent'
 /**
  * Sending mailers by email (SMTP, via nodemailer).
  *
@@ -93,6 +95,7 @@ export interface OutgoingMailer {
   to: string
   recipientName: string
   customerId?: number
+  sendId?: number
   subject: string
   message: string
   flyer: string | null // data: URL
@@ -108,16 +111,19 @@ export function isServerProblem(err: unknown): boolean {
 }
 
 export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer): Promise<string> {
-  const s = getSmtp(db)
+  const s = getSmtp(db),consentAtStart=consentConfig(db)
   const problems = smtpProblems(s)
   if (problems.length) throw Object.assign(new Error(problems.join('; ')), { code: 'EAUTH' })
   const checkRecipient = () => {
+    if(m.sendId!==undefined){const queued=db.prepare('SELECT mc.status FROM marketing_sends ms JOIN marketing_campaigns mc ON mc.id=ms.campaign_id WHERE ms.id=?').get(m.sendId) as {status:string}|undefined;if(!queued||queued.status!=='sending')throw new MarketingSuppressed('Campaign stopped or removed')}
     if(isMarketingSuppressed(db,m.to)) throw new MarketingSuppressed('Unsubscribed from marketing')
     if(m.customerId !== undefined){const c=db.prepare('SELECT active,ok_to_email,email FROM customers WHERE id=?').get(m.customerId) as any;if(!c||!c.active||!c.ok_to_email||normalizedEmail(c.email)!==normalizedEmail(m.to))throw new MarketingSuppressed('Customer consent, active status or email changed after queuing')}
   }
   checkRecipient()
-  const unsubscribeUrl = await prepareMarketingSend(db,m.to)
+  const delivery = await prepareDelivery(db,m.to,m.sendId,messageLinks(m.message,m.recipientName))
   checkRecipient()
+  const consentNow=consentConfig(db)
+  if(consentNow.url!==consentAtStart.url||consentNow.apiKey!==consentAtStart.apiKey||!consentNow.enabled||consentNow.trackingEnabled!==consentAtStart.trackingEnabled)throw Object.assign(new Error('Marketing consent settings changed before sending; retrying safely'),{code:'ECONSENT'})
   const replyTo = s.replyTo || s.fromEmail
   const flyer = m.flyer?.match(/^data:(image\/(?:jpeg|png));base64,(.+)$/)
   const content = {
@@ -128,7 +134,7 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
     message: m.message,
     flyerSrc: flyer ? `cid:${FLYER_CID}` : null,
     recipientName: m.recipientName,
-    unsubscribeUrl
+    ...delivery
   }
   const info = await transport(s).sendMail({
     from: { name: s.fromName || store.storeName, address: s.fromEmail },
@@ -147,8 +153,9 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
           }
         ]
       : [],
-    headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>, <mailto:${replyTo}?subject=Unsubscribe>` }
+    headers: { 'List-Unsubscribe': `<${delivery.unsubscribeUrl}>, <mailto:${replyTo}?subject=Unsubscribe>` }
   })
+  if(m.sendId!==undefined)db.prepare('UPDATE marketing_sends SET tracking_active=? WHERE id=?').run(delivery.pixelUrl?1:0,m.sendId)
   return String(info?.messageId ?? '')
 }
 
@@ -181,6 +188,8 @@ export async function sendSmtpTest(db: DB, store: StoreSettings, to: string): Pr
 
 let timer: ReturnType<typeof setTimeout> | null = null
 let busy = false
+const activeCampaigns=new Set<number>()
+export const isCampaignSending=(id:number)=>activeCampaigns.has(id)
 let senderJob: Promise<void> | null = null
 
 export async function startMarketingSender(db: DB, readSettings: (db: DB) => StoreSettings) {
@@ -192,11 +201,13 @@ export async function startMarketingSender(db: DB, readSettings: (db: DB) => Sto
     if (busy) return
     busy = true
     let wait = 5_000
+    let activeId:number|undefined
     try {
       const campaign = db
         .prepare("SELECT id, subject, message, flyer FROM marketing_campaigns WHERE status = 'sending' ORDER BY id LIMIT 1")
         .get() as { id: number; subject: string; message: string; flyer: string | null } | undefined
       if (campaign) {
+        activeId=campaign.id;activeCampaigns.add(campaign.id)
         const next = db
           .prepare(
             `SELECT ms.id, ms.customer_id, ms.email, c.first_name, c.last_name, c.company, c.track_as_company
@@ -217,6 +228,7 @@ export async function startMarketingSender(db: DB, readSettings: (db: DB) => Sto
             await sendMailer(db, readSettings(db), {
               to: next.email,
               customerId: next.customer_id,
+              sendId: next.id,
               recipientName: name,
               subject: campaign.subject,
               message: campaign.message,
@@ -245,6 +257,7 @@ export async function startMarketingSender(db: DB, readSettings: (db: DB) => Sto
       console.error('[marketing]', err)
     } finally {
       busy = false
+      if(activeId!==undefined)activeCampaigns.delete(activeId)
       if (timer !== null) schedule(wait)
     }
   }

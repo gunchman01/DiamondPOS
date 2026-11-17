@@ -14,6 +14,10 @@ export interface AudienceRule {
 }
 
 export interface Audience {
+  /** Missing means the original purchase-based audience. */
+  source?: 'purchases' | 'service'
+  serviceCategory?: 'any' | 'mower' | 'handheld' | 'other'
+  serviceCompletedOnly?: boolean
   /** Everyone who opted in to email, regardless of purchases (rules are ignored) */
   allCustomers: boolean
   rules: AudienceRule[]
@@ -27,7 +31,7 @@ export interface AudienceRecipient {
   customerId: number
   name: string
   email: string
-  purchases: number // matching sales
+  purchases: number // matching sales, or work orders for service audiences
   lastPurchase: string // ISO
 }
 
@@ -63,6 +67,9 @@ export interface Campaign {
   /** Progress once sending has started */
   total: number
   sent: number
+  trackedSent: number
+  opened: number
+  clicked: number
   skipped?: number
   failed: number
   /** Why sending is paused (e.g. the mail server refused the login) */
@@ -72,6 +79,14 @@ export interface Campaign {
 export type CampaignInput = Pick<Campaign, 'name' | 'subject' | 'message' | 'flyer' | 'audience'>
 
 export interface CampaignSend {
+  tracked: boolean
+  openCount: number
+  firstOpenedAt: string | null
+  lastOpenedAt: string | null
+  clickCount: number
+  firstClickedAt: string | null
+  lastClickedAt: string | null
+  clickedLinks: {url:string;count:number;firstAt:string;lastAt:string}[]
   customerId: number
   name: string
   email: string
