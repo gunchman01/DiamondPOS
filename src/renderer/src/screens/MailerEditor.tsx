@@ -1,8 +1,8 @@
 import CampaignActivity from './CampaignActivity'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Audience, AudienceOptions, AudienceResult, AudienceRule, Campaign, CampaignSend } from '../../../shared/marketing'
 import type { StoreSettings } from '../../../shared/types'
-import { mailerHtml } from '../../../shared/mailerTemplate'
+import MailerPreview from './MailerPreview'
 import { api } from '../api'
 import { dateTime } from '../format'
 
@@ -65,36 +65,42 @@ export default function MailerEditor(props: {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loading,setLoading]=useState(props.campaignId!==null)
+  const [previewText,setPreviewText]=useState({subject:'',message:''})
+  useEffect(()=>{const timer=setTimeout(()=>setPreviewText({subject,message}),250);return()=>clearTimeout(timer)},[subject,message])
   const fileRef = useRef<HTMLInputElement>(null)
 
   const editable = !c || c.status === 'draft'
 
-  // Load an existing mailer
+  // Keep a late load from overwriting text entered while an existing draft opens.
   useEffect(() => {
     if (props.campaignId === null) return
+    let current=true;setLoading(true)
     api.mkCampaign(props.campaignId).then((x) => {
-      setC(x)
-      setName(x.name)
-      setSubject(x.subject)
-      setMessage(x.message)
-      setFlyer(x.flyer)
+      if(!current)return
+      setC(x);setName(x.name);setSubject(x.subject);setMessage(x.message);setFlyer(x.flyer)
+      setPreviewText({subject:x.subject,message:x.message})
       setAudience({ ...x.audience, rules: x.audience.rules.length ? x.audience.rules : [{}] })
-    })
+      setLoading(false)
+    }).catch(e=>{if(current){setError(e.message);setLoading(false)}})
+    return()=>{current=false}
   }, [props.campaignId])
 
-  // Live audience count
+  // Ignore superseded audience requests so a slow response cannot replace newer choices.
   useEffect(() => {
+    if(loading)return
+    let current=true
     const t = setTimeout(() => {
-      api.mkAudience(audience).then(setResult).catch((e) => setError(e.message))
+      api.mkAudience(audience).then(r=>{if(current)setResult(r)}).catch((e) => {if(current)setError(e.message)})
     }, 300)
-    return () => clearTimeout(t)
-  }, [audience])
+    return () => {current=false;clearTimeout(t)}
+  }, [audience,loading])
 
   // While sending, refresh progress
   useEffect(() => {
     if (!id || !c || c.status === 'draft') return
     const load = () => {
-      api.mkCampaign(id).then(setC).catch(() => {})
+      api.mkCampaign(id,false).then(setC).catch(() => {})
       api.mkSends(id).then(setSends).catch(() => {})
     }
     load()
@@ -131,19 +137,6 @@ export default function MailerEditor(props: {
     setAudience({ ...audience, rules: audience.rules.map((x, k) => (k === i ? r : x)) })
   const n = result?.recipients.length ?? 0
 
-  const previewHtml = useMemo(() => {
-    const html = mailerHtml({
-      storeName: props.store.storeName,
-      storeAddress: props.store.storeAddress || '(add the store address in Settings)',
-      replyTo: props.replyTo || 'your-store@example.com',
-      subject: subject || '(subject)',
-      message,
-      flyerSrc: flyer,
-      recipientName: result?.recipients[0]?.name.split(' ')[0] ?? 'Sam'
-    })
-    return html.slice(html.indexOf('<body'), html.lastIndexOf('</body>')).replace(/^<body[^>]*>/, '')
-  }, [subject, message, flyer, props.store, props.replyTo, result])
-
   const Pick = (p: { value?: string; options: string[]; placeholder: string; onChange: (v: string) => void }) => (
     <select disabled={!editable} value={p.value ?? ''} onChange={(e) => p.onChange(e.target.value)}>
       <option value="">{p.placeholder}</option>
@@ -152,6 +145,9 @@ export default function MailerEditor(props: {
       ))}
     </select>
   )
+
+  if(props.campaignId!==null&&!loading&&!c)return <div className="page wide"><button className="link" onClick={props.onClose}>← All mailers</button><p className="error-text">{error||'Unable to load this campaign. Reopen it to try again.'}</p></div>
+  if(loading)return <div className="page wide"><button className="link" onClick={props.onClose}>← All mailers</button><p>Loading campaign…</p></div>
 
   return (
     <div className="page wide mailer">
@@ -332,12 +328,8 @@ export default function MailerEditor(props: {
         <div className="form">
           <div className="card form">
             <h3>3. Preview</h3>
-            <div className="email-preview">
-              <div className="email-subject">
-                <span className="muted">Subject:</span> <b>{subject || '(subject)'}</b>
-              </div>
-              <div className="email-body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-            </div>
+            <MailerPreview subject={previewText.subject} message={previewText.message} flyer={flyer} storeName={props.store.storeName} storeAddress={props.store.storeAddress} replyTo={props.replyTo} recipientName={result?.recipients[0]?.name.split(' ')[0]??'Sam'}/>
+            <p className="small muted">Preview updates after a short typing pause.</p>
           </div>
 
           <div className="card form">

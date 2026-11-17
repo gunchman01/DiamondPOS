@@ -1,3 +1,4 @@
+import { registerSubscriptionRoutes, startSubscriptionScheduler } from './marketing/subscriptions'
 import { registerTrackingRoutes, startActivityScheduler } from './marketing/tracking'
 import { registerConsentRoutes, startConsentScheduler } from './marketing/consent'
 import { registerEndOfDayRoutes } from './endOfDay'
@@ -97,6 +98,7 @@ class HttpError extends Error {
 let httpServer: Server | null = null
 let db: DB | null = null
 let stopApprovals: (()=>Promise<void>) | null = null
+let stopSubscriptions:(()=>Promise<void>)|null=null
 let stopActivity:(()=>Promise<void>)|null=null
 let stopConsent: (()=>Promise<void>) | null = null
 let stopBackups: (() => Promise<void>) | null = null
@@ -125,11 +127,13 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     stopBackups = startBackupScheduler(opened, path.join(path.dirname(opts.dbFile), 'backups'))
     stopConsent = startConsentScheduler(opened)
     stopActivity = startActivityScheduler(opened)
+    stopSubscriptions = startSubscriptionScheduler(opened,readSettings)
     await startMarketingSender(opened, readSettings)
     console.log(`[server] Listening on port ${opts.port}`)
   } catch (error) {
     await stopApprovals?.();stopApprovals=null
     await stopMarketingSender()
+    await stopSubscriptions?.();stopSubscriptions=null
     await stopConsent?.(); stopConsent=null
     await stopActivity?.(); stopActivity=null
     if (stopBackups) await stopBackups()
@@ -145,6 +149,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 export async function stopServer(): Promise<void> {
   await stopApprovals?.();stopApprovals=null
   await stopMarketingSender()
+  await stopSubscriptions?.();stopSubscriptions=null
   await stopConsent?.(); stopConsent=null
   await stopActivity?.(); stopActivity=null
   if (stopBackups) await stopBackups()
@@ -335,7 +340,9 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     const id = Number(req.params.id)
     const existing = getCustomer(db, id)
     if (!existing) throw new HttpError(404, 'Customer not found')
-    updateCustomer(db, id, validateCustomer(req.body, existing))
+    const input=validateCustomer(req.body,existing)
+    if(req.body?.preserveEmailConsent===true&&String(input.email??'').trim().toLowerCase()===String(existing.email??'').trim().toLowerCase())input.okToEmail=existing.okToEmail
+    updateCustomer(db,id,input)
     res.json(getCustomer(db, id))
   })
 
@@ -347,6 +354,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Marketing mailers (email) -----------------------------------------
   registerConsentRoutes(app, db)
+  registerSubscriptionRoutes(app,db,readSettings)
   registerTrackingRoutes(app, db)
   registerMarketingRoutes(app, db, readSettings)
 

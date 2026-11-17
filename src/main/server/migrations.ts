@@ -663,6 +663,12 @@ export const migrations: Migration[] = [
   CREATE UNIQUE INDEX idx_marketing_tracking_key ON marketing_sends(tracking_key) WHERE tracking_key IS NOT NULL;
   CREATE TABLE marketing_activity(event_key TEXT PRIMARY KEY,send_id INTEGER NOT NULL REFERENCES marketing_sends(id) ON DELETE CASCADE,kind TEXT NOT NULL CHECK(kind IN ('open','click')),at TEXT NOT NULL,url TEXT);
   CREATE INDEX idx_marketing_activity_send ON marketing_activity(send_id,kind,at);
+ `},
+ {version:33,name:'confirmed marketing re-subscription and request audit',up:`
+  ALTER TABLE marketing_consent_outbox ADD COLUMN intent TEXT NOT NULL DEFAULT 'optout';
+  ALTER TABLE marketing_consent_outbox ADD COLUMN change_id TEXT;
+  CREATE TABLE marketing_consent_confirmations(request_id TEXT PRIMARY KEY,email TEXT NOT NULL,confirmed_at TEXT NOT NULL,website_url TEXT NOT NULL);
+  CREATE TABLE marketing_subscription_requests(request_id TEXT PRIMARY KEY,email TEXT NOT NULL,requested_at TEXT NOT NULL,sent_at TEXT,status TEXT NOT NULL DEFAULT 'queued',error TEXT);
  `}
 
 ]

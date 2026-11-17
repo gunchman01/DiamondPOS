@@ -4,9 +4,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
+import nodemailer from 'nodemailer'
+import { processSubscriptionRequests } from '../src/main/server/marketing/subscriptions'
+import { saveSmtp } from '../src/main/server/marketing/mailer'
+import { readSettings } from '../src/main/server'
 import { spawn } from 'node:child_process'
 import { openDatabase } from '../src/main/server/db'
-import { insertCustomer, CUSTOMER_DEFAULTS } from '../src/main/server/customers'
+import { insertCustomer, CUSTOMER_DEFAULTS, getCustomer, updateCustomer } from '../src/main/server/customers'
 import { saveConsentConfig, syncMarketingConsent, MarketingSuppressed } from '../src/main/server/marketing/consent'
 import { prepareDelivery, syncMarketingActivity } from '../src/main/server/marketing/tracking'
 async function main(){
@@ -35,7 +39,30 @@ async function main(){
   await syncMarketingConsent(db,fetcher)
   assert.equal((db.prepare('SELECT ok_to_email FROM customers WHERE id=?').get(customer) as any).ok_to_email,0)
   await assert.rejects(prepareDelivery(db,'test@example.com',send,[destination],fetcher),MarketingSuppressed)
-  console.log('PASS real PHP ↔ POS SQLite: prepare links, record image/click, synchronize exact recipient once, confirm unsubscribe, synchronize consent, block future send')
+  const queued=await fetcher(publicUrl+'?action=requestSubscription',{method:'POST',headers:{'Content-Type':'application/json','X-DiamondPOS-Key':key},body:JSON.stringify({email:'test@example.com',consentVersion:2})});assert.equal(queued.status,200)
+  const transport=nodemailer.createTransport;let confirmation='';let sent=0
+  try{
+   saveSmtp(db,{host:'smtp.test.invalid',security:'none',fromEmail:'shop@example.com'})
+   nodemailer.createTransport=(()=>({sendMail:async(m:any)=>{sent++;confirmation=m.text.match(/https:\/\/[^\s]+action=confirmSubscription[^\s]+/)?.[0]??'';return {messageId:'local-test-only'}}})) as any
+   await processSubscriptionRequests(db,readSettings(db),fetcher)
+   assert.equal(sent,1);assert.ok(confirmation)
+  }finally{nodemailer.createTransport=transport}
+  assert.equal(getCustomer(db,customer)!.okToEmail,false)
+  const confirmPage=await fetcher(confirmation);assert.match(await confirmPage.text(),/Confirm your subscription/)
+  await syncMarketingConsent(db,fetcher);assert.equal(getCustomer(db,customer)!.okToEmail,false)
+  const confirmationToken=new URL(confirmation).searchParams.get('token')!
+  const confirm=await fetcher(confirmation,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:confirmationToken,confirm:'yes'})});assert.match(await confirm.text(),/subscription confirmed/)
+  await syncMarketingConsent(db,fetcher);assert.equal(getCustomer(db,customer)!.okToEmail,true)
+  await prepareDelivery(db,'test@example.com',send,[destination],fetcher)
+  // Simulate stale suppression restored from a local backup: replay must respect website confirmation.
+  db.prepare("INSERT INTO marketing_suppressions(email,unsubscribed_at,source) VALUES('test@example.com','2026-01-01T00:00:00Z','restore')").run()
+  db.prepare("INSERT INTO marketing_consent_outbox(email,intent) VALUES('test@example.com','restore')").run()
+  db.prepare("UPDATE settings SET value=? WHERE key='marketing_consent_state'").run(JSON.stringify({cursor:0,lastSyncAt:null,error:null}))
+  await syncMarketingConsent(db,fetcher);assert.equal(getCustomer(db,customer)!.okToEmail,true)
+  updateCustomer(db,customer,{...getCustomer(db,customer)!,okToEmail:false});await syncMarketingConsent(db,fetcher)
+  const stale=await fetcher(confirmation,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:confirmationToken,confirm:'yes'})});assert.match(await stale.text(),/New confirmation needed/)
+  await syncMarketingConsent(db,fetcher);assert.equal(getCustomer(db,customer)!.okToEmail,false)
+  console.log('PASS real PHP ↔ POS SQLite: image/click tracking, unsubscribe, queued confirmation through mocked SMTP, scanner-safe GET, explicit re-subscription, restore/replay, and new opt-out invalidating the old link')
  }catch(e){console.error(errors);throw e}finally{child.kill();await new Promise<void>(r=>{if(child.exitCode!==null)r();else child.once('exit',()=>r())});db.close();fs.rmSync(dir,{recursive:true,force:true})}
 }
 void main().catch(e=>{console.error(e);process.exitCode=1})

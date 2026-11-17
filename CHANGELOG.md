@@ -14,6 +14,15 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.46 - 17 Nov 2026
+> Update the Store Server first, then all tills. Upgrade the cPanel marketing service, preserving the private configuration/database and your configured path.
+- **Subscribe again:** customers can request an email confirmation on the website, or staff can request one from a saved customer. Permission returns only after the customer explicitly confirms a valid link.
+- Confirmation links expire after 24 hours. Newer opt-outs invalidate old links; imports and checkbox changes still cannot override an unsubscribe. Old skipped campaign messages are not resent.
+- Uses your existing SMTP account while the Store Server is running. Settings → Email shows request delivery/audit and recent confirmed permissions. No new customer is created by the public subscription form.
+- Consent replay distinguishes restored history from new opt-outs, protecting newer confirmed choices. Confirmation mail and customer consent changes have durable audit/retry safeguards.
+- **Campaign typing:** preview updates follow a brief typing pause. List/status refreshes omit full flyer images; existing-draft loading and audience refreshes no longer overwrite newer input/choices.
+- Saving unrelated customer edits from an older open window preserves a freshly confirmed marketing permission when its checkbox/email were unchanged.
+
 ## v0.3.45 - 17 Nov 2026
 > Update the Store Server first, then all tills. Upgrade the existing cPanel marketing service and preserve its private configuration/database.
 - **Service-history audiences:** target customers with any service, mower, handheld or other equipment work orders. Choose completed-only or include in-progress jobs, with check-in date and customer-type filters. No purchase is required.

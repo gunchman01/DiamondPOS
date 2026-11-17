@@ -1,10 +1,10 @@
-DiamondPOS v0.3.45 — campaign activity, service audiences and campaign deletion
-Baseline main: 3c3c4e5429728063e24fd6f142fc607f2f14a7fb (v0.3.44)
-Copy over existing project; no deletions required. Schema 32. Update Store Server first then all tills.
-Upgrade cPanel public files, preserving private database/config and your custom configPath line.
-250 regression checks, typecheck/build, real PHP HTTP and PHP-to-POS SQLite tests passed.
-No commit, push, tag, hosting deployment or real email send.
-See START-HERE.md for all Git commands and cPanel setup guide.
+DiamondPOS v0.3.46 — confirmed re-subscription and campaign typing
+Baseline main: 3fb26375a27e200487977c86ddb1d4754c546940 (v0.3.45)
+Copy over existing project; no deletions required. Schema 33. Update Store Server first then all tills.
+Upgrade all4 cPanel public files; preserve private config/database and custom configPath.
+261 regression checks, typecheck/build, real PHP HTTP and PHP-to-POS integration tests passed.
+No actual email, Git commit/push/tag or hosting deployment performed.
+Git commands and rollout steps are in START-HERE.md and extras/cpanel-marketing/CPANEL-SETUP.md.
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -12,26 +12,21 @@ START-HERE.md
 docs/PROJECT_NOTES.md
 extras/cpanel-marketing/CPANEL-SETUP.md
 extras/cpanel-marketing/public/index.php
-extras/cpanel-marketing/public/tracking.php
-scripts/test-marketing-php.cjs
+extras/cpanel-marketing/public/subscriptions.php
 src/main/server/index.ts
-src/main/server/marketing/audience.ts
 src/main/server/marketing/consent.ts
-src/main/server/marketing/mailer.ts
 src/main/server/marketing/routes.ts
-src/main/server/marketing/tracking.ts
+src/main/server/marketing/subscriptions.ts
 src/main/server/migrations.ts
 src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/CampaignActivity.tsx
+src/renderer/src/screens/CustomerEditor.tsx
 src/renderer/src/screens/MailerEditor.tsx
-src/renderer/src/screens/Marketing.tsx
+src/renderer/src/screens/MailerPreview.tsx
 src/renderer/src/screens/MarketingConsentSettings.tsx
-src/shared/mailerTemplate.ts
-src/shared/marketing.ts
-src/shared/marketingConsent.ts
 tests/cpanel/marketing-service.py
+tests/marketing-consent.ts
 tests/marketing-php.ts
-tests/marketing-service-audience.ts
+tests/marketing-resubscribe.ts
 tests/marketing-tracking.ts
 tests/regressions.ts

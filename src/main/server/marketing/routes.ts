@@ -58,9 +58,11 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
     clicked: r.clicked,
     lastError: r.last_error
   })
-  const get = (id: number) => {
-    const r = db.prepare(`${select} WHERE mc.id = ?`).get(id) as CampaignRow | undefined
-    return r ? toCampaign(r) : null
+  // Polling/list rows never retrieve the multi-megabyte flyer payload.
+  const listSelect=select.replace('mc.*',"mc.id,mc.name,mc.subject,mc.message,CASE WHEN mc.flyer IS NULL THEN NULL ELSE 'yes' END AS flyer,mc.audience,mc.status,mc.last_error,mc.created_at,mc.sent_at")
+  const get = (id: number,withFlyer=true) => {
+    const r = db.prepare(`${withFlyer?select:listSelect} WHERE mc.id = ?`).get(id) as CampaignRow | undefined
+    return r ? toCampaign(r,withFlyer) : null
   }
   const fail = (res: express.Response, status: number, error: string) => res.status(status).json({ error })
 
@@ -92,12 +94,12 @@ export function registerMarketingRoutes(app: express.Express, db: DB, readSettin
 
   // ---------- Mailers ----------
   app.get('/api/marketing/campaigns', (_req, res) => {
-    const rows = db.prepare(`${select} ORDER BY mc.id DESC`).all() as CampaignRow[]
+    const rows = db.prepare(`${listSelect} ORDER BY mc.id DESC`).all() as CampaignRow[]
     res.json(rows.map((r) => toCampaign(r, false)))
   })
 
   app.get('/api/marketing/campaigns/:id', (req, res) => {
-    const c = get(Number(req.params.id))
+    const c = get(Number(req.params.id),req.query.summary!=='1')
     if (!c) return fail(res, 404, 'Mailer not found')
     res.json(c)
   })

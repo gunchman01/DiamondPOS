@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 17 November 2026 (v0.3.45 campaign activity)_
+_Last updated: 17 November 2026 (v0.3.46 confirmed subscriptions and typing)_
 
 ---
 
@@ -644,3 +644,19 @@ Additional v0.3.45 scope approved during development: service-history audience m
 Campaign removal endpoint now transactionally deletes local sends (activity cascades) then campaign, allowing draft/sent/cancelled but rejecting sending and currently in-flight campaigns even after cancellation. Background sender exposes active-campaign guard and rechecks campaign state before SMTP. UI confirms irreversible local deletion. It does not delete customer/suppression records or call remote token deletion; old links keep working, and unknown delivery activity is safely ignored on feed replay. No campaigns were deleted on user's systems.
 
 Validation: 250 regression checks plus typecheck/build, real PHP service HTTP suite (including legacy unsubscribe token preservation) and real PHP ↔ POS SQLite integration with no SMTP. Actual Windows UI/cPanel/outbound delivery still require user's self-address check. Suggested release commit/title: Track campaigns and target service customers. No commit, push or tag performed.
+
+## v0.3.46 — Confirmed re-subscription and marketing typing (17 Nov 2026)
+
+User approved explicit confirmation-based re-subscription, and reported delays typing campaign name/subject/message. GitHub baseline 3fb26375a27e200487977c86ddb1d4754c546940, v0.3.45. Keep main/source-overlay workflow; no commits/tags/deployment or real email. User handles external email/cPanel/Windows verification.
+
+Schema 33: outbox gains intent and stable change_id; confirmation evidence and subscription request audit tables. Website subscriptions.php migrates event kind/request_id, queues public/staff requests, hashes opaque 24-hour confirmation tokens, validates baseline email consent revision and requires explicit POST. Public GET never subscribes. Newer opt-outs cancel outstanding requests; used/old/expired links cannot reactivate. Confirmation event replay is ordered/idempotent and updates all matching customer permissions without activating inactive customer records. Skipped campaign sends remain skipped.
+
+Consent protocol 2/capability check occurs before outbox writes; both sides reject old/incompatible syncing. Restore/backfill intent ignores a newer website confirmation, while genuine pending/new opt-outs win. Stable opt-out IDs prevent lost-response retries from cancelling a later request. Promoting a restore outbox entry to a genuine opt-out creates a distinct change identity. An opt-out arriving while a confirmation batch is in flight prevents local activation. Confirmation evidence survives even if a newer opt-out currently suppresses the address. Website history/old tokens must remain in private backups.
+
+New subscription worker reuses sendEmail/SMTP, sends only to matching active stored customers, contains no marketing/tracking, saves SMTP success before website ACK and retries ACK without resending. Roughly one-minute schedule, max20 requests/pass capped by SMTP perMinute, failed preparations retry after5min with3 attempts/request. Ambiguous SMTP delivery can still duplicate a confirmation email, never auto-confirm consent. Worker is awaited on shutdown before DB close. Unknown public requests do not create customers/send emails; public responses are generic. Form uses expiring HMAC CSRF + honeypot + 5min/address cooldown,3/address/day,5/IP/hour hashed buckets and300/day service cap. No separate PHP SMTP account required; offline POS queues requests until running. Requests/evidence are visible in Settings → Email, staff request action beside saved customer email permission. Pending local opt-outs can invalidate a request on reconnect; request again after sync. Only explicit customer email confirmation removes suppression, not imports or the checkbox.
+
+Customer save adds preserveEmailConsent for unchanged checkbox/same address in a stale form, preventing unrelated edits from reversing newly synchronized permission. Existing intentional changes/import opt-outs still work. Backend suppression enforcement remains final.
+
+Typing: memoized MailerPreview isolated from urgent inputs; subject/message preview debounced250ms. Existing campaign fields wait until complete load; cancelled load responses cannot overwrite edits and failed loading does not expose a blank overwrite form. Stale audience responses ignored. List/progress use a slim SQL selection/API summary flag that avoids reading/transmitting entire flyers repeatedly; initial full editor fetch retains image. Windows responsiveness still requires user's check; no measured Windows timing claim.
+
+Validation:261 regression checks, typecheck/build, real PHP/SQLite HTTP suite and PHP ↔ POS SQLite integration through mocked SMTP. Includes legacy unsubscribe/tracking preservation, confirmation request/GET/POST/expiry/stale/replay tests, worker ACK idempotency, shared-address permission restoration, local opt-out precedence, protocol capability safety, stale customer form preservation and large-flyer summary regression. Setup guide includes exact Git release commands and all4 public files. Next: user uploads helpers/index preserving configPath/private data, updates server/tills, verifies real self-address mail and typing; optionally add subscription link to website footer. Do not downgrade to old consent protocol or delete private consent/token history.

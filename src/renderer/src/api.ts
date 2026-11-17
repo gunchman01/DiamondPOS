@@ -157,7 +157,7 @@ export const api = {
     ),
   getCustomer: (id: number) => request<CustomerDetail>('GET', `/api/customers/${id}`),
   createCustomer: (c: CustomerInput) => request<Customer>('POST', '/api/customers', c),
-  updateCustomer: (id: number, c: CustomerInput) => request<Customer>('PUT', `/api/customers/${id}`, c),
+  updateCustomer: (id: number, c: CustomerInput, preserveEmailConsent=false) => request<Customer>('PUT', `/api/customers/${id}`, {...c,preserveEmailConsent}),
 
   // Customer kiosk (iPad)
   listKiosks: () => request<KioskInfo[]>('GET', '/api/kiosks'),
@@ -208,7 +208,7 @@ export const api = {
   syncMarketingActivity: () => request<{enabled:boolean;lastSyncAt:string|null;error:string|null}>('POST','/api/marketing/activity/sync'),
   replayMarketingActivity: () => request<{enabled:boolean;lastSyncAt:string|null;error:string|null}>('POST','/api/marketing/activity/replay'),
   mkCampaigns: () => request<Campaign[]>('GET', '/api/marketing/campaigns'),
-  mkCampaign: (id: number) => request<Campaign>('GET', `/api/marketing/campaigns/${id}`),
+  mkCampaign: (id: number,includeFlyer=true) => request<Campaign>('GET', `/api/marketing/campaigns/${id}${includeFlyer?'':'?summary=1'}`),
   mkCreate: (c: CampaignInput) => request<Campaign>('POST', '/api/marketing/campaigns', c),
   mkUpdate: (id: number, c: CampaignInput) => request<Campaign>('PUT', `/api/marketing/campaigns/${id}`, c),
   mkCopy: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/copy`),
@@ -217,6 +217,9 @@ export const api = {
   mkSend: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/send`),
   mkCancel: (id: number) => request<Campaign>('POST', `/api/marketing/campaigns/${id}/cancel`),
   mkSends: (id: number) => request<CampaignSend[]>('GET', `/api/marketing/campaigns/${id}/sends`),
+  requestMarketingSubscription: (customerId:number) => request<{queued:boolean;message:string}>('POST','/api/marketing/subscriptions/request',{customerId}),
+  marketingSubscriptions: () => request<{worker:{lastRunAt:string|null;error:string|null};recent:{requestId:string;email:string;requestedAt:string;sentAt:string|null;status:string;error:string|null}[];confirmations:{email:string;confirmedAt:string;requestId:string}[]}>('GET','/api/marketing/subscriptions'),
+  processMarketingSubscriptions: () => request<unknown>('POST','/api/marketing/subscriptions/process'),
   marketingConsent: () => request<MarketingConsentView>('GET', '/api/marketing/consent'),
   saveMarketingConsent: (body: {enabled:boolean;trackingEnabled?:boolean;url:string;apiKey:string}) => request<MarketingConsentView>('PUT', '/api/marketing/consent', body),
   marketingConsentKey: () => request<{apiKey:string}>('POST', '/api/marketing/consent/key'),

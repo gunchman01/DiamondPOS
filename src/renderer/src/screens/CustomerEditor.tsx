@@ -152,7 +152,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
     setBusy(true)
     setError('')
     try {
-      const saved = editingId ? await api.updateCustomer(editingId, input) : await api.createCustomer(input)
+      const saved = editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase()) : await api.createCustomer(input)
       props.onSaved(saved)
       if (andNew) {
         setEditingId(null)
@@ -247,8 +247,9 @@ export default function CustomerEditor(props: CustomerEditorProps) {
                 <input type="email" {...text('email')} />
               </Row>
               <Row label="OK to e-mail">
-                <input {...check('okToEmail')} className="lone-check" /><span className="muted small"> Marketing only. Saved unsubscribes cannot be overridden here or by importing customers.</span>
+                <input {...check('okToEmail')} className="lone-check" /><span className="muted small"> Marketing only. Saved unsubscribes require a fresh email confirmation; checking this box or importing cannot override them.</span>
               </Row>
+              {editingId && <Row label="Marketing subscription"><button type="button" disabled={busy||!detail?.customer.email||form.email!==detail?.customer.email} onClick={async()=>{if(!confirm('Request a marketing confirmation email for this customer? Only continue if they asked to subscribe again. Their permission will not change until they confirm.'))return;setBusy(true);setError('');try{const r=await api.requestMarketingSubscription(editingId);setNotice(r.message)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Request confirmation email</button><span className="small muted"> Uses the saved email address. Save address changes first.</span></Row>}
               <Row label="Street">
                 <input {...text('street')} />
               </Row>

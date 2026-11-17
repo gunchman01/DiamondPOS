@@ -15,7 +15,7 @@ export function suppressMarketing(db:DB,emailValue:unknown,source='website',at=n
   db.prepare('INSERT INTO marketing_suppressions(email,unsubscribed_at,source) VALUES(?,?,?) ON CONFLICT(email) DO NOTHING').run(email,at,source)
   db.prepare("UPDATE customers SET ok_to_email=0,updated_at=datetime('now') WHERE lower(trim(email))=?").run(email)
   db.prepare("UPDATE marketing_sends SET status='skipped',error='Unsubscribed from marketing' WHERE lower(trim(email))=? AND status='pending'").run(email)
-  if(push)db.prepare('INSERT INTO marketing_consent_outbox(email) VALUES(?) ON CONFLICT(email) DO NOTHING').run(email)
+  if(push)db.prepare("INSERT INTO marketing_consent_outbox(email,intent,change_id) VALUES(?,'optout',?) ON CONFLICT(email) DO UPDATE SET intent='optout',change_id=CASE WHEN marketing_consent_outbox.intent='restore' THEN excluded.change_id ELSE COALESCE(marketing_consent_outbox.change_id,excluded.change_id) END").run(email,crypto.randomBytes(32).toString('hex'))
  })()
 }
 export function consentConfig(db:DB):MarketingConsentConfig {
@@ -31,7 +31,7 @@ export function saveConsentConfig(db:DB,b:any):MarketingConsentView {
  if(apiKey&&!/^[a-f0-9]{64}$/i.test(apiKey))throw new Error('Use the 64-character generated API key')
  const next={trackingEnabled:b?.trackingEnabled===undefined?cur.trackingEnabled:b.trackingEnabled===true,enabled:b?.enabled===undefined?cur.enabled:b.enabled===true,url:canonical,apiKey,clientId:cur.clientId||crypto.randomUUID()}
  if(next.enabled&&(!next.url||!next.apiKey))throw new Error('Enter the website URL and API key before enabling')
- db.transaction(()=>{write(db,'marketing_consent_config',next);if(next.url!==cur.url||next.apiKey!==cur.apiKey){write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run()}})()
+ db.transaction(()=>{write(db,'marketing_consent_config',next);if(next.url!==cur.url||next.apiKey!==cur.apiKey){write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare("INSERT OR IGNORE INTO marketing_consent_outbox(email,intent) SELECT email,'restore' FROM marketing_suppressions").run()}})()
  return consentView(db)
 }
 export function consentView(db:DB):MarketingConsentView {
@@ -56,15 +56,33 @@ export function syncMarketingConsent(db:DB,fetcher:ConsentFetch=fetch):Promise<M
  const job=(async()=>{
   const cfg=ready(db)
   try{
+   const capabilities=await remote(cfg,'capabilities',{},fetcher)
+   if(capabilities.consentVersion!==2)throw unavailable('Update the cPanel marketing service for confirmed subscriptions before syncing')
    // Local opt-outs must reach the website before any sending or subscriber export.
-   for(const row of db.prepare('SELECT email FROM marketing_consent_outbox ORDER BY email').all() as {email:string}[]){await remote(cfg,'suppress',{email:row.email,source:'pos'},fetcher);db.prepare('DELETE FROM marketing_consent_outbox WHERE email=?').run(row.email)}
+   for(const row of db.prepare('SELECT email,intent,change_id FROM marketing_consent_outbox ORDER BY email').all() as {email:string;intent:string;change_id:string|null}[]){
+    const changeId=row.change_id??crypto.randomBytes(32).toString('hex');if(!row.change_id)db.prepare('UPDATE marketing_consent_outbox SET change_id=? WHERE email=?').run(changeId,row.email)
+    await remote(cfg,'suppress',{email:row.email,source:'pos',consentVersion:2,intent:row.intent,changeId},fetcher)
+    db.prepare('DELETE FROM marketing_consent_outbox WHERE email=? AND change_id=?').run(row.email,changeId)
+   }
    let state=read(db,'marketing_consent_state',{cursor:0,lastSyncAt:null as string|null,error:null as string|null})
    for(let page=0;page<1000;page++){
-    const data=await remote(cfg,'pull',{cursor:state.cursor,clientId:cfg.clientId},fetcher)
+    const data=await remote(cfg,'pull',{cursor:state.cursor,clientId:cfg.clientId,consentVersion:2},fetcher)
+    if(data.consentVersion!==2)throw unavailable('Update the cPanel marketing service for confirmed subscriptions before syncing')
     if(!Array.isArray(data.events)||data.events.length>200||typeof data.hasMore!=='boolean')throw unavailable('Invalid unsubscribe event batch')
     let cursor=state.cursor
     db.transaction(()=>{
-     for(const event of data.events){if(!Number.isSafeInteger(event.id)||event.id<=cursor||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at)))throw unavailable('Invalid unsubscribe event sequence');suppressMarketing(db,event.email,'website',event.at);cursor=event.id}
+     for(const event of data.events){
+      if(!event||!Number.isSafeInteger(event.id)||event.id<=cursor||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at)))throw unavailable('Invalid unsubscribe event sequence')
+      if(event.kind==='subscribed'){
+       if(data.consentVersion!==2||!/^[a-f0-9]{64}$/.test(event.requestId)||!validEmail(normalizedEmail(event.email)))throw unavailable('Invalid subscription confirmation')
+       const email=normalizedEmail(event.email),pending=db.prepare("SELECT 1 FROM marketing_consent_outbox WHERE email=? AND intent='optout'").get(email)
+       db.prepare('INSERT OR IGNORE INTO marketing_consent_confirmations(request_id,email,confirmed_at,website_url) VALUES(?,?,?,?)').run(event.requestId,email,event.at,cfg.url)
+       if(!pending){db.prepare('DELETE FROM marketing_suppressions WHERE email=?').run(email);db.prepare("UPDATE customers SET ok_to_email=1,updated_at=datetime('now') WHERE lower(trim(email))=?").run(email)}
+       db.prepare("UPDATE marketing_subscription_requests SET status='confirmed',error=NULL WHERE request_id=?").run(event.requestId)
+      }else if(event.kind===undefined||event.kind==='suppressed')suppressMarketing(db,event.email,'website',event.at)
+      else throw unavailable('Unknown marketing consent event')
+      cursor=event.id
+     }
      if(data.hasMore&&!data.events.length)throw unavailable('Website returned an empty continuation')
      state={cursor,lastSyncAt:state.lastSyncAt,error:null};write(db,'marketing_consent_state',state)
     })()
@@ -105,7 +123,7 @@ export function registerConsentRoutes(app:express.Express,db:DB){
  app.get('/api/marketing/consent',(_req,res)=>res.json(consentView(db)))
  app.post('/api/marketing/consent/key',(_req,res)=>res.json({apiKey:crypto.randomBytes(32).toString('hex')}))
  app.put('/api/marketing/consent',(req,res)=>{try{res.json(saveConsentConfig(db,req.body))}catch(e){res.status(400).json({error:(e as Error).message})}})
- app.post('/api/marketing/consent/replay',(_req,res)=>{if(jobs.has(db))return res.status(409).json({error:'A sync is running; retry shortly'});write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare('INSERT OR IGNORE INTO marketing_consent_outbox(email) SELECT email FROM marketing_suppressions').run();void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
+ app.post('/api/marketing/consent/replay',(_req,res)=>{if(jobs.has(db))return res.status(409).json({error:'A sync is running; retry shortly'});write(db,'marketing_consent_state',{cursor:0,lastSyncAt:null,error:null});write(db,'marketing_activity_state',{cursor:0,lastSyncAt:null,error:null});db.prepare("INSERT OR IGNORE INTO marketing_consent_outbox(email,intent) SELECT email,'restore' FROM marketing_suppressions").run();void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
  app.post('/api/marketing/consent/sync',(_req,res)=>{void syncMarketingConsent(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
  app.post('/api/marketing/consent/export',(_req,res)=>{void exportMarketingSubscribers(db).then(v=>res.json(v)).catch(e=>res.status(503).json({error:(e as Error).message}))})
 }

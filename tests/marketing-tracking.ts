@@ -24,7 +24,8 @@ export async function testMarketingTracking(check:Check,dir:string){
  let key='',prepared=0,events:any[]=[],hasMore=false
  const requests:string[]=[],delivered:any[]=[]
  const fetcher:typeof fetch=async(input,init)=>{const action=new URL(String(input)).searchParams.get('action')!,body=JSON.parse(String(init?.body));requests.push(action)
-  if(action==='pull')return Response.json({ok:true,events:[],hasMore:false})
+  if(action==='capabilities')return Response.json({ok:true,consentVersion:2})
+  if(action==='pull')return Response.json({ok:true,consentVersion:2,events:[],hasMore:false})
   if(action==='ack')return Response.json({ok:true})
   if(action==='prepare')return Response.json({ok:true,suppressed:false,unsubscribeUrl:url+'?token='+'a'.repeat(64)})
   if(action==='prepareTracking'){prepared++;key=body.deliveryKey;assert.equal(body.email,'track@example.com');return Response.json({ok:true,version:1,suppressed:false,pixelUrl:url+'?action=open&token='+'b'.repeat(64),clickUrls:Object.fromEntries(body.links.map((l:string)=>[l,url+'?action=click&token='+'c'.repeat(64)]))})}
@@ -71,6 +72,9 @@ export async function testMarketingTracking(check:Check,dir:string){
  try{
   const base=`http://127.0.0.1:${(server.address() as any).port}`,headers={'X-Api-Key':'tracking-tests'}
   const denied=await originalFetch(base+'/api/marketing/activity'),status=await originalFetch(base+'/api/marketing/activity',{headers}),summary=await (await originalFetch(base+`/api/marketing/campaigns/${campaign}`,{headers})).json(),sends=await (await originalFetch(base+`/api/marketing/campaigns/${campaign}/sends`,{headers})).json()
+  const flyer='data:image/jpeg;base64,'+'A'.repeat(1000000);db.prepare('UPDATE marketing_campaigns SET flyer=? WHERE id=?').run(flyer,campaign)
+  const slim=await (await originalFetch(base+`/api/marketing/campaigns/${campaign}?summary=1`,{headers})).json(),full=await (await originalFetch(base+`/api/marketing/campaigns/${campaign}`,{headers})).json(),listed=await (await originalFetch(base+'/api/marketing/campaigns',{headers})).json()
+  check('campaign progress and list responses omit large flyers while full editing data still retains the image',()=>{assert.equal(slim.flyer,'yes');assert.equal(listed.find((r:any)=>r.id===campaign).flyer,'yes');assert.equal(full.flyer,flyer);assert.ok(JSON.stringify(slim).length<5000)})
   check('paired campaign API reports distinct engaged recipients with tracked-send denominator and legacy messages excluded',()=>{assert.equal(denied.status,401);assert.equal(status.status,200);assert.equal(summary.sent,2);assert.equal(summary.trackedSent,1);assert.equal(summary.opened,1);assert.equal(summary.clicked,1)})
   check('recipient API exposes first/latest activity and per-link counts without claiming untracked mail was unread',()=>{const r=sends.find((r:any)=>r.customerId===customer);assert.equal(r.openCount,2);assert.equal(r.firstOpenedAt,'2026-11-17T12:01:00Z');assert.equal(r.lastOpenedAt,'2026-11-17T12:03:00Z');assert.equal(r.clickCount,1);assert.equal(r.clickedLinks[0].url,destination);assert.equal(r.clickedLinks[0].count,1);const old=sends.find((r:any)=>r.customerId===oldCustomer);assert.equal(old.tracked,false);assert.equal(old.openCount,0)})
   db.prepare("INSERT INTO marketing_suppressions(email,unsubscribed_at,source) VALUES('keep@example.com',datetime('now'),'pos')").run()
