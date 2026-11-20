@@ -1,18 +1,29 @@
-# DiamondPOS v0.3.51 — work-order texts and checkout fixes
+# DiamondPOS v0.3.52 — text settings and customer permission
 
-Source prepared for main; creating a commit does not create an installer release. Includes v0.3.50 held-sale cancellation, Email/Text/both service notices, deferred estimate fees and live customer suggestions. No website upload is required.
+Fixes Work Order Settings showing Work order not found instead of the Mobile Text Alerts API-key form. Adds a saved OK to text service updates checkbox under customer Contact Info. Existing customers default to off. Texts require saved permission independently of marketing email permission. No automatic sending or reply inbox.
 
-## Get the checked-in source on your PC
+## Before copying files
+
+The previous v0.3.51 batch was already committed directly to main as 779bb5d. This v0.3.52 update is NOT committed: Greg applies and commits it. The ZIP includes the cumulative v0.3.51 files too.
 
 In MobaXterm:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
 git status --short
+```
+
+If local changes appear, preserve/review them first. Do not reset or discard files. With a clean working tree, get the existing v0.3.51 commit:
+
+```bash
 git pull --ff-only origin main
 ```
 
-Pull only with a clean working tree. If local edits are listed or Git reports a conflict, preserve them and review before proceeding; do not reset or discard them.
+Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync and close installed/development POS instances.
+
+## Apply and verify
+
+Extract DiamondPOS-update-v0.3.52.zip separately. Copy the CONTENTS of its DiamondPOS-update-v0.3.52 folder over C:\dev\DiamondPOS, merging folders and replacing matching files. Keep .git and all other files. Do not create a nested project folder. No npm dependency changes or website upload.
 
 In PowerShell in C:\dev\DiamondPOS:
 
@@ -23,20 +34,30 @@ npm run build
 npm run dev
 ```
 
-No dependency changes. Validation: 338 regressions, typecheck and build passed in the development environment. Windows interaction and real text delivery remain to test. Follow TESTING-NOTES.md. Close the development instance before using installed POS.
+342 regression checks, typecheck and build passed during development. Follow TESTING-NOTES.md; Windows/hardware and real SMS delivery still need testing. Close the development instance before starting installed POS.
 
-## Release later, when ready
+## Commit and publish — MobaXterm
 
-These commands create the installer release; they have not been run here:
+Review git status for unexpected files before adding them. These are YOUR commands; no GitHub write or release tag was performed by the assistant for v0.3.52.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
 git status --short
-git log -1 --oneline
-git tag v0.3.51
-git push origin v0.3.51
+git diff --stat
+git add -A
+git commit -m "Fix text settings and add saved customer service text permission"
+git push origin main
+git tag v0.3.52
+git push origin v0.3.52
 ```
 
-Do not overwrite an existing tag. Wait for GitHub Actions Release to succeed. Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync, and close running POS instances before installing. Update STORE SERVER FIRST, then every till: schema 41 adds notification audit records, and minimum client version is 0.3.51.
+If the tag already exists, inspect it instead of replacing it. Wait for GitHub Actions Release to succeed. Install v0.3.52 on STORE SERVER FIRST, then every till. Schema 42 adds default-off customer permission; minimum client is 0.3.52.
 
-Work Order Settings → Work-order texts: enter the Mobile Text Alerts API key and store callback number, then enable. The provider account needs custom messages and a verified sender. Test only your own authorized number/address first. No real messages have been sent during development; do not treat provider acceptance as confirmed delivery.
+## Where the controls are
+
+1. Work Orders → Work order settings → Work-order texts — Mobile Text Alerts (near the top). You should now see Enable, API key, store callback number and Save text settings. Blank key keeps the saved key. Set up a Mobile Text Alerts account enabled for custom messages with its sender number verified.
+2. Customers → Add/Edit customer → Contact Info → OK to text service updates (near Mobile). Check only with customer permission, then save. Mobile is used first, otherwise Phone. Changing a number clears the choice; confirm permission for the new number before checking again. This is separate from OK to e-mail for marketing and does not override provider STOP opt-outs.
+3. Reopen the work order after editing its customer. Estimate/pickup Notify dialog offers Email/Text/both; Text is disabled without saved customer permission. The server checks current permission again before sending. Replies are not monitored; estimate decisions use the website link, other questions use the store callback.
+4. Test first with your own authorized number/email. No real messages were sent during development. Accepted is not confirmed delivery. Check Unknown results with the provider before deliberately sending again.
+
+Do not change your working approval website files or AOD configuration for this update.

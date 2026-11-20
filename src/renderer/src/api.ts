@@ -158,7 +158,7 @@ export const api = {
     ),
   getCustomer: (id: number) => request<CustomerDetail>('GET', `/api/customers/${id}`),
   createCustomer: (c: CustomerInput) => request<Customer>('POST', '/api/customers', c),
-  updateCustomer: (id: number, c: CustomerInput, preserveEmailConsent=false) => request<Customer>('PUT', `/api/customers/${id}`, {...c,preserveEmailConsent}),
+  updateCustomer: (id: number, c: CustomerInput, preserveEmailConsent=false,preserveServiceTextConsent=false) => request<Customer>('PUT', `/api/customers/${id}`, {...c,preserveEmailConsent,preserveServiceTextConsent}),
 
   // Customer kiosk (iPad)
   listKiosks: () => request<KioskInfo[]>('GET', '/api/kiosks'),

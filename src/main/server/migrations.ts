@@ -698,6 +698,9 @@ export const migrations: Migration[] = [
 ,
  {version:41,name:'manual work order notification results',up:`
  CREATE TABLE work_order_notifications(request_id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),request_json TEXT NOT NULL,result_json TEXT,created_at TEXT NOT NULL DEFAULT (datetime('now')));
+ `},
+ {version:42,name:'customer service text permission',up:`
+ ALTER TABLE customers ADD COLUMN ok_to_service_text INTEGER NOT NULL DEFAULT 0 CHECK(ok_to_service_text IN (0,1));
  `}
 ]
 

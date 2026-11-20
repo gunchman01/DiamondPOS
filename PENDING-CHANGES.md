@@ -1,11 +1,8 @@
-# v0.3.51 check-in scope
+# v0.3.52 source update — Greg commits this batch
 
-Greg approved checking this batch into main. Installer publication and store deployment are still pending.
+- Fix Work Order Settings text API route order so API key/enable/callback fields load.
+- Add default-off saved customer OK to text service updates checkbox, enforce it on the server and in the work-order send dialog, and clear it when the destination number changes.
+- Includes the v0.3.51 source updates for users who have not copied that ZIP.
+- Schema 42; version/minimum client 0.3.52. Store Server first then tills. No website upload.
 
-- v0.3.50 recalled-hold cancellation fix.
-- Unpaid work-order estimate fees added to the bill, editable/waivable; fee-only declined checkout.
-- Live customer prefix suggestions in Make a Sale.
-- Email/Text/both for estimate approvals and Ready for Pickup using Mobile Text Alerts. Same approval link, unmonitored-reply notice, permission confirmation, separate results and duplicate-send protection.
-- Schema 41; version and minimum client 0.3.51. Store Server first, then all tills.
-
-338 regression checks, typecheck and build passed before check-in. Real provider delivery/Windows/hardware testing is pending. No release tag or deployment is part of this check-in. See START-HERE.md for Git pull/test commands and the separate future release-tag commands.
+The earlier v0.3.51 batch is already on main as 779bb5d. Pull that first with a clean working tree, then apply this ZIP and make the v0.3.52 commit yourself. Do not discard local edits or force-push. See START-HERE.md for exact commands. No direct GitHub writes/tags/deployment or live messages performed for this update.

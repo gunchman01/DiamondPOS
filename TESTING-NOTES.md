@@ -1,8 +1,8 @@
-# DiamondPOS v0.3.51 — store acceptance tests
+# DiamondPOS v0.3.52 — store acceptance tests
 
-Fix: after recalling a held receipt, Cancel sale now cancels the saved hold and releases its reserved stock. It previously only cleared the screen. Schema 41 adds notification audit records; no website changes.
+Fix: after recalling a held receipt, Cancel sale now cancels the saved hold and releases its reserved stock. It previously only cleared the screen. Schema 42 adds notification audit records; no website changes.
 
-Validation: 338 regression checks, typecheck and production build passed. Real Windows interaction remains for your store check.
+Validation: 342 regression checks, typecheck and production build passed. Real Windows interaction remains for your store check.
 
 1. Note an item's on-hand stock, put a sale containing it on hold, and confirm the normal reservation.
 2. Recall that hold. Click Cancel sale and decline the confirmation: the ticket and reservation must remain.
@@ -25,3 +25,11 @@ Apply the Store Server update first, then tills, because the server now handles 
 - Test STOP/provider suppression on the self-number using provider instructions. Replies do not create a POS inbox; service contacts must not be placed in marketing sends.
 
 Install the Store Server first, then all tills (minimum 0.3.51). Hardware/Windows/real delivery acceptance remains pending.
+
+
+## v0.3.52 regression checks
+
+- Open Work Orders → Work order settings. Confirm Enable, API key and callback fields appear instead of Work order not found. Save the provider key, reopen settings, and save blank to retain it.
+- Edit a customer. Confirm OK to text service updates starts off, save it on, reopen customer and verify persistence. It must not change OK to e-mail (marketing).
+- Reopen the work order: Text should be disabled when customer permission is off, available when on. Sending must be blocked by the server if permission was revoked on another till after the dialog opened.
+- Change the destination phone/mobile: permission clears; reconfirm only with the customer's agreement. No stage change or customer save sends a message automatically.

@@ -167,6 +167,7 @@ export interface WorkOrder {
   customerName: string
   customerEmail: string | null
   customerPhone: string | null
+  customerServiceTextAllowed?: boolean
   unit: CustomerUnit
   problem: string // what the customer says is wrong
   diagnosis: string // mechanic's estimate notes

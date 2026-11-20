@@ -27,6 +27,7 @@ export const CUSTOMER_FIELDS: Field[] = [
   { key: 'phone', col: 'phone', kind: 'text' },
   { key: 'mobile', col: 'mobile', kind: 'text' },
   { key: 'email', col: 'email', kind: 'text' },
+  { key: 'okToServiceText', col: 'ok_to_service_text', kind: 'bool' },
   { key: 'okToEmail', col: 'ok_to_email', kind: 'bool' },
   { key: 'street', col: 'street', kind: 'text' },
   { key: 'street2', col: 'street2', kind: 'text' },
@@ -66,6 +67,7 @@ export const CUSTOMER_DEFAULTS: CustomerInput = {
   mobile: null,
   email: null,
   okToEmail: false,
+  okToServiceText: false,
   street: null,
   street2: null,
   city: null,
@@ -133,6 +135,7 @@ export function validateCustomer(body: unknown, base: CustomerInput): CustomerIn
     }
   }
   const c = out as unknown as CustomerInput
+  if(String(c.mobile||c.phone||'').replace(/\D/g,'')!==String(base.mobile||base.phone||'').replace(/\D/g,'')&&b.okToServiceText!==true)c.okToServiceText=false
   if (!c.firstName && !c.lastName && !c.company) throw new ValidationError('Enter a last name or a company name')
   if (c.trackAsCompany && !c.company) throw new ValidationError('Enter the company name, or untick "Track as Company"')
   if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)) throw new ValidationError('That email address doesn\'t look right')

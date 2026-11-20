@@ -371,6 +371,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       customerName: customerDisplayName(customer),
       customerEmail: (c.email as string) || null,
       customerPhone: ((c.mobile as string) || (c.phone as string)) ?? null,
+      customerServiceTextAllowed: c.ok_to_service_text===1,
       unit: getUnit(db, r.unit_id)!,
       problem: r.problem,
       diagnosis: r.diagnosis,
@@ -493,6 +494,10 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       }
     }
   const by = (req: express.Request) => String((req.body as Record<string, unknown>)?.by ?? req.header('X-Till') ?? 'Staff')
+
+  // Static settings routes must precede /api/workorders/:id.
+  app.get('/api/workorders/text-settings',wrap((_req,res)=>res.json(textSettingsView(db))))
+  app.put('/api/workorders/text-settings',wrap((req,res)=>res.json(saveTextSettings(db,req.body))))
 
   // ================= Settings =================
   app.post('/api/workorders/:id/group',wrap((req,res)=>{
@@ -932,8 +937,6 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     hist(wo.id,'Estimate link cancelled by staff',by(req));res.json(need(wo.id))
   }))
 
-  app.get('/api/workorders/text-settings',wrap((_req,res)=>res.json(textSettingsView(db))))
-  app.put('/api/workorders/text-settings',wrap((req,res)=>res.json(saveTextSettings(db,req.body))))
   app.post('/api/workorders/:id/notify',wrap(async(req,res)=>{
     const wo=need(Number(req.params.id)),b=req.body||{},id=String(b.requestId||'')
     if(!/^[a-zA-Z0-9-]{16,80}$/.test(id))throw new WoError(400,'Invalid notification request')
@@ -947,7 +950,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     if(email&&!wo.customerEmail)throw new WoError(400,'Add a customer email address first')
     const config=textSettings(db)
     let phone=''
-    if(text){if(!config.enabled||!config.apiKey||!config.callbackNumber)throw new WoError(400,'Configure and enable Mobile Text Alerts in Work Order Settings first');if(b.permission!==true)throw new WoError(400,'Confirm the customer agreed to receive service texts');phone=smsPhone(wo.customerPhone)}
+    if(text){if(!wo.customerServiceTextAllowed)throw new WoError(400,'Enable OK to text service updates on the customer record first, with their permission');if(!config.enabled||!config.apiKey||!config.callbackNumber)throw new WoError(400,'Configure and enable Mobile Text Alerts in Work Order Settings first');if(b.permission!==true)throw new WoError(400,'Confirm the customer agreed to receive service texts');phone=smsPhone(wo.customerPhone)}
     db.transaction(()=>{db.prepare('INSERT INTO work_order_notifications(request_id,work_order_id,request_json) VALUES (?,?,?)').run(id,wo.id,payload);hist(wo.id,`Sending notification (${[email?'email':'',text?'text':''].filter(Boolean).join(' and ')}). Request ${id}. If no result follows, check provider before resending.`,by(req))})()
     const results:Record<string,ChannelResult>={}
     const deliver=async(link?:string)=>{

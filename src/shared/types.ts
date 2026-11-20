@@ -239,6 +239,8 @@ export interface Customer {
   mobile: string | null
   email: string | null
   okToEmail: boolean
+  /** Customer permission for transactional estimate/pickup texts, separate from marketing. */
+  okToServiceText?: boolean
   street: string | null
   street2: string | null
   city: string | null

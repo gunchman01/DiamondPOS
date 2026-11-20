@@ -26,6 +26,7 @@ const EMPTY: Form = {
   mobile: '',
   email: '',
   okToEmail: false,
+  okToServiceText: false,
   street: '',
   street2: '',
   city: '',
@@ -126,7 +127,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
   const text = (k: keyof Form) => ({
     value: form[k] as string,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-      set(k, e.target.value as never)
+      setForm(f=>({...f,[k]:e.target.value,...(k==='mobile'||k==='phone'?{okToServiceText:false}:{})}))
   })
   const check = (k: keyof Form) => ({
     type: 'checkbox' as const,
@@ -153,7 +154,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
     setBusy(true)
     setError('')
     try {
-      const saved = editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase()) : await api.createCustomer(input)
+      const saved = editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase(),detail?.customer.okToServiceText===input.okToServiceText&&String(detail?.customer.mobile||detail?.customer.phone||'').replace(/\D/g,'')===String(input.mobile||input.phone||'').replace(/\D/g,'')) : await api.createCustomer(input)
       props.onSaved(saved)
       if (andNew) {
         setEditingId(null)
@@ -243,6 +244,9 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               </Row>
               <Row label="Mobile">
                 <input {...text('mobile')} />
+              </Row>
+              <Row label="OK to text service updates">
+                <input {...check('okToServiceText')} className="lone-check" /><span className="muted small"> Customer agreed to estimate approval and ready-for-pickup texts at the mobile number above (phone if mobile is blank). No marketing texts. Replies are not monitored; use the estimate link or call the shop. Changing the number clears this choice; check again only with permission for the new number.</span>
               </Row>
               <Row label="E-mail">
                 <input type="email" {...text('email')} />

@@ -33,7 +33,7 @@ export default function WorkOrderTicket(props: {
   const [textSelected,setTextSelected]=useState(false)
   const [textPermission,setTextPermission]=useState(false)
   const [notificationId,setNotificationId]=useState(()=>crypto.randomUUID())
-  useEffect(()=>{if(preview){setEmailSelected(!!wo?.customerEmail);setTextSelected(false);setTextPermission(false);setNotificationId(crypto.randomUUID())}},[preview])
+  useEffect(()=>{if(preview){setEmailSelected(!!wo?.customerEmail);setTextSelected(false);setTextPermission(!!wo?.customerServiceTextAllowed);setNotificationId(crypto.randomUUID())}},[preview])
   const [callNote,setCallNote]=useState('')
   const [callDays,setCallDays]=useState(3)
   const [msg, setMsg] = useState('')
@@ -418,9 +418,10 @@ export default function WorkOrderTicket(props: {
         <div className="modal-backdrop">
           <div className="modal email-modal">
             <h2>Notify {wo.customerName}</h2>
-            <div className="row gap"><label><input type="checkbox" checked={emailSelected} disabled={busy} onChange={e=>{setEmailSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Email</label>{(preview.estimate||wo.status==='ready_pickup')&&<label><input type="checkbox" checked={textSelected} disabled={busy} onChange={e=>{setTextSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Text</label>}</div>
+            <div className="row gap"><label><input type="checkbox" checked={emailSelected} disabled={busy} onChange={e=>{setEmailSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Email</label>{(preview.estimate||wo.status==='ready_pickup')&&<label><input type="checkbox" checked={textSelected} disabled={busy||!wo.customerServiceTextAllowed} onChange={e=>{setTextSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Text</label>}</div>
+            {(preview.estimate||wo.status==='ready_pickup')&&!wo.customerServiceTextAllowed&&<p className="small">Text is disabled. Open Customers → this customer → Contact info and save “OK to text service updates” with their permission.</p>}
             <p className="small">Replies to texts and emails are not monitored. Use the estimate link to approve or decline; call the store for questions.</p>
-            {textSelected&&<><p>Text to: <b>{wo.customerPhone||'(no phone number)'}</b>. {preview.estimate?'Includes the estimate total and the same approval link as the email.':'Includes the unit, work-order number and balance due.'}</p><label><input type="checkbox" checked={textPermission} disabled={busy} onChange={e=>{setTextPermission(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Customer agreed to receive service texts at this number.</label></>}
+            {textSelected&&<><p>Text to: <b>{wo.customerPhone||'(no phone number)'}</b>. {preview.estimate?'Includes the estimate total and the same approval link as the email.':'Includes the unit, work-order number and balance due.'}</p><label><input type="checkbox" checked={textPermission} disabled={busy} onChange={e=>{setTextPermission(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Use saved customer permission for service texts at this number.</label></>}
             <div className="small">
               To: <b>{wo.customerEmail ?? '(no email address)'}</b>
               <br />

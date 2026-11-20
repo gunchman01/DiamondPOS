@@ -355,6 +355,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     if (!existing) throw new HttpError(404, 'Customer not found')
     const input=validateCustomer(req.body,existing)
     if(req.body?.preserveEmailConsent===true&&String(input.email??'').trim().toLowerCase()===String(existing.email??'').trim().toLowerCase())input.okToEmail=existing.okToEmail
+    if(req.body?.preserveServiceTextConsent===true&&String(input.mobile||input.phone||'').replace(/\D/g,'')===String(existing.mobile||existing.phone||'').replace(/\D/g,''))input.okToServiceText=existing.okToServiceText
     updateCustomer(db,id,input)
     res.json(getCustomer(db, id))
   })

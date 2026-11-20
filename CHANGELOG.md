@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.52 - 20 Nov 2026
+> Update the Store Server PC first.
+- Fixed Work Order Settings showing “Work order not found” instead of the Mobile Text Alerts API-key fields.
+- Added “OK to text service updates” in customer Contact Info, separate from marketing email permission. Existing customers default to off. Texting requires this saved permission, even if someone checks Text in the send dialog.
+- Changing the phone/mobile number clears permission until it is confirmed again. No automatic messages are sent.
+
 ## v0.3.51 - 20 Nov 2026
 > Update the Store Server PC first.
 - Send estimate approvals and ready-for-pickup notices by Email, Text, or both. Configure Mobile Text Alerts in Work Order Settings; replies are not monitored. Customers approve or decline through the estimate link.

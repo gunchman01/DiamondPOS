@@ -809,3 +809,12 @@ On an open ticket with an unpaid fee, choose **Add estimate fee to bill** and co
 ## Finding a customer while making a sale
 
 Type at least two characters in the customer field to see matching active customer names/company names, email/customer-number prefixes or phone prefixes. Use the arrow keys and Enter or click a result to select it. **Find** opens the full customer picker. Escape closes suggestions.
+
+
+### Saved permission for service texts (v0.3.52)
+
+Open **Customers → Add/Edit customer → Contact Info**. Enter the mobile number (phone is used if mobile is blank), then check **OK to text service updates** only after the customer agrees to estimate and pickup texts. Save. Existing customers start unchecked. This is separate from marketing email permission. Phone-number edits clear the choice so permission can be confirmed for the new number. Provider STOP opt-outs still apply; the POS checkbox does not override them.
+
+Reopen the work order after saving the customer. **Text** is available in the estimate/pickup Notify dialog only when that customer's permission is saved. Email remains available independently. The server checks saved permission before sending. Replies are not monitored.
+
+For the API key, open **Work Orders → Work order settings**. The **Work-order texts — Mobile Text Alerts** section at the top contains Enable, API key, store phone and Save text settings. In v0.3.51 a routing bug could replace the form with Work order not found; update the Store Server and every till to v0.3.52 to fix it.

@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### Pending v0.3.52 — 20 November 2026: settings route and saved customer text permission
+- Greg reported visible text-settings heading followed by Work order not found. Confirmed static GET/PUT /api/workorders/text-settings were below dynamic /:id routes. Moved both ahead of dynamic routes and added actual HTTP GET/PUT/readback tests (earlier tests exercised the settings helper but missed routing).
+- Schema 42 adds default-off customers.ok_to_service_text; customer Contact Info exposes OK to text service updates. Separate from marketing opt-ins. Work-order reads expose permission, send dialog disables Text without it, and server independently rejects an unpermitted text even if a request claims permission. Mobile preferred, otherwise phone. Phone edits clear the UI choice and partial number updates clear stored permission unless explicitly renewed. Unrelated stale editor saves preserve current permission when unchanged.
+- Prepared v0.3.52/minimum client 0.3.52; Store Server first then every till. ZIP-first/user-commit workflow restored: no remote writes, tags or deployment. Cumulative source overlay includes v0.3.51 for users who have not copied that ZIP. Existing main already has 779bb5d; pull that with a clean working tree before applying this update and committing.
+- Validation: 342 regression checks, typecheck and production build pass, including real local HTTP GET/PUT settings resolution/readback, permission persistence/default-off/send enforcement and changed-number clearing. No live texts/emails. Real Windows/provider delivery still require user tests.
+
 ### v0.3.51 check-in — 20 November 2026
 - Greg authorized checking in the cumulative batch on main. Main baseline 25eb2c031a845c3c71e431d431a755bacb04dded was unchanged. Include v0.3.50 cancellation plus all pending notification/fee/search work, preserving existing main files.
 - Prepared version/minimum client 0.3.51 for schema 41; Store Server first, then all tills. This check-in does not tag/publish an installer or send messages. START-HERE.md contains pull/test and separate later-release commands. Real Windows/provider delivery still pending.
@@ -596,7 +602,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 - Investigate Citizen CT-S310 blank slip from DiamondPOS while QuickBooks prints correctly. Receipt jobs currently inherit driver paper sizing; cause unconfirmed and physical test pending.
 
-- Configure Mobile Text Alerts on the eventual new release and run a self-number estimate/pickup test. Verify both-channel partial failure results, STOP handling and no duplicate resend; no live messages have been sent here.
+- Apply v0.3.52 route/customer-permission fix, then configure Mobile Text Alerts and run a self-number estimate/pickup test. Verify both-channel partial failure results, STOP handling and no duplicate resend; no live messages have been sent here.
 - Store test pending bench/mechanic changes in the next cumulative update; update Store Server first for schema changes.
 
 - Verify Customer Equipment on Windows with a real repair intake unit. Proposed next feature: limited store-Wi-Fi mechanic phone access and unit/work-order photos, including backup/restore of photo data. Not yet implemented.
