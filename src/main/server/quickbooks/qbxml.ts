@@ -45,7 +45,7 @@ export const rq = {
       `DiamondPOS receipt #${s.saleId}; ${s.method} ${s.saleDate}: ${s.customerName ?? cfg.customerName}, ${s.saleCount} receipt(s) ` +
       `#${s.firstSaleId}-#${s.lastSaleId}` +
       (s.taxExemptCount ? `, ${s.taxExemptCount} tax exempt` : '') +
-      (s.method === 'card' ? `; Card brand: ${CARD_BRANDS[s.cardBrand ?? 'unknown']}` : '')
+      (s.method === 'card' ? `; ${s.cardBrand==='credit'||s.cardBrand==='debit'?'Card type':'Card brand'}: ${CARD_BRANDS[s.cardBrand ?? 'unknown']}` : '')
     const lines = s.lines
       .map(
         (l) =>

@@ -673,6 +673,27 @@ export const migrations: Migration[] = [
  {version:34,name:'coarse campaign activity geography',up:`
   ALTER TABLE marketing_activity ADD COLUMN location_json TEXT;
   CREATE INDEX idx_marketing_activity_time ON marketing_activity(send_id,at);
+ `},
+ {version:35,name:'manual work-order SMS send audit and recovery',up:`
+  CREATE TABLE service_sms(request_id TEXT PRIMARY KEY,request_hash TEXT NOT NULL,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),stage TEXT NOT NULL,recipient TEXT NOT NULL,body TEXT NOT NULL,permission_at TEXT NOT NULL,by_name TEXT NOT NULL,provider_account TEXT NOT NULL,provider_sid TEXT,status TEXT NOT NULL,segments INTEGER,error TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+  CREATE INDEX idx_service_sms_wo ON service_sms(work_order_id,created_at);
+ `},
+ {version:36,name:'work order mechanic assignments',up:`
+ CREATE TABLE mechanics(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL COLLATE NOCASE UNIQUE,active INTEGER NOT NULL DEFAULT 1);
+ ALTER TABLE work_orders ADD COLUMN mechanic_id INTEGER REFERENCES mechanics(id);
+ `},
+ {version:37,name:'customer visit work order groups',up:`
+ ALTER TABLE work_orders ADD COLUMN group_id INTEGER REFERENCES work_orders(id);
+ CREATE INDEX idx_work_order_group ON work_orders(group_id);
+ `},
+ {version:38,name:'credit and debit payment classification',up:`
+ ALTER TABLE payments ADD COLUMN card_type TEXT CHECK(card_type IS NULL OR card_type IN ('credit','debit'));
+ `},
+ {version:39,name:'alternate lookup snapshot on receipts',up:`
+ ALTER TABLE sale_items ADD COLUMN alu_snapshot TEXT;
+ `},
+ {version:40,name:'persistent unread estimate responses',up:`
+ CREATE TABLE estimate_notifications(estimate_id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),decision TEXT NOT NULL,review INTEGER NOT NULL DEFAULT 0,received_at TEXT NOT NULL DEFAULT (datetime('now')),seen_at TEXT);
  `}
 
 ]

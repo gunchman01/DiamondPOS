@@ -36,3 +36,9 @@ export interface AccountPaymentRequest {
   by: string
   till: string
 }
+
+export interface AccountBalanceCustomer {
+  customer: import('./types').Customer
+  balanceCents: number
+  invoiceCount: number
+}

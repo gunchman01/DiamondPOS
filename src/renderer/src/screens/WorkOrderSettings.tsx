@@ -19,6 +19,11 @@ const centsText = (c: number) => (c / 100).toFixed(2)
 
 /** Work order setup: labor rate, default shop supplies, and the email template for each stage. */
 export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
+  const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
+  const [mechanicName,setMechanicName]=useState('')
+  const [mechanicBusy,setMechanicBusy]=useState(false)
+  const reloadMechanics=()=>api.woMechanics().then(setMechanics)
+  useEffect(()=>{reloadMechanics().catch(e=>setError(e.message))},[])
   const [s, setS] = useState<WoSettings | null>(null)
   const [rate, setRate] = useState('')
   const [fees, setFees] = useState<Record<UnitCategory, string> | null>(null)
@@ -89,6 +94,10 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
       </div>
       <h2>Work order settings</h2>
       <ApprovalSettings/>
+      <div className="card form"><h3>Mechanics</h3><p className="muted">Removing a mechanic hides them from new assignments. Existing tickets and history keep their name. Adding the same name restores them.</p>
+      <div className="row gap"><input aria-label="Mechanic name" maxLength={80} value={mechanicName} onChange={e=>setMechanicName(e.target.value)} placeholder="Mechanic name"/><button disabled={mechanicBusy||!mechanicName.trim()} onClick={async()=>{setMechanicBusy(true);try{await api.woAddMechanic(mechanicName);await reloadMechanics();setMechanicName('')}catch(e){setError((e as Error).message)}finally{setMechanicBusy(false)}}}>Add mechanic</button></div>
+      {mechanics.filter(m=>m.active).map(m=><div className="row between" key={m.id}><span>{m.name}</span><button disabled={mechanicBusy} onClick={async()=>{setMechanicBusy(true);try{await api.woRemoveMechanic(m.id);await reloadMechanics()}catch(e){setError((e as Error).message)}finally{setMechanicBusy(false)}}}>Remove</button></div>)}
+      </div>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
 

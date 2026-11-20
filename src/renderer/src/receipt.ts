@@ -103,6 +103,7 @@ export function receiptHtml(
         const rows = sale.items
           .map((i) => {
             const details: string[] = []
+            if (b.showAlu && i.alu) details.push(`Alt lookup: ${esc(i.alu)}`)
             if (b.showSku && i.sku) details.push(`Item # ${esc(i.sku)}`)
             if (b.showUnitPrice && Math.abs(i.qty) > 1) details.push(`${Math.abs(i.qty)} @ ${money(i.unitPriceCents)}`)
             if (b.showSerial && i.serial) details.push(`S/N ${esc(i.serial)}`)

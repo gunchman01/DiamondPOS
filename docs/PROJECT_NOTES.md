@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 17 November 2026 (v0.3.47 campaign map/graphs)_
+_Last updated: 20 November 2026 (pending receiving alerts and display fitting)_
 
 ---
 
@@ -70,6 +70,73 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### Release candidate v0.3.49 — 20 November 2026
+- Removed Quick Picks from Sale, item setup/list filter/columns and import/export templates; retained legacy DB/model fields for compatibility. Sale loads settings without the Quick Pick request.
+- ALU is a default sale column and configurable Items-block receipt option (on by default). Schema 39 snapshots lookup values, including original values on linked returns; legacy rows fall back to current catalog. Full-page sales print lookup too.
+- Schema 40 persists new website estimate decision notices atomically with decision handling. Header polls unread every 15s, pulses until clicked/acknowledged, opens a response list with ticket links. Review cases included, historical notices not backfilled, shared acknowledgement; reduced-motion preference respected.
+- Version 0.3.49 and minimum till version 0.3.49. Schemas now 40. Cumulative overlay built against unchanged main 73e3634867bb8c6fefd7c21d41d3dd3d9266a9f2, including v0.3.48 changes. 318 regressions pass; typecheck/build pass. No real messages, commits/tags, installer deployment, AOD config or customer DB changes performed here.
+- Store Windows/125% UI and hardware checks required. SMS still unfinished; Citizen blank receipt not confirmed fixed. See TESTING-NOTES.md. Ready for Greg to apply source, commit/tag and test.
+
+### Pending batch — 20 November 2026: Credit / Debit replaces new brand choices
+- Added CARD_TYPES (Credit/Debit) for sale/refund/account-payment selectors. Credit default, no Visa/Mastercard/etc or Unknown option for new UI entries. Historical CARD_BRANDS keys remain accepted/read for saved data and immutable recovery requests.
+- Schema 38 adds payments.card_type with a Credit/Debit CHECK; original payments.card_brand CHECK and historical data remain untouched. Account payments use their existing unconstrained classification field. Payment method stays card throughout settlement and QB.
+- Sale reads, original receipt returns, end-of-day sales/voids, receipt labels and QuickBooks summaries preserve Credit/Debit. QB settings expose only the two new mappings, retaining old saved mappings for pending historical exports; blank uses general Card mapping. Previously synced transactions are not rewritten.
+- Typecheck/build pass; 315 regression checks pass including new payment persistence/idempotence/refund/readback, receipt labels, QB method mapping/memo, end-of-day net and account-payment mapping; historical Visa tests still pass. No real payment/QB call made.
+- Held in pending batch without version/release/package/deployment. Store Server must update before tills for schema 38.
+
+### Pending batch — 20 November 2026: receiving work-order alerts and Auto fit
+- Posted receivings now include read-only matches for inventory parts on Waiting on Parts tickets. Popup appears after posting before label options; grouped by ticket/customer/equipment/mechanic and matching SKU/quantity. Duplicate receipt/ticket part lines aggregate. All-part shortage flag uses existing work-order stock rules. Quantities are not promised separately to each matching ticket; no automatic stage/customer notification/inventory allocation changes.
+- Open work order navigates to that ticket via an explicit App intent. Posted receiving has Review waiting work orders to refresh current matches; drafts/other stages excluded. Alert is on the posting computer; not a cross-till notification feed. No migration.
+- Settings → Display: default Auto fit responds to main-window content size in device-independent pixels, accounting for Windows DPI scaling. Fits a 1366×850 workspace, bounded 85–100%; manual 80/85/90/95/100/110/125% per-PC overrides. Uses main-window getContentSize instead of renderer dimensions to avoid zoom feedback. Apply on ready/load and debounced resize. No Windows DPI setting change and separate print windows are unaffected.
+- Typecheck/build pass; 311 regression checks pass. Added actual receiving API tests for post-match/duplicates/partial shortage/repeated-post/current-stage behavior and display math/validation checks. Physical Windows 125% display check remains pending.
+- AOD repaired approvals hosting per Greg; functional end-to-end acceptance not independently verified. Flashing unread estimate-response header is still unimplemented, as is final service-SMS integration. No release/package/version/deployment yet.
+
+### Pending batch — 19 November 2026: take account payment from Make a Sale
+- Added Take payment on account to the Sale footer and I want to menu, available without selecting a customer or adding items.
+- Searchable modal lists only customers with positive DiamondPOS invoice debt, their balance and open invoice count. Names/company/customer number/email/phone supported; inactive/account-disabled customers with existing debt remain included. Authenticated GET /api/accounts/balances computes the same per-invoice remaining-balance formula as invoiceDue, including QuickBooks checks and subsequent local payment allocations.
+- Selection opens the existing CustomerAccount dialog/payment logic for a separate accountCustomer, leaving the in-progress sale's customer/cart/returns/date untouched. Existing idempotent cash/card/check payments, recovery and QB allocation/sync reused. List reloads on each opening and has Refresh; account dialog rereads balances before taking payment.
+- Clarifies these are POS-raised invoices, not back-office-only invoices; last QB refresh still matters. Blocks opening during checkout/hold recovery. No schema change.
+- Typecheck/build pass; 304 regression checks pass, including debt-only search/auth, inactive/disabled debt, partial payment, QB reconciliation and zero-balance exclusion. Visual review pending as noted above; no release/deployment yet.
+
+### Pending batch — 19 November 2026: Sales Receipt workspace and cost columns
+- Redesigned Make a Sale from Greg's QBPOS screenshot: blue title/controls, top scan and prefilled customer search, large striped item grid, lower-right totals, bottom Cash/Credit-Debit/Check/Account and Amount Due, footer Hold/Cancel/Reprint. No Gift or placeholder Save actions. Existing payments/returns/account/held/work-order behavior retained.
+- I want to menu houses the existing F-key actions; Quick Picks becomes a compact popover. Quantity +/- controls remain below the grid. Date override is in Sale options and visible in its heading when active. Tax exemption, fee credits, last receipt/change due retained.
+- Default grid columns now match the reference (Item #/Item Name/Attribute/Size/Qty/Price/Ext/Tax). Existing saved selections preserved.
+- Optional Cost uses configured order cost (previous Cost column showed inventory average), Last received cost uses latest posted invoice cost excluding freight, Current average cost uses current inventory average. Shared cost-summary endpoint reused with bounded four-request concurrency only while cost columns visible. Product, repair-part and return rows supported; fee/credit rows blank. Unknown/unavailable/zero distinguished; no cost added to receipts/labels.
+- Typecheck/build pass; 299 regressions pass including cost value distinctions/visibility. Actual Sale component server rendering was checked for top toolbar, grid, payment and footer actions. Interactive screenshot/browser check could not start: this runtime denies Chromium ProcessSingleton AF_UNIX sockets. Final visual/store interaction review is pending; do not claim a browser/hardware test passed.
+- No release/version/package/commit/deployment; retained in cumulative pending batch.
+
+### Pending batch — 18 November 2026: Cancel sale
+- Added a visible Cancel sale button in the Sale header. One confirmation clears all current item/return lines, customer, work-order checkout attachment, selected tax rate/exemption and overridden sale date/time, then returns focus to scanning. The last completed receipt stays available for reprint.
+- This clears the unsaved checkout only. A recalled held receipt remains saved/reserved in Held Receipts; an attached work order retains its ticket and reservations. The confirmation states these effects. Completed sales still use the existing void process.
+- Cancellation is blocked while checkout/hold is in flight or has an unresolved recovery record, including a recheck after confirmation. It never removes pending recovery storage or contacts QuickBooks. Draft generation checks prevent a late scan/customer/work-order lookup from repopulating a cancelled draft.
+- Typecheck/build pass; 297 regression checks pass, including decline, pending recovery, checkout-starts-during-confirmation, and confirmed clear.
+- Added to the cumulative pending batch without release/version/package/deployment.
+
+### Pending batch — 18 November 2026: printer defaults with per-job choice
+- Reused Settings → Printing per-PC receipt/full-page/label defaults. Added a nonblocking in-app printer prompt for item/receiving labels (once per batch), work-order labels/pages, designer tests, settings test prints and custom reports. Saved printer is preselected only if installed; no selected/available printer blocks Print. Selection is for that job only; defaults remain in Settings.
+- Labels now carry a label-job flag. Main process rejects a label job without an explicitly named printer instead of silently falling back to Windows default. Prompt Cancel/close/shutdown never submits the job; stale selections and overlapping requests cannot approve another job.
+- Receipt sale chooser retains the existing Ask which printer every time preference. Keep it enabled for the requested sale printing behavior.
+- Typecheck/build pass; 293 regression checks pass, including explicit named-printer requirement, label dimensions, chooser cancellation and stale choices. Hardware printing / Windows dialog appearance still need store testing.
+- Citizen blank receipt issue remains unresolved: narrow receipt content renders on laser, Citizen feeds/cuts blank according to Greg; QuickBooks POS currently prints there. Review receipt page-size/driver interoperability; do not change the working QuickBooks setup. No hardware test is available while Greg is away from store.
+- Changes held in cumulative batch, no new version/package/commit/deployment.
+
+### Pending batch — 18 November 2026: group equipment from one customer visit
+- Explicit customer-visit groups: each unit retains its own work-order number, stage, mechanic, estimate/approval, parts reservation and payment. No financial merging.
+- Ticket actions add another unit with customer preselected (creation/linking in one DB transaction), link an existing same-customer ticket/group with confirmation, open sibling tickets, or remove a ticket from the group. Grouping history records the staff member.
+- Work orders show live “1 of 4” numbering in the list, ticket header/group panel, and manually printed full-page work order. Closed tickets remain in visit counts; unlinking renumbers current members and a single remaining ticket becomes ungrouped.
+- Schema 37 adds indexed work_orders.group_id. Existing tickets remain ungrouped; customers' unrelated visits are never automatically linked.
+- Typecheck/build pass; 290 regressions pass, including four-ticket group merges, unchanged stock/totals/stages, cross-customer rejection, atomic failed-creation rollback, closed-member counts and clean ungrouping.
+- Held in the cumulative pending batch; no release/package/version change or changes to Greg's PC.
+
+### Pending batch — 18 November 2026: bench stage and mechanics
+- Restored On the Bench as an active stage with shared configurable color, list counts/filter, and ticket flow. Enter from Approved/Waiting on Parts (or review rework) after listed parts are available; no repeat stock deduction and no automatic email/printing.
+- Work Order Settings manages active mechanics. Removal deactivates instead of deleting, retaining existing ticket assignments/history; re-adding a name restores the same identity.
+- Tickets allow assignment/unassignment and record staff/time/history. Work-order list shows assigned mechanic; closed assignments are read-only.
+- Schema 36 adds mechanics and nullable work_orders.mechanic_id. Released retirement migration remains unchanged: previously converted tickets stay Approved until manually moved back.
+- Validation: typecheck/build pass; 285 regression checks pass, including approval/parts bench guards, stock preservation, assignment history, removal and restoration.
+- Keep changes pending with the cumulative batch; no version bump, release ZIP, tag, commit, or deployment yet. SMS integration remains unfinished; latest requested scope is estimate approval links and pickup messages only, no conversation inbox.
 
 ### v0.3.43 — customer equipment and service history display
 Added authenticated read-only /api/customers/:id/equipment, returning existing owned customer_units with customer+unit-scoped work-order history (all stages, including closed). Exposes inactive units and serialized-sale purchase links; no creation/migration/stock action. Positive integer/customer existence validation prevents misleading empty results for invalid owners.
@@ -509,6 +576,11 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 ## Next up (backlog, in rough priority order)
 
+- Investigate Citizen CT-S310 blank slip from DiamondPOS while QuickBooks prints correctly. Receipt jobs currently inherit driver paper sizing; cause unconfirmed and physical test pending.
+
+- Finish the pending manual work-order texting integration after provider choice. Include the existing approval webpage link in estimate texts and ready-for-pickup messages only. No automatic sends or two-way inbox.
+- Store test pending bench/mechanic changes in the next cumulative update; update Store Server first for schema changes.
+
 - Verify Customer Equipment on Windows with a real repair intake unit. Proposed next feature: limited store-Wi-Fi mechanic phone access and unit/work-order photos, including backup/restore of photo data. Not yet implemented.
 
 
@@ -672,3 +744,17 @@ New public geography.php with optional private geo_enabled=false/key defaults. U
 Public package now5files including subscriptions.php/geography.php; restore custom configPath after upload, keep same private database/key. GEOGRAPHY-SETUP.md is the primary new guide, CPANEL-SETUP.md retained updated release commands for consent/re-subscribe. New MAP-DATA-NOTICE.md records Natural Earth source/license and provider limitations. Existing unsubscribe/re-subscribe/typing improvements remain. Existing links can collect new location if geo enabled, but no old activity can be reconstructed. Don't treat proxy/forwarded requests as proof of customer's location/reading.
 
 Validation:268 regression checks, typecheck/build, real PHP HTTP suite, mocked-provider geography validation/cache/IP/CIDR/budget tests and real PHP-to-POS integration with an explicitly injected coarse geography fixture and mocked SMTP. Actual API credentials/network/cPanel/Windows behavior requires user verification. Next: user applies cumulative update, uploads5publicfiles preserving private path, obtains optional providerkey and enables private config/cURL, then self-only campaign checks map/graphs/consent.
+
+## v0.3.48 — Intermittent typing lockup and ghost process (18 Nov 2026)
+
+User reports app sometimes stops accepting text everywhere and closing leaves it alive until killed; trigger unknown. Verified GitHub main73e3634867bb8c6fefd7c21d41d3dd3d9266a9f2 (v0.3.47). Investigation found real failure paths: unbounded hidden print window/callback, serial shutdown waits with no cancellation/deadline, synchronous full snapshot integrity check on Electron main, and browser-native confirmation calls throughout UI. Exact Windows lockup not reproduced; do not claim definitive root-cause proof. All changes source overlay on main; no commit/push/tag/deployment/live-PC data change. No cPanel change, no schema change (34).
+
+Replaced31 global confirm calls across21 screens using scope-aware TS AST edit; Sell's two local payment helper functions named confirm are untouched. createDialogQueue + ApplicationDialogs uses HTML dialog.showModal in the renderer, no separate native JS popup, Cancel initially focused, Escape cancels, focus restored, duplicate requests denied, stale responses ignored, pending prompts cancelled on closing. Root host mounted alongside App. Async conversions preserve confirmation guards, payment/deletion/consent actions. Dialog key events do not leak to sale shortcuts. Print manager creates non-focusable hidden windows, deadline30s covering load + print callback, exactly-once completion, always destroy, cancellation during quit and no auto-reprint. Sale commits remain independent of printing.
+
+Quit controller covers close/Alt+F4/before-quit/updater quit, prevents main window disappearing during cleanup, shows Closing banner/title, single cleanup,20s fallback with max250ms log flush. Stops bridge and server in parallel, aborts background HTTP including bodies, stops schedulers together, closes raw SMTP sockets, HTTP close1s grace, then DB. Soft fallback handles stalled async tasks, not a totally blocked native main thread. SMTP uses nodemailer's documented getSocket hook with tracked raw TCP sockets; nodemailer still performs configured SSL/STARTTLS/cert validation. No custom auth/TLS bypass. Real local SMTP success + stalled greeting teardown verified; real provider TLS not tested. BackgroundIO pause/resume and SMTP resume ensure safe restart/tests. QuickBooks bridge timeout and upstream teardown prevent remote idle clients holding close.
+
+Backup verification moved to separate src/main/backupVerifier.ts worker. electron.vite.config.ts now builds index and backupVerifier entry, installer must include out/main/backupVerifier.js. scripts/test.cjs also builds matching worker using Electron ABI. SQLite online backup still yields100pages/step; unpublished snapshot integrity/journal cleanup is in worker. Manager.stop(cancel=false) retains wait semantics for explicit callers/tests; stopServer passes cancel=true and waits cancellation before closing DB. Aborted partial never published; last verified backup retained. Native worker termination is awaited before removing its snapshot.120s verification cap; app quit fallback protects pathological shutdown. No restore or live-data test performed.
+
+Help adds explicit Restore keyboard focus (blur/focus/webContents focus) and Open diagnostic logs. Logs under userData/diagnostics/application.log, rotate1MiB+previous; sanitized lifecycle/backup durations/main-loop delay/print events and renderer responsiveness, no customer/payment/credentials/URL contents. If recurrence, ask user time + server/till role and that log. New preload methods for focus/logs/closing event.
+
+Validation282 checks + typecheck + build: print missing callback/load, duplicate/stale/cancelled confirmations, quit idempotence/deadline, real hanging HTTP socket, abort controller, real loopback SMTP and greeting cancellation, real worker SQLite integrity with main-loop timer progressing, worker/backup cancellation, all existing financial/stock/QB tests. Optional Chromium DOM/focus test supplied, but runtime blocked AF_UNIX process-singleton socket so it was NOT validated here. Do not report browser/Windows pass. Actual Windows X/Alt+F4, focus after Cancel/Continue, hardware printing, live SMTP TLS and installer quit require user testing. No real external mail. Next: user applies v0.3.48, updates server/tills, runs Windows checks; inspect diagnostics if freeze persists. npm run dev watcher requires Ctrl+C even after Electron exits.

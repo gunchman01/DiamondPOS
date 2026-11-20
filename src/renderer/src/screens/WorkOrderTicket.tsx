@@ -1,3 +1,5 @@
+import NewWorkOrder from './NewWorkOrder'
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import { PriceCell } from '../saleColumns'
 import type { Product } from '../../../shared/types'
@@ -7,15 +9,20 @@ import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
-const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'ready_review', 'ready_pickup', 'closed']
+const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
 
 /** One repair ticket. */
 export default function WorkOrderTicket(props: {
   id: number
+  onOpenRelated: (id:number) => void
   by: string
   onBack: () => void
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
+  useEffect(()=>{api.woMechanics().then(setMechanics).catch(e=>setError(e.message))},[])
+  const [addingRelated,setAddingRelated]=useState(false)
+  const [linkId,setLinkId]=useState('')
   const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [wo, setWo] = useState<WorkOrder | null>(null)
   const [notes, setNotes] = useState({ problem: '', diagnosis: '', workDone: '', internalNotes: '' })
@@ -60,14 +67,14 @@ export default function WorkOrderTicket(props: {
 
   const notesDirty = !!wo && (notes.problem!==wo.problem||notes.diagnosis!==wo.diagnosis||notes.workDone!==wo.workDone||notes.internalNotes!==wo.internalNotes)
   useEffect(()=>{
-    if(!wo||busy||preview||notesDirty||picking||miscOpen)return
+    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated)return
     let live=true
     const timer=setInterval(()=>{
       if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName??''))return
       api.wo(props.id).then(fresh=>{if(live)show(fresh)}).catch(e=>{if(live)setError(e.message)})
     },30000)
     return()=>{live=false;clearInterval(timer)}
-  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,wo?.status])
+  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,wo?.status])
 
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
@@ -88,7 +95,7 @@ export default function WorkOrderTicket(props: {
         {wo.estimate.due&&<p className="error-text"><b>Needs customer call — this estimate is overdue for follow-up.</b></p>}
         {wo.estimate.needsResend&&<p className="error-text">This ticket differs from the last sent estimate. Send a revised estimate to request approval of the current repair.</p>}
         {wo.estimate.state==='review'&&<p className="error-text">A decision arrived for an estimate or stage that changed. Review it with the customer; the repair was not automatically approved.</p>}
-        {['pending','prepared'].includes(wo.estimate.state)&&<button disabled={busy} onClick={()=>{if(confirm('Cancel this estimate link? A revised estimate will need a new email.'))void run(()=>api.woCancelEstimate(wo.id,props.by),'Estimate link cancelled')}}>Cancel estimate link</button>}
+        {['pending','prepared'].includes(wo.estimate.state)&&<button disabled={busy} onClick={async ()=>{if((await confirmAction('Cancel this estimate link? A revised estimate will need a new email.')))void run(()=>api.woCancelEstimate(wo.id,props.by),'Estimate link cancelled')}}>Cancel estimate link</button>}
         {wo.estimate.decisionAt&&<p>Decision by {wo.estimate.decisionBy} · {dateTime(wo.estimate.decisionAt)} · {wo.estimate.comment}</p>}
         {wo.status==='waiting_customer'&&wo.estimate.state==='pending'&&<><label>Call / contact note<input maxLength={500} value={callNote} onChange={e=>setCallNote(e.target.value)} placeholder="E.g. left voicemail asking customer to review estimate"/></label><label>Remind again in days<input type="number" min="1" max="90" value={callDays} onChange={e=>setCallDays(Number(e.target.value))}/></label><div className="row gap"><button disabled={busy||!callNote.trim()} onClick={()=>run(async()=>{const result=await api.woFollowUp(wo.id,callNote,callDays,props.by);setCallNote('');return result},'Call recorded and reminder updated')}>Record call &amp; remind again</button></div></>}
       </section>}
@@ -103,7 +110,7 @@ export default function WorkOrderTicket(props: {
       </div>
       <div className="card ticket-head">
         <div>
-          <div className="ticket-no">{wo.number}</div>
+          <div className="ticket-no">{wo.number}</div>{wo.group&&<b>Work order {wo.group.position} of {wo.group.count}</b>}
           <span className="stage-badge big" style={stageStyle(wo.status, colors)}>
             {st.label}
           </span>
@@ -153,6 +160,19 @@ export default function WorkOrderTicket(props: {
         </div>
       </div>
 
+      <div className="card row gap"><label>Assigned mechanic <select disabled={busy||closed} value={wo.mechanicId??''} onChange={e=>{const id=e.target.value?Number(e.target.value):null;void run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);return api.woAssignMechanic(wo.id,id,props.by)},'Mechanic assigned')}}>
+        <option value="">Unassigned</option>
+        {mechanics.filter(m=>m.active||m.id===wo.mechanicId).map(m=><option key={m.id} value={m.id} disabled={!m.active}>{m.name}{!m.active?' (removed)':''}</option>)}
+      </select></label></div>
+      <section className="card form"><h3>Customer visit · {wo.group?`${wo.group.count} work orders`:'Single work order'}</h3>
+        <p className="muted small">Group equipment brought in together. Each unit keeps its own estimate, status, mechanic and payment.</p>
+        <div className="row gap"><button disabled={busy} onClick={()=>run(async()=>{if(notesDirty)show(await api.woUpdate(wo.id,notes));setAddingRelated(true)})}>+ Add another unit for this visit</button>
+        <select aria-label="Work order to link" value={linkId} disabled={busy} onChange={e=>setLinkId(e.target.value)}><option value="">Choose an existing ticket for this customer</option>{wo.relatedOrders.filter(w=>w.id!==wo.id&&!w.linked).map(w=><option key={w.id} value={w.id}>{w.number} · {w.unitLabel} · {w.serial} · {stage(w.status).label}{w.group?` (group of ${w.group.count})`:''}</option>)}</select>
+        <button disabled={busy||!linkId} onClick={()=>run(async()=>{const other=wo.relatedOrders.find(w=>w.id===Number(linkId));if(!await confirmAction(`Group ${wo.number} with ${other?.number}?${other?.group?' All tickets in that visit group will also be joined.':''}`))return;if(notesDirty)await api.woUpdate(wo.id,notes);const fresh=await api.woGroup(wo.id,Number(linkId),props.by);setLinkId('');return fresh},'Customer visit updated')}>Link existing ticket</button>
+        {wo.group&&<button disabled={busy} onClick={()=>run(async()=>{if(!await confirmAction('Remove this ticket from the customer visit group? Its repair and charges will stay intact.'))return;if(notesDirty)await api.woUpdate(wo.id,notes);return api.woUngroup(wo.id,props.by)},'Ticket removed from group')}>Remove this ticket from group</button>}</div>
+        {wo.group&&wo.relatedOrders.filter(w=>w.linked).map(w=><div key={w.id} className="row gap"><button disabled={busy||w.id===wo.id} onClick={()=>run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);props.onOpenRelated(w.id)})}>{w.number} · {w.group?.position} of {w.group?.count}</button><span>{w.unitLabel} {w.serial&&`· S/N ${w.serial}`} · {stage(w.status).label}</span></div>)}
+      </section>
+      {addingRelated&&<NewWorkOrder initialCustomerId={wo.customerId} linkToId={wo.id} by={props.by} onCancel={()=>setAddingRelated(false)} onCreated={(created,collectFee)=>{setAddingRelated(false);if(collectFee)props.onPayAtTill(created.id,'fee');else props.onOpenRelated(created.id)}}/>}
       {/* ---------------- Stage flow ---------------- */}
       <div className="stage-flow">
         {FLOW.map((s) => (
@@ -181,12 +201,12 @@ export default function WorkOrderTicket(props: {
           <button
             className="big-ish"
             disabled={busy}
-            onClick={() =>
-              confirm(
+            onClick={async () =>
+              (await confirmAction(
                 wo.feeStatus === 'paid'
                   ? `Customer is taking the unit back without the repair. Keep the ${money(wo.feeCents)} estimate fee and close the ticket?`
                   : 'Customer is taking the unit back without the repair. Close the ticket?'
-              ) && run(() => api.woPickupNotFixed(wo.id, props.by), 'Picked up')
+              )) && run(() => api.woPickupNotFixed(wo.id, props.by), 'Picked up')
             }
           >
             {wo.feeStatus === 'paid' ? `Picked up: keep ${money(wo.feeCents)} fee` : 'Picked up (no charge)'}

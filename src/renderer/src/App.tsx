@@ -1,3 +1,4 @@
+import EstimateResponseNotice from './EstimateResponseNotice'
 import DailyCloseout from './screens/DailyCloseout'
 import Vendors from './screens/Vendors'
 import { drawerConfig } from '../../shared/drawer'
@@ -93,6 +94,7 @@ export default function App() {
   const [online, setOnline] = useState(true)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
   /** A held receipt to open on the Sale screen */
+  const [workOrderToOpen,setWorkOrderToOpen]=useState<number|null>(null)
   const [receivingToLoad, setReceivingToLoad] = useState<number | null>(null)
   const [saleHeld, setSaleHeld] = useState<number | null>(null)
   /** Something to do when a screen opens from the "I want to…" menu (e.g. start a return) */
@@ -208,6 +210,7 @@ export default function App() {
             ? Help
           </button>
         </div>
+        <EstimateResponseNotice onOpenWorkOrder={id=>{setWorkOrderToOpen(id);setTab('workorders')}}/>
       </header>
 
       {drawerMessage && <div className="banner" role="status">{drawerMessage} <button className="link" onClick={() => setDrawerMessage('')}>Dismiss</button></div>}
@@ -264,6 +267,7 @@ export default function App() {
         {tab === 'workorders' && (
           <WorkOrders
             boot={boot}
+            ticketToOpen={workOrderToOpen} onTicketOpened={()=>setWorkOrderToOpen(null)}
             startCheckIn={intent === 'checkin'}
             onIntentDone={() => setIntent(null)}
             onPayAtTill={(id, mode) => {
@@ -279,7 +283,7 @@ export default function App() {
         {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} boot={boot} />}
         {tab === 'feedback' && <Feedback boot={boot} fromScreen={feedbackFrom} />}
         {tab === 'vendors' && <Vendors onReceiving={(id) => { setReceivingToLoad(id); setTab('receiving') }} />}
-        {tab === 'receiving' && <Receiving receiptToLoad={receivingToLoad} onReceiptLoaded={() => setReceivingToLoad(null)} boot={boot} startNew={intent === 'receive'} onIntentDone={() => setIntent(null)} />}
+        {tab === 'receiving' && <Receiving onOpenWorkOrder={id=>{setWorkOrderToOpen(id);setTab('workorders')}} receiptToLoad={receivingToLoad} onReceiptLoaded={() => setReceivingToLoad(null)} boot={boot} startNew={intent === 'receive'} onIntentDone={() => setIntent(null)} />}
         {tab === 'held' && (
           <HeldReceipts
             onOpenAtTill={(id) => {

@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import type { ApprovalConfig } from '../../../shared/approvals'
 import { api } from '../api'
@@ -87,8 +88,8 @@ export default function ApprovalSettings() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => {
-                if (key && !confirm('Replace the unsaved key shown here?')) return
+              onClick={async () => {
+                if (key && !(await confirmAction('Replace the unsaved key shown here?'))) return
                 const bytes = crypto.getRandomValues(new Uint8Array(32))
                 setKey([...bytes].map((b) => b.toString(16).padStart(2, '0')).join(''))
                 setShow(true)

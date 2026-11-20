@@ -1041,3 +1041,59 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .analytics-place{margin:13px 0}.analytics-place>div:first-child{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#475569}.analytics-place span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.analytics-place-track{height:7px;background:#edf2ef;border-radius:5px;display:flex;overflow:hidden;margin-top:5px}.analytics-place-track i{display:block;height:100%}
 @media(max-width:1000px){.analytics-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-grid{grid-template-columns:minmax(0,1fr)}.analytics-map .row.between{align-items:flex-start;flex-wrap:wrap}.analytics-map .row.gap{flex-wrap:wrap}}
 @media print{.analytics-map button,.campaign-dashboard button,.campaign-dashboard select{display:none}.analytics-stats,.analytics-grid{break-inside:avoid}.analytics-card{box-shadow:none}}
+
+.app-confirmation{border:0;border-radius:12px;max-width:560px;width:calc(100% - 60px);padding:24px;color:#25302b;box-shadow:0 12px 60px #0004}.app-confirmation::backdrop{background:#0007}.app-confirmation p{line-height:1.6;max-height:55vh;overflow:auto}.app-confirmation h2{margin-top:0}.app-shutdown{z-index:100000}
+
+/* Sales Receipt: QBPOS-style workspace. The item grid owns the remaining height. */
+.register.qb-sale { display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(180px,1fr) auto auto auto;grid-template-areas:'head' 'scan' 'receipt' 'settlement' 'payment' 'footer';gap:0;padding:5px;overflow:auto;background:#e5e8ee;color:#182330; }
+.qb-sale .sale-titlebar {border:1px solid #213c65;border-radius:3px 3px 0 0;background:linear-gradient(#385b88,#29466f);color:white;padding:6px 10px;gap:16px;flex-wrap:wrap;}
+.qb-sale .sale-titlebar h2 {color:white;font-size:16px;white-space:nowrap;}
+.qb-sale .sale-titlebar > span {font-size:11px;}
+.qb-sale .sale-notice {margin-left:auto;max-width:65%;white-space:normal;}
+.qb-sale .sale-notice.error {background:#fff1f0;color:#991b1b;padding:3px 6px;border-radius:3px;}
+.qb-sale .sale-toolbar {grid-area:scan;display:flex;align-items:center;gap:10px;position:relative;z-index:25;background:linear-gradient(white,#f0f1f4);padding:7px 8px;border:1px solid #b8c3d2;border-top:0;}
+.qb-sale .scanbar {flex:1 1 430px;padding:0;border:0;background:transparent;min-width:210px;}
+.qb-sale .scanbar input,.qb-sale .sale-customer-search input {height:34px;border:1px solid #a8b6c9;background:white;font-size:15px;border-radius:3px;}
+.qb-sale .scanbar input::placeholder,.qb-sale .sale-customer-search input::placeholder {font-style:italic;color:#6b7280;}
+.qb-sale .sale-visually-hidden {position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+.qb-sale .cust-box {order:0;flex:0 1 380px;min-width:245px;min-height:0;padding:0;border:0;margin:0;border-radius:3px;}
+.qb-sale .cust-box.set {padding:5px 7px;background:#eaf1fb;border:1px solid #a4b8d8;}
+.qb-sale .cust-text {min-width:0;flex:1;}.qb-sale .cust-text b {font-size:13px;}.qb-sale .cust-text .dim {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;}
+.qb-sale .sale-customer-search {display:flex;gap:4px;width:100%;min-width:0;}.qb-sale .sale-customer-search input {width:100%;min-width:0;flex:1;}
+.qb-sale .sale-action-menu,.qb-sale .sale-quick-menu {position:relative;flex:none;}
+.qb-sale summary {cursor:pointer;list-style:none;font-weight:600;}.qb-sale summary::-webkit-details-marker {display:none;}
+.qb-sale .sale-action-menu > summary {background:linear-gradient(#a4d69e,#65a65e);color:#173713;border:1px solid #79ac72;border-radius:3px;padding:8px 12px;white-space:nowrap;}
+.qb-sale .sale-action-list {position:absolute;top:calc(100% + 7px);left:0;background:#fff;border:1px solid #acb8c9;box-shadow:0 8px 20px #14233b33;min-width:235px;padding:5px;display:flex;flex-direction:column;gap:3px;border-radius:4px;}
+.qb-sale .sale-action-list button {text-align:left;margin:0;justify-content:flex-start;border:0;background:transparent;}.qb-sale .sale-action-list button:hover:not(:disabled) {background:#e9f0fb;color:#1c477e;}
+.qb-sale .sale-quick-menu > summary {padding:8px;background:#e6edf8;border:1px solid #a9b9d1;border-radius:3px;font-size:12px;}
+.qb-sale .sale-quick-menu .quick {position:absolute;right:0;top:calc(100% + 7px);width:360px;max-height:330px;z-index:30;box-shadow:0 8px 20px #14233b33;}.qb-sale .quick-grid {grid-template-columns:1fr 1fr;overflow:auto;}
+.qb-sale .panel {border-color:#b8c3d2;border-radius:0;}
+.qb-sale .receipt {min-height:0;grid-area:receipt;}.qb-sale .receipt > .panel-title {display:none;}
+.qb-sale .grid-wrap {background:repeating-linear-gradient(to bottom,#fff 0,#fff 34px,#f0f3f9 34px,#f0f3f9 68px);position:relative;}
+.qb-sale .grid {min-width:800px;font-size:13px;}.qb-sale .grid th {background:linear-gradient(#fff,#e4e5e8);color:#4c5664;border-color:#ccd2dc;height:32px;padding:5px 8px;font-weight:500;}
+.qb-sale .grid td {height:34px;background:#fff;border-bottom:0;border-right:1px solid #edf0f5;}.qb-sale .grid tr:nth-child(even) td {background:#f0f3f9;}
+.qb-sale .grid tbody tr:hover td {background:#e4edfa;}.qb-sale .grid tbody tr.selected td {background:#d6e4f8;color:#173f73;}
+.qb-sale .grid-empty {position:absolute;top:56px;left:0;right:0;color:#78869a;font-size:13px;pointer-events:none;}
+.qb-sale .sale-settlement {grid-area:settlement;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);background:#ecedef;border:1px solid #b8c3d2;border-top:0;min-width:0;}
+.qb-sale .sale-line-tools {padding:5px 8px;min-width:0;display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px;}
+.qb-sale .entry {grid-area:auto;border:0;background:transparent;overflow:visible;}.qb-sale .line-actions {border:0;padding:0;flex-wrap:wrap;}.qb-sale .line-actions button {font-size:12px;}
+.qb-sale .sale-options {font-size:11px;position:relative;}.qb-sale .sale-options > summary {padding:5px 8px;border:1px solid #bcc6d4;background:#f7f8fa;border-radius:3px;}
+.qb-sale .sale-options .sale-date-picker {position:absolute;bottom:calc(100% + 6px);left:0;width:300px;max-width:70vw;background:white;padding:12px;border:1px solid #aab9cc;box-shadow:0 -5px 18px #14233b26;z-index:20;}
+.qb-sale .totals {grid-area:auto;background:transparent;border:0;overflow:visible;}.qb-sale .totals > .panel-title {display:none;}.qb-sale .totals-body {padding:6px 10px;gap:2px;flex:none;}.qb-sale .tline {font-size:12px;gap:12px;align-items:center;}.qb-sale .tax-pick {max-width:230px;padding:1px 4px;font-size:11px;}
+.qb-sale .tbox {background:transparent;color:#0f172a;flex-direction:row;justify-content:space-between;align-items:center;padding:3px 0;margin:0;border-radius:0;}.qb-sale .tbox span {font-size:15px;letter-spacing:0;text-transform:none;color:inherit;align-self:center;font-weight:700;}.qb-sale .tbox strong {font-size:24px;}
+.qb-sale .exempt-toggle {font-size:11px;margin:2px 0;}.qb-sale .last-sale {padding:5px 8px;font-size:11px;max-width:440px;gap:2px;}.qb-sale .last-sale .change {font-size:18px;}.qb-sale .last-sale button {padding:3px 8px;align-self:flex-start;}
+.qb-sale .sale-paymentbar {grid-area:payment;display:flex;align-items:center;gap:15px;padding:10px;background:linear-gradient(#fff,#e5e5e8);border:1px solid #b8c3d2;border-top:0;}
+.register.qb-sale .tender {display:flex;grid-template-columns:none;flex-wrap:wrap;gap:5px;margin:0;}.register.qb-sale .tender button {min-width:125px;justify-content:center;gap:8px;font-size:17px;padding:12px 16px;border-radius:2px;background:linear-gradient(#8faef0 0%,#7098e5 42%,#527fd2 43%,#6b94de 100%);border:1px solid #4b6dc0;color:#fff;box-shadow:inset 0 0 0 1px #a8bff4;text-shadow:0 1px #365b9e;}.register.qb-sale .tender button:disabled {opacity:.5;}.qb-sale .tender kbd {font-size:10px;color:#e6eeff;background:#315ca033;border-color:#a7bdef;}
+.qb-sale .sale-amount-due {margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:18px;font-size:19px;font-weight:700;white-space:nowrap;}.qb-sale .sale-amount-due strong {min-width:100px;text-align:right;font-variant-numeric:tabular-nums;}
+.qb-sale .sale-footer {grid-area:footer;display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:8px;background:linear-gradient(#fff,#edeef1);border:1px solid #b8c3d2;border-top:0;}.qb-sale .sale-footer-hint {margin-right:auto;color:#748095;font-size:11px;}.qb-sale .sale-footer button {font-size:13px;font-weight:600;min-height:35px;}.qb-sale .sale-footer .danger {border-color:#a7b7ce;color:#314f79;}
+@media(max-width:1150px){.qb-sale .sale-toolbar {flex-wrap:wrap;gap:6px;}.qb-sale .scanbar {flex:1 1 330px;}.qb-sale .cust-box {flex:1 1 270px;}.qb-sale .sale-quick-menu {order:2;}.register.qb-sale .tender button {min-width:98px;font-size:14px;padding:11px 10px;}.qb-sale .sale-amount-due {font-size:16px;gap:8px;}}
+@media(max-width:800px){.register.qb-sale {grid-template-rows:auto auto minmax(180px,1fr) auto auto auto;}.qb-sale .sale-toolbar .cust-box {flex:1 1 100%;}.qb-sale .sale-settlement {grid-template-columns:minmax(0,1fr) 280px;}.qb-sale .sale-paymentbar {flex-wrap:wrap;}.qb-sale .sale-amount-due {flex:1;}.qb-sale .sale-footer {flex-wrap:wrap;}.qb-sale .sale-footer-hint {flex:1 1 100%;}.qb-sale .sale-titlebar .sale-notice {max-width:100%;margin:0;}}
+.account-balance-picker {width:min(900px,95vw);display:flex;flex-direction:column;gap:10px;max-height:90vh;}
+.account-balance-picker h2,.account-balance-picker p {margin:0;}
+.account-balance-picker .row > input {flex:1;min-width:0;}
+.account-balance-list {overflow:auto;min-height:0;}.account-balance-list table {width:100%;min-width:620px;}
+.account-balance-list th {position:sticky;top:0;background:#eef1f6;}.account-balance-list button {white-space:nowrap;}
+
+.receiving-parts-notice {width:min(950px,95vw);max-height:90vh;display:flex;flex-direction:column;gap:10px;}.receiving-parts-notice h2,.receiving-parts-notice h3,.receiving-parts-notice p {margin:0;}.receiving-parts-list {overflow:auto;min-height:0;display:flex;flex-direction:column;gap:10px;}.receiving-parts-list .card {padding:12px;display:flex;flex-direction:column;gap:7px;}.receiving-parts-list ul {margin:0;}
+
+.estimate-response-alert {align-self:center;background:#fff1a8;color:#382900;font-weight:700;border:2px solid #ffce36;animation:estimate-response-pulse 1.5s ease-in-out infinite;white-space:nowrap;font-size:12px;}.estimate-response-list {color:var(--text);width:min(850px,95vw);display:flex;flex-direction:column;gap:10px;overflow:auto;max-height:85vh;}.estimate-response-list p {margin:7px 0 0;}@keyframes estimate-response-pulse {50%{background:#ffc83d;border-color:#fff1a8;box-shadow:0 0 0 3px #ffcf5a66;}}@media(prefers-reduced-motion:reduce){.estimate-response-alert{animation:none;}}

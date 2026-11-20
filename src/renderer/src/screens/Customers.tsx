@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import { customerDisplayName, type Customer } from '../../../shared/types'
 import { api } from '../api'
@@ -25,7 +26,7 @@ export default function Customers() {
   async function deleteSelected() {
     const ids = [...selected]
     if (!ids.length || deleting) return
-    if (!confirm(`Delete ${ids.length} customer${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`)) return
+    if (!(await confirmAction(`Delete ${ids.length} customer${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`))) return
     setError('')
     setDeleting(true)
     try {

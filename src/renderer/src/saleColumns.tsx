@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ItemCostSummary } from '../../shared/receiving'
 import type { Product } from '../../shared/types'
 import { money, parseMoney } from './format'
 import { parseQuantity, quantityError, type QuantityRules } from './quantity'
@@ -9,6 +10,8 @@ export interface GridRow {
   kind: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
   /** The item, when the row is a product from the Item List */
   product?: Product
+  hasCostItem?: boolean
+  costInfo?: ItemCostSummary | null
   lineNo: ReactNode
   sku: string | null
   name: ReactNode
@@ -131,13 +134,22 @@ export interface SaleColumn {
 const p = (r: GridRow, f: (x: Product) => ReactNode) => (r.product ? f(r.product) : '')
 const signed = (r: GridRow, c: number) => (r.kind === 'return' ? `−${money(c)}` : money(c))
 
+/** Internal unit costs: never sale prices or negative refund amounts. Missing is not zero. */
+export function costCell(r:GridRow,key:'orderCostCents'|'lastReceivedCostCents'|'currentAvgCents'):string {
+ if(!r.hasCostItem)return ''
+ if(r.costInfo===undefined)return '…'
+ if(r.costInfo===null)return 'Unavailable'
+ const value=r.costInfo[key]
+ return value===null?'—':money(value)
+}
+
 /** Every column that can be shown, in their default order */
 export const SALE_COLUMNS: SaleColumn[] = [
   { id: 'line', label: '#', width: 36, dim: true, cell: (r) => r.lineNo },
   { id: 'sku', label: 'Item #', width: 120, dim: true, cell: (r) => r.sku ?? '' },
   { id: 'barcode', label: 'UPC', width: 130, dim: true, cell: (r) => p(r, (x) => x.barcode ?? '') },
-  { id: 'alu', label: 'ALU', width: 100, dim: true, cell: (r) => p(r, (x) => x.alu ?? '') },
-  { id: 'description', label: 'Description', required: true, cell: (r) => <>{r.name}{r.tags}</> },
+  { id: 'alu', label: 'Alt lookup', width: 100, dim: true, cell: (r) => p(r, (x) => x.alu ?? '') },
+  { id: 'description', label: 'Item Name', required: true, cell: (r) => <>{r.name}{r.tags}</> },
   { id: 'itemDescription', label: 'Item Details', width: 180, dim: true, cell: (r) => p(r, (x) => x.description ?? '') },
   { id: 'department', label: 'Department', width: 120, cell: (r) => p(r, (x) => x.department ?? '') },
   { id: 'manufacturer', label: 'Manufacturer', width: 120, cell: (r) => p(r, (x) => x.manufacturer ?? '') },
@@ -148,7 +160,9 @@ export const SALE_COLUMNS: SaleColumn[] = [
   { id: 'serial', label: 'Serial #', width: 120, dim: true, cell: (r) => r.serial ?? '' },
   { id: 'onHand', label: 'On Hand', width: 75, num: true, cell: (r) => p(r, (x) => (x.type === 'inventory' ? x.onHand : '')) },
   { id: 'taxable', label: 'Tax', width: 50, cell: (r) => p(r, (x) => (x.taxable ? 'Tax' : 'Non')) },
-  { id: 'cost', label: 'Cost', width: 85, num: true, dim: true, cell: (r) => p(r, (x) => (x.costCents !== null && x.costCents !== undefined ? money(x.costCents) : '')) },
+  { id: 'cost', label: 'Cost', width: 100, num: true, dim: true, cell: (r) => costCell(r,'orderCostCents') },
+  { id: 'lastReceivedCost', label: 'Last received cost', width: 130, num: true, dim: true, cell: (r) => costCell(r,'lastReceivedCostCents') },
+  { id: 'averageCost', label: 'Current average cost', width: 150, num: true, dim: true, cell: (r) => costCell(r,'currentAvgCents') },
   { id: 'regPrice', label: 'Reg Price', width: 90, num: true, cell: (r) => p(r, (x) => money(x.priceCents)) },
   { id: 'qty', label: 'Qty', required: true, width: 128, num: true, cell: (r) => r.onQty ? <QuantityCell value={r.kind === 'return' ? -r.qty : r.qty} rules={r.quantityRules} onSave={r.onQty} /> : (r.kind === 'return' ? `−${r.qty}` : r.qty) },
   {
@@ -170,7 +184,7 @@ export const SALE_COLUMNS: SaleColumn[] = [
   { id: 'ext', label: 'Ext. Price', required: true, width: 100, num: true, cell: (r) => (r.kind === 'credit' ? `−${money(r.extCents)}` : signed(r, r.extCents)) }
 ]
 
-export const DEFAULT_SALE_COLUMNS = ['line', 'sku', 'description', 'qty', 'price', 'ext']
+export const DEFAULT_SALE_COLUMNS = ['sku', 'alu', 'description', 'attribute', 'size', 'qty', 'price', 'ext', 'taxable']
 
 /** Saved column ids -> columns to show (unknown ids dropped, required columns always present) */
 export function visibleColumns(ids: string[] | undefined): SaleColumn[] {

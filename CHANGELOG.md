@@ -14,6 +14,25 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.49 - 20 Nov 2026
+> Update the Store Server PC first.
+- Redesigned Make a Sale with top scanning/customer search, a full-width item grid, bottom payments, Cancel sale and Take payment on account. Removed Quick Picks.
+- Added internal cost columns and Alt lookup on receipts, with a receipt-layout checkbox and saved lookup values for new receipts.
+- New card payments offer Credit or Debit; earlier card-brand information remains intact.
+- Added On the Bench, mechanic assignment/settings, and customer-visit groups such as 1 of 4 work orders.
+- Receiving now flags matching work orders waiting on parts, with ticket links and remaining-shortage information.
+- Added Auto fit and per-computer display sizes for scaled Windows screens.
+- New website estimate responses pulse in the header until opened, with an unread list retained across restarts.
+- Includes the earlier input-focus, backup-worker and shutdown fixes from v0.3.48.
+- Store testing still required for the new layout and physical printers. The Citizen blank-receipt problem is not confirmed fixed. Work-order texting is not included yet.
+
+## v0.3.48 - 18 Nov 2026
+- **Typing/focus:** confirmations now stay inside the POS instead of browser-native popups. Cancel/Escape safely cancels, and focus returns after the prompt.
+- **Printing:** hidden print windows cannot take keyboard focus, have a timeout and are always cleaned up. An unresponsive printer cannot leave an invisible window keeping the app open.
+- **Closing:** closing/Alt+F4 stops background connections and timers together, shows Closing while cleanup runs, and has a bounded fallback instead of waiting indefinitely.
+- **Backups:** snapshot integrity checks run on a worker thread. Shutdown can cancel an unfinished unpublished backup while keeping earlier verified copies.
+- **Help:** Restore keyboard focus and Open diagnostic logs provide recovery information if an intermittent lockup happens again. No financial workflow, database schema or cPanel update required.
+
 ## v0.3.47 - 17 Nov 2026
 > Update the Store Server first, then tills. Upgrade all cPanel marketing files, preserving private data and the configured path. New map markers require optional private geolocation setup.
 - **Campaign insights:** interactive world/U.S. mainland map of approximate request locations, with open/click markers, zoom, pan and location details.

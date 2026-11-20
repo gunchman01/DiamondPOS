@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useMemo, useState } from 'react'
 import type { Product } from '../../../shared/types'
 import { api } from '../api'
@@ -22,7 +23,6 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
   const [vendorNames, setVendorNames] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
-  const [quickOnly, setQuickOnly] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   /** Print price tags dialog (with these items pre-filled) */
   /** Items ticked for Delete selected */
@@ -63,23 +63,22 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
 
   useEffect(() => { if (editing) api.vendors().then((vs) => setVendorNames(vs.map((v) => v.companyName))).catch((e) => setError(e.message)) }, [editing])
 
-  // Suggestions for the editor's Department / Vendor / Quick Pick Group boxes
+  // Suggestions for the editor's Department / Vendor boxes
   const lists = useMemo(() => {
     const uniq = (vals: (string | null)[]) => [...new Set(vals.filter((v): v is string => !!v))].sort()
     return {
       departments: uniq(products.map((p) => p.department)),
-      vendors: uniq(products.map((p) => p.vendor)),
-      groups: uniq(products.map((p) => p.quickPickGroup))
+      vendors: uniq(products.map((p) => p.vendor))
     }
   }, [products])
 
-  const shown = products.filter((p) => !quickOnly || p.quickPick)
+  const shown = products
   const allTicked = shown.length > 0 && shown.every((p) => selected.has(p.id))
 
   async function deleteSelected() {
     const ids = [...selected]
     if (!ids.length || deleting) return
-    if (!confirm(`Delete ${ids.length} item${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`)) return
+    if (!(await confirmAction(`Delete ${ids.length} item${ids.length === 1 ? '' : 's'}?\n\n${DELETE_EXPLAIN}`))) return
     setError('')
     setDeleting(true)
     try {
@@ -122,10 +121,6 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
           onChange={(e) => setSearch(e.target.value)}
           style={{ flex: 1, width: 'auto' }}
         />
-        <label className="check">
-          <input type="checkbox" checked={quickOnly} onChange={(e) => setQuickOnly(e.target.checked)} />
-          Quick Picks only
-        </label>
       </div>
       <div className="row gap list-tools">
         <button disabled={deleting || shown.length === 0} onClick={() => setSelected(new Set(shown.map((p) => p.id)))}>Select shown ({shown.length})</button>
@@ -183,7 +178,6 @@ export default function Products({ startTags, onIntentDone }: { startTags?: bool
           item={editing === 'new' ? null : editing}
           departments={lists.departments}
           vendors={vendorNames}
-          groups={lists.groups}
           onSaved={load}
           onDeleted={(msg) => {
             setEditing(null)

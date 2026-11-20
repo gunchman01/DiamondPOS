@@ -1,3 +1,5 @@
+import DisplaySettings from './DisplaySettings'
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import type { BootInfo, StoreSettings } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
@@ -14,10 +16,11 @@ import LabelDesigner from './LabelDesigner'
 import ReceiptDesigner from './ReceiptDesigner'
 import { EmailSettings } from './Marketing'
 
-type Section = 'backups' | 'store' | 'taxes' | 'menus' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
+type Section = 'display' | 'backups' | 'store' | 'taxes' | 'menus' | 'computer' | 'kiosk' | 'email' | 'printing' | 'labels' | 'receipt'
 
 /** The Settings menu: one tile per area. Add a tile here (and a section below) for each new kind of setting. */
 const TILES: { id: Section; icon: IconName; label: string; text: string }[] = [
+  {id:'display',icon:'computer',label:'Display',text:'Auto fit the POS to this window or choose a larger/smaller display size'},
   { id: 'backups', icon: 'computer', label: 'Backups', text: 'Server backup schedule, retained copies, storage and Back Up Now' },
   { id: 'store', icon: 'store', label: 'Store', text: 'Name, address, receipt footer, feedback email' },
   { id: 'taxes', icon: 'tax', label: 'Taxes', text: 'Sales tax rates (add several, pick one on a sale)' },
@@ -76,7 +79,7 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
   }
 
   async function resetSetup() {
-    if (!confirm('Reset this computer\'s setup? (Store data on the server is NOT deleted.)')) return
+    if (!(await confirmAction('Reset this computer\'s setup? (Store data on the server is NOT deleted.)'))) return
     onChange(await window.pos.saveConfig({ mode: null }))
   }
 
@@ -195,6 +198,7 @@ export default function Settings({ boot, onChange }: { boot: BootInfo; onChange:
       {section === 'email' && (smtp ? <EmailSettings smtp={smtp} onSaved={setSmtp} /> : <p className="muted">Loading…</p>)}
       {section === 'email' && <MarketingConsentSettings />}
       {section === 'backups' && <BackupSettings />}
+      {section === 'display' && <DisplaySettings boot={boot} onChange={onChange}/>}
       {section === 'printing' && <PrintSettings boot={boot} onChange={onChange} />}
       {section === 'labels' && <LabelDesigner />}
       {section === 'receipt' && <ReceiptDesigner />}

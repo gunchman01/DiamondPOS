@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useRef, useState } from 'react'
 import type { BootInfo, KioskInfo, StoreSettings } from '../../../shared/types'
 import { SERVER_PORT } from '../../../shared/constants'
@@ -235,8 +236,8 @@ export default function KioskSettings(props: {
                 <td className="r">
                   <button
                     className="danger"
-                    onClick={() =>
-                      confirm(`Unpair "${k.name}"? The iPad will need a new code to reconnect.`) &&
+                    onClick={async () =>
+                      (await confirmAction(`Unpair "${k.name}"? The iPad will need a new code to reconnect.`)) &&
                       run(async () => {
                         await api.removeKiosk(k.id)
                         await load()

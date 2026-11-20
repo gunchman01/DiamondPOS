@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3'
+import { logDiagnostic } from '../lifecycle/diagnostics'
+import { verifySnapshot } from '../verifySnapshot'
 import fs from 'fs'
 import path from 'path'
 import type express from 'express'
@@ -35,6 +36,7 @@ export function createBackupManager(db: DB, directory: string) {
   let nextBackupAt: string | null = null
   let inFlight: Promise<string> | null = null
   let cleanupError: string | null = null
+  let cancellation:AbortController|null=null
   function schedule() {
     if (timer) clearTimeout(timer)
     timer = null; nextBackupAt = null
@@ -49,10 +51,11 @@ export function createBackupManager(db: DB, directory: string) {
     if (inFlight) return inFlight
     if (timer) clearTimeout(timer)
     timer = null; nextBackupAt = null
+    cancellation=new AbortController()
     recordBackup(db, 'started')
     inFlight = (async () => {
       try {
-        const file = await createVerifiedBackup(db, directory)
+        const file = await createVerifiedBackup(db, directory,cancellation!.signal)
         recordBackup(db, 'verified')
         writeSetting(db, 'backup_last_file', file)
         cleanupError = null
@@ -65,13 +68,13 @@ export function createBackupManager(db: DB, directory: string) {
         console.error('[backup] Backup failed:', error)
         throw error
       }
-    })().finally(() => { inFlight = null; schedule() })
+    })().finally(() => { inFlight = null;cancellation=null; schedule() })
     return inFlight
   }
   return {
     run,
     start() { if (active || closed) return; active = true; void run().catch(() => {}) },
-    async stop() { active = false; closed = true; if (timer) clearTimeout(timer); timer = null; nextBackupAt = null; await inFlight?.catch(() => {}) },
+    async stop(cancel=false) { active = false; closed = true;if(cancel)cancellation?.abort(); if (timer) clearTimeout(timer); timer = null; nextBackupAt = null; await inFlight?.catch(() => {}) },
     save(value: unknown) { const settings = validateBackupSettings(value); writeSetting(db, 'backup_settings', settings); schedule(); return settings },
     async overview(): Promise<BackupOverview> {
       let totalBytes = 0, fileCount = 0, managedCount = 0, protectedCount = 0
@@ -93,10 +96,10 @@ export function getBackupManager(db: DB, directory: string) {
   return manager
 }
 /** Startup backup, followed by the saved interval; stop waits for an active snapshot/cleanup. */
-export function startBackupScheduler(db: DB, directory: string): () => Promise<void> {
+export function startBackupScheduler(db: DB, directory: string): (cancel?:boolean) => Promise<void> {
   const manager = getBackupManager(db, directory)
   manager.start()
-  return () => manager.stop()
+  return (cancel=false) => manager.stop(cancel)
 }
 export function registerBackupRoutes(app: express.Express, db: DB, directory: string) {
   const manager = getBackupManager(db, directory)
@@ -108,7 +111,7 @@ export function registerBackupRoutes(app: express.Express, db: DB, directory: st
   app.post('/api/backups/run', (_req, res) => { void manager.run().then(() => manager.overview()).then((v) => res.json(v)).catch((e) => res.status(500).json({ error: (e as Error).message })) })
 }
 
-export async function createVerifiedBackup(db: DB, directory: string): Promise<string> {
+export async function createVerifiedBackup(db: DB, directory: string,signal?:AbortSignal): Promise<string> {
   await fs.promises.mkdir(directory, { recursive: true })
   let timestamp = Date.now()
   let stamp = new Date(timestamp).toISOString().replace(/[:.]/g, '-')
@@ -122,18 +125,14 @@ export async function createVerifiedBackup(db: DB, directory: string): Promise<s
 
   try {
     // SQLite's online backup API includes committed WAL content safely.
-    await db.backup(temporary)
-
-    const check = new Database(temporary, { fileMustExist: true })
-    try {
-      // This is the unpublished snapshot, never the live store. Make it standalone
-      // and avoid leaving readonly verification WAL/SHM sidecars in the backup folder.
-      check.pragma('journal_mode = DELETE')
-      const result = check.pragma('integrity_check', { simple: true }) as string
-      if (result !== 'ok') throw new Error(`SQLite integrity_check failed: ${result}`)
-    } finally {
-      check.close()
-    }
+    if(signal?.aborted)throw Error('Backup interrupted during shutdown')
+    const copyStarted=Date.now();logDiagnostic('backup-copy-started')
+    await db.backup(temporary,{progress:()=>{if(signal?.aborted)throw Error('Backup interrupted during shutdown');return 100}})
+    logDiagnostic('backup-copy-finished',Date.now()-copyStarted)
+    const verificationStarted=Date.now();logDiagnostic('backup-verification-started')
+    await verifySnapshot(temporary,signal)
+    logDiagnostic('backup-verification-finished',Date.now()-verificationStarted)
+    if(signal?.aborted)throw Error('Backup interrupted during shutdown')
 
     // Publish only a fully written and verified backup.
     await fs.promises.rename(temporary, destination)

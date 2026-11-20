@@ -1,3 +1,7 @@
+import { displayScale,normaliseDisplayZoom } from '../shared/display'
+import { createPrintManager } from './printing'
+import { createQuitController } from './lifecycle/quitController'
+import { startDiagnostics, logDiagnostic, flushDiagnostics, diagnosticsDirectory } from './lifecycle/diagnostics'
 import { openCashDrawer } from './drawer'
 import { drawerConfig } from '../shared/drawer'
 /**
@@ -20,6 +24,15 @@ import type { AppConfig, BootInfo } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
 let config: AppConfig
+let stopDiagnostics:(()=>void)|null=null
+const prints=createPrintManager(()=>new BrowserWindow({show:false,focusable:false,skipTaskbar:true,webPreferences:{javascript:false}}),()=>{if(!shutdown.closing&&mainWindow&&!mainWindow.isDestroyed()){mainWindow.focus();mainWindow.webContents.focus()}},logDiagnostic)
+const shutdown=createQuitController({
+ stop:async()=>{prints.stop();await Promise.allSettled([stopQbBridge(),stopServer()]);stopDiagnostics?.();await flushDiagnostics()},
+ quit:()=>completeExit(()=>app.quit()),exit:()=>completeExit(()=>app.exit(0)),log:logDiagnostic
+})
+function completeExit(exit:()=>void){let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);exit()};const timer=setTimeout(finish,250);void flushDiagnostics().finally(finish)}
+function beginShutdown(){if(!shutdown.closing){mainWindow?.setTitle('Diamond POS — Closing…');mainWindow?.webContents.send('app:closing')}void shutdown.begin()}
+app.on('before-quit',event=>{if(shutdown.allowed)return;event.preventDefault();beginShutdown()})
 
 // Only one copy of the app per PC (two copies would fight over the server port)
 if (!app.requestSingleInstanceLock()) {
@@ -31,10 +44,11 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow.focus()
     }
   })
-  app.whenReady().then(boot)
+  app.whenReady().then(boot).catch(()=>{logDiagnostic('startup-failed');beginShutdown()})
 }
 
 async function boot(): Promise<void> {
+  stopDiagnostics=startDiagnostics(app.getPath('userData'));logDiagnostic('application-started')
   config = loadConfig()
   if (config.mode === 'server') await startStoreServer()
   await applyQbBridge()
@@ -44,6 +58,13 @@ async function boot(): Promise<void> {
   createWindow()
 }
 
+let displayResizeTimer:ReturnType<typeof setTimeout>|undefined
+function applyDisplayScale():void {
+ if(!mainWindow||mainWindow.isDestroyed()||shutdown.closing)return
+ const [width,height]=mainWindow.getContentSize()
+ const factor=displayScale(width,height,config.displayZoom)
+ if(Math.abs(mainWindow.webContents.getZoomFactor()-factor)>.005)mainWindow.webContents.setZoomFactor(factor)
+}
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -59,8 +80,14 @@ function createWindow(): void {
       sandbox: false
     }
   })
-  mainWindow.on('ready-to-show', () => mainWindow?.show())
-  mainWindow.on('closed', () => (mainWindow = null))
+  mainWindow.on('close',event=>{if(!shutdown.allowed){event.preventDefault();beginShutdown()}})
+  mainWindow.on('unresponsive',()=>logDiagnostic('renderer-unresponsive'))
+  mainWindow.on('responsive',()=>logDiagnostic('renderer-responsive'))
+  mainWindow.webContents.on('render-process-gone',(_event,details)=>logDiagnostic('renderer-gone-'+details.reason))
+  mainWindow.on('ready-to-show', () => {applyDisplayScale();mainWindow?.show()})
+  mainWindow.webContents.on('did-finish-load',applyDisplayScale)
+  mainWindow.on('resize',()=>{clearTimeout(displayResizeTimer);displayResizeTimer=setTimeout(applyDisplayScale,120)})
+  mainWindow.on('closed', () => {clearTimeout(displayResizeTimer);mainWindow=null})
 
   // Open external links in the normal browser, not inside the POS
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -111,11 +138,14 @@ function bootInfo(): BootInfo {
 }
 
 function registerIpc(): void {
+  ipcMain.handle('app:restore-focus',()=>{if(!shutdown.closing&&mainWindow&&!mainWindow.isDestroyed()){mainWindow.blur();mainWindow.focus();mainWindow.webContents.focus();logDiagnostic('focus-restored')}})
+  ipcMain.handle('app:open-diagnostics',async()=>{const directory=diagnosticsDirectory();if(directory){await flushDiagnostics();await shell.openPath(directory)}})
   ipcMain.handle('config:get', () => bootInfo())
   ipcMain.handle('drawer:open', () => openCashDrawer(config.cashDrawer))
 
   ipcMain.handle('config:save', async (_e, changes: Partial<AppConfig>) => {
     const next: AppConfig = { ...config, ...changes }
+    if(changes.displayZoom!==undefined)next.displayZoom=normaliseDisplayZoom(changes.displayZoom)
     if (changes.cashDrawer !== undefined) next.cashDrawer = drawerConfig(changes.cashDrawer)
 
     if (next.mode === 'server') {
@@ -125,6 +155,7 @@ function registerIpc(): void {
     const wasServer = config.mode === 'server'
     config = next
     saveConfig(config)
+    if(changes.displayZoom!==undefined)applyDisplayScale()
 
     if (config.mode === 'server' && !isServerRunning()) await startStoreServer()
     if (wasServer && config.mode !== 'server') await stopServer()
@@ -145,33 +176,7 @@ function registerIpc(): void {
   ipcMain.handle('print:job', (_e, job: PrintJob) => printJob(job))
 }
 
-/** Render the HTML in a hidden window and print it without a dialog */
-async function printJob(job: PrintJob): Promise<void> {
-  const win = new BrowserWindow({ show: false, webPreferences: { javascript: false } })
-  try {
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(String(job.html)))
-    const options: Electron.WebContentsPrintOptions = {
-      silent: true,
-      landscape: job.landscape === true,
-      printBackground: true,
-      margins: { marginType: 'none' },
-      copies: Math.max(1, Math.min(10, Math.round(job.copies ?? 1)))
-    }
-    if (job.printer) options.deviceName = job.printer
-    if (job.pageMm) options.pageSize = { width: Math.round(job.pageMm.width * 1000), height: Math.round(job.pageMm.height * 1000) }
-    else if (job.letter) options.pageSize = 'Letter'
-    await new Promise<void>((resolve, reject) => {
-      win.webContents.print(options, (ok, reason) =>
-        ok ? resolve() : reject(new Error(`Print failed${job.printer ? ` on "${job.printer}"` : ''}: ${reason}`))
-      )
-    })
-  } finally {
-    win.close()
-  }
-}
+/** Print windows are non-focusable, always destroyed, and cannot keep quit alive. */
+async function printJob(job:PrintJob):Promise<void>{return prints.print(job)}
 
-app.on('window-all-closed', async () => {
-  await stopQbBridge()
-  await stopServer()
-  app.quit()
-})
+app.on('window-all-closed',()=>{if(!shutdown.allowed)beginShutdown();else app.quit()})

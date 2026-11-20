@@ -2,6 +2,9 @@ import crypto from 'node:crypto'
 import type express from 'express'
 import type { DB } from './db'
 import type { AccountPaymentRequest, CustomerAccount } from '../../shared/accounts'
+import { getCustomer } from './customers'
+import { customerDisplayName } from '../../shared/types'
+import type { AccountBalanceCustomer } from '../../shared/accounts'
 import { CARD_BRANDS } from '../../shared/types'
 export class AccountError extends Error {
   constructor(
@@ -143,6 +146,19 @@ export function recordQbBalance(db: DB, saleId: number, balance: number) {
     saleId
   )
 }
+/** Outstanding DiamondPOS invoice balances, using the same reconciliation rules as invoiceDue. */
+export function accountBalanceCustomers(db:DB,search=''):AccountBalanceCustomer[]{
+ const rows=db.prepare(`WITH paid AS (SELECT sale_id,SUM(amount_cents) amount FROM account_allocations GROUP BY sale_id),
+ due AS (SELECT i.customer_id,MAX(0,MIN(s.total_cents-COALESCE(p.amount,0),CASE WHEN i.qb_balance_cents IS NULL THEN s.total_cents-COALESCE(p.amount,0) ELSE i.qb_balance_cents-(COALESCE(p.amount,0)-i.qb_pos_paid_cents) END)) balance
+ FROM account_invoices i JOIN sales s ON s.id=i.sale_id LEFT JOIN paid p ON p.sale_id=i.sale_id)
+ SELECT customer_id,SUM(balance) balance,COUNT(*) invoices FROM due WHERE balance>0 GROUP BY customer_id`).all() as {customer_id:number;balance:number;invoices:number}[]
+ const terms=search.trim().toLowerCase().split(/\s+/).filter(Boolean)
+ return rows.flatMap(row=>{const customer=getCustomer(db,row.customer_id);if(!customer)return []
+  const text=[customerDisplayName(customer),customer.firstName,customer.lastName,customer.company,customer.customerNo,customer.phone,customer.mobile,customer.email,(customer.phone??'').replace(/\D/g,''),(customer.mobile??'').replace(/\D/g,'')].filter(Boolean).join(' ').toLowerCase()
+  return terms.every(term=>text.includes(term))?[{customer,balanceCents:row.balance,invoiceCount:row.invoices}]:[]
+ }).sort((a,b)=>customerDisplayName(a.customer).localeCompare(customerDisplayName(b.customer)))
+}
+
 export function registerAccountRoutes(app: express.Express, db: DB, syncing: () => boolean = () => false) {
   const wrap = (fn: (req: express.Request, res: express.Response) => void) => (req: express.Request, res: express.Response) => {
     try {
@@ -151,6 +167,7 @@ export function registerAccountRoutes(app: express.Express, db: DB, syncing: () 
       res.status(e instanceof AccountError ? e.status : 400).json({ error: (e as Error).message })
     }
   }
+  app.get('/api/accounts/balances',wrap((req,res)=>{res.json(accountBalanceCustomers(db,String(req.query.search??'').slice(0,200)))}))
   app.get(
     '/api/accounts/sync-status',
     wrap((_req, res) => {

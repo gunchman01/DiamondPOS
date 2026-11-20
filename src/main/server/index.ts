@@ -1,3 +1,7 @@
+import { resumeSmtpSockets } from '../lifecycle/smtpSockets'
+import { pauseBackgroundIO, resumeBackgroundIO } from '../lifecycle/backgroundIO'
+import { closeHttpServer } from '../lifecycle/httpClose'
+import { stopMailConnections } from './marketing/mailer'
 import { registerAnalyticsRoutes } from './marketing/analytics'
 import { registerSubscriptionRoutes, startSubscriptionScheduler } from './marketing/subscriptions'
 import { registerTrackingRoutes, startActivityScheduler } from './marketing/tracking'
@@ -102,14 +106,16 @@ let stopApprovals: (()=>Promise<void>) | null = null
 let stopSubscriptions:(()=>Promise<void>)|null=null
 let stopActivity:(()=>Promise<void>)|null=null
 let stopConsent: (()=>Promise<void>) | null = null
-let stopBackups: (() => Promise<void>) | null = null
+let stopBackups: ((cancel?:boolean) => Promise<void>) | null = null
 
 export function isServerRunning(): boolean {
   return httpServer !== null
 }
 
 export async function startServer(opts: ServerOptions): Promise<void> {
+  if(stopping)await stopping
   if (httpServer) return
+  resumeBackgroundIO();resumeSmtpSockets()
   const opened = openDatabase(opts.dbFile)
   let listener: Server | null = null
   try {
@@ -147,18 +153,24 @@ export async function startServer(opts: ServerOptions): Promise<void> {
   }
 }
 
-export async function stopServer(): Promise<void> {
-  await stopApprovals?.();stopApprovals=null
-  await stopMarketingSender()
-  await stopSubscriptions?.();stopSubscriptions=null
-  await stopConsent?.(); stopConsent=null
-  await stopActivity?.(); stopActivity=null
-  if (stopBackups) await stopBackups()
-  stopBackups = null
-  if (httpServer) await new Promise<void>((r) => httpServer!.close(() => r()))
-  httpServer = null
-  db?.close()
-  db = null
+let stopping:Promise<void>|null=null
+export function stopServer():Promise<void>{
+ if(stopping)return stopping
+ pauseBackgroundIO();stopMailConnections()
+ const backup=stopBackups
+ const services=[stopApprovals,()=>stopMarketingSender(),stopSubscriptions,stopConsent,stopActivity,backup?()=>backup(true):null]
+ stopApprovals=null;stopSubscriptions=null;stopConsent=null;stopActivity=null;stopBackups=null
+ const server=httpServer;httpServer=null
+ stopping=(async()=>{
+  try{
+   const work=services.filter((stop):stop is ()=>Promise<void>=>!!stop).map(stop=>Promise.resolve().then(stop))
+   if(server)work.push(closeHttpServer(server))
+   const results=await Promise.allSettled(work)
+   db?.close();db=null
+   if(results.some(r=>r.status==='rejected'))console.error('[server] A background task failed during shutdown')
+  }finally{resumeBackgroundIO();resumeSmtpSockets()}
+ })().finally(()=>{stopping=null})
+ return stopping
 }
 
 // ---------------------------------------------------------------------------
@@ -750,10 +762,10 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     if (p.method === 'check' && !String(p.reference ?? '').trim()) throw new HttpError(400, 'Enter the check number')
     if (!Number.isInteger(amountCents) || amountCents === 0 || (refund ? amountCents > 0 : amountCents < 0))
       throw new HttpError(400, refund ? 'A refund is entered as money given back (a negative amount)' : 'Payment amount must be above 0')
-    if (p.cardBrand !== undefined && (p.method !== 'card' || !Object.hasOwn(CARD_BRANDS, p.cardBrand))) throw new HttpError(400, 'Choose a valid card brand for card payments only')
+    if (p.cardBrand !== undefined && (p.method !== 'card' || !Object.hasOwn(CARD_BRANDS, p.cardBrand))) throw new HttpError(400, 'Choose a valid card type for card payments only')
     return { method: p.method, amountCents, cardBrand: p.method === 'card' ? p.cardBrand ?? 'unknown' : undefined, reference: p.reference ? String(p.reference).slice(0, 60) : undefined }
   })
-  if (new Set(payments.filter((p) => p.method === 'card').map((p) => p.cardBrand)).size > 1) throw new HttpError(400, 'Use one card brand per transaction')
+  if (new Set(payments.filter((p) => p.method === 'card').map((p) => p.cardBrand)).size > 1) throw new HttpError(400, 'Use one card type per transaction')
   const paid = payments.reduce((s, p) => s + p.amountCents, 0)
   let changeCents = 0
   if (refund) {
@@ -808,9 +820,12 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     for (const r of retLines)
       addItem.run(saleId, r.productId, r.name, r.unitPriceCents, r.qty, r.lineTotalCents, r.department, r.taxable ? 1 : 0, r.serial || null,
         r.kind, r.returnOfItemId, r.returnOfSaleId, r.reason, r.restock ? 1 : 0, r.taxCents, null, null)
+    db.prepare(`UPDATE sale_items SET alu_snapshot=CASE WHEN return_of_item_id IS NOT NULL THEN
+      COALESCE((SELECT COALESCE(original.alu_snapshot,p.alu,'') FROM sale_items original LEFT JOIN products p ON p.id=original.product_id WHERE original.id=sale_items.return_of_item_id),'')
+      ELSE COALESCE((SELECT alu FROM products WHERE id=sale_items.product_id),'') END WHERE sale_id=?`).run(saleId)
     finishReturns(db, retLines)
-    const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference, card_brand) VALUES (?, ?, ?, ?, ?)')
-    for (const p of payments) addPay.run(saleId, p.method, p.amountCents, p.reference ?? null, p.cardBrand ?? null)
+    const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference, card_brand,card_type) VALUES (?, ?, ?, ?, ?,?)')
+    for (const p of payments) {const type=p.cardBrand==='credit'||p.cardBrand==='debit'?p.cardBrand:null;addPay.run(saleId,p.method,p.amountCents,p.reference??null,type?null:p.cardBrand??null,type)}
     if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
     if (req.heldId) completeHeld(db, Number(req.heldId), saleId)
     return saleId
@@ -852,9 +867,11 @@ export function getSale(db: DB, id: number): Sale | null {
     | undefined
   if (!s) return null
   const items = db
-    .prepare('SELECT si.*, p.sku AS product_sku FROM sale_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.sale_id = ? ORDER BY si.id')
+    .prepare('SELECT si.*, p.sku AS product_sku,p.alu AS product_alu FROM sale_items si LEFT JOIN products p ON p.id = si.product_id WHERE si.sale_id = ? ORDER BY si.id')
     .all(id) as {
     product_sku: string | null
+    product_alu: string | null
+    alu_snapshot: string | null
     id: number
     tax_cents: number | null
     kind: 'item' | 'wo' | 'credit' | 'return' | 'feekept'
@@ -874,6 +891,7 @@ export function getSale(db: DB, id: number): Sale | null {
     amount_cents: number
     reference: string | null
     card_brand: CardBrand | null
+    card_type: CardBrand | null
   }[]
   return {
     id: s.id,
@@ -908,6 +926,7 @@ export function getSale(db: DB, id: number): Sale | null {
       restocked: i.restocked === 1,
       productId: i.product_id,
       sku: i.product_sku,
+      alu: i.alu_snapshot===null?i.product_alu:(i.alu_snapshot||null),
       name: i.name,
       unitPriceCents: i.unit_price_cents,
       qty: i.qty,
@@ -915,6 +934,6 @@ export function getSale(db: DB, id: number): Sale | null {
       serial: i.serial,
       regularPriceCents: i.regular_price_cents ?? null
     })),
-    payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, cardBrand: p.card_brand ?? undefined, reference: p.reference ?? undefined }))
+    payments: payments.map((p) => ({ method: p.method, amountCents: p.amount_cents, cardBrand: p.card_type ?? p.card_brand ?? undefined, reference: p.reference ?? undefined }))
   }
 }

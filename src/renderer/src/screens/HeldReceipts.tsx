@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import { heldNumber, type HeldSummary } from '../../../shared/held'
 import { api } from '../api'
@@ -80,7 +81,7 @@ export default function HeldReceipts({ onOpenAtTill }: { onOpenAtTill: (id: numb
   const { list, shown, error, load, setError } = useHeld(search)
 
   async function remove(h: HeldSummary) {
-    if (!confirm(`Delete held receipt ${heldNumber(h.id)}${h.customerName ? ` for ${h.customerName}` : ''}? The items are not sold.`)) return
+    if (!(await confirmAction(`Delete held receipt ${heldNumber(h.id)}${h.customerName ? ` for ${h.customerName}` : ''}? The items are not sold.`))) return
     try {
       await api.deleteHeld(h.id)
       load()

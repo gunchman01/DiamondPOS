@@ -65,7 +65,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
     <div className="print-settings">
       <CashDrawerSettings boot={boot} onChange={onChange} />
       <p className="muted">
-        These settings are for <b>this computer</b> ({boot.config.tillName}), because each till has its own printers.
+        Set the default printer for each type of printing here. Labels and work-order pages still ask before printing, with the saved printer selected. These settings are for <b>this computer</b> ({boot.config.tillName}), because each till has its own printers.
         {printers && printers.length === 0 && ' No printers were found: install the printer drivers in Windows first.'}
       </p>
 

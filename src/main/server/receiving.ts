@@ -1,3 +1,4 @@
+import { waitingPartsForReceiving } from './receivingWorkOrders'
 import { itemCosts } from './itemCosts'
 import { vendorIdForName } from './vendors'
 /**
@@ -74,6 +75,7 @@ export function loadReceiving(db: DB, id: number): Receiving | null {
     costUpdated: l.cost_updated === 1
   }))
   return {
+    waitingWorkOrders: posted ? waitingPartsForReceiving(db,id) : [],
     id: r.id,
     number: receivingNumber(r.id),
     status: r.status,

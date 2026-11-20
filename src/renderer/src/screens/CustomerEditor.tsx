@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import CustomerEquipmentPanel from './CustomerEquipmentPanel'
 import CustomerAccountDialog from './CustomerAccount'
 import { useEffect, useRef, useState } from 'react'
@@ -171,7 +172,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
   async function remove() {
     if (editingId === null) return
     const name = detail ? customerDisplayName(detail.customer) : 'this customer'
-    if (!confirm(`Delete ${name}?\n\n${DELETE_EXPLAIN}`)) return
+    if (!(await confirmAction(`Delete ${name}?\n\n${DELETE_EXPLAIN}`))) return
     setBusy(true)
     try {
       const r = await api.deleteCustomers([editingId])
@@ -249,7 +250,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               <Row label="OK to e-mail">
                 <input {...check('okToEmail')} className="lone-check" /><span className="muted small"> Marketing only. Saved unsubscribes require a fresh email confirmation; checking this box or importing cannot override them.</span>
               </Row>
-              {editingId && <Row label="Marketing subscription"><button type="button" disabled={busy||!detail?.customer.email||form.email!==detail?.customer.email} onClick={async()=>{if(!confirm('Request a marketing confirmation email for this customer? Only continue if they asked to subscribe again. Their permission will not change until they confirm.'))return;setBusy(true);setError('');try{const r=await api.requestMarketingSubscription(editingId);setNotice(r.message)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Request confirmation email</button><span className="small muted"> Uses the saved email address. Save address changes first.</span></Row>}
+              {editingId && <Row label="Marketing subscription"><button type="button" disabled={busy||!detail?.customer.email||form.email!==detail?.customer.email} onClick={async()=>{if(!(await confirmAction('Request a marketing confirmation email for this customer? Only continue if they asked to subscribe again. Their permission will not change until they confirm.')))return;setBusy(true);setError('');try{const r=await api.requestMarketingSubscription(editingId);setNotice(r.message)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>Request confirmation email</button><span className="small muted"> Uses the saved email address. Save address changes first.</span></Row>}
               <Row label="Street">
                 <input {...text('street')} />
               </Row>

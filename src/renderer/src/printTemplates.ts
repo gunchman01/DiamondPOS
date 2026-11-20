@@ -77,7 +77,7 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
   const rows = sale.items
     .map(
       (i) => `<tr>
-        <td>${i.kind === 'return' ? '<span class="ret">RETURN</span> ' : ''}${esc(i.name)}${i.serial ? `<div class="sn">Serial # ${esc(i.serial)}</div>` : ''}${
+        <td>${i.kind === 'return' ? '<span class="ret">RETURN</span> ' : ''}${esc(i.name)}${i.alu?`<div class="muted">Alt lookup: ${esc(i.alu)}</div>`:''}${i.serial ? `<div class="sn">Serial # ${esc(i.serial)}</div>` : ''}${
           i.kind === 'return'
             ? `<div class="muted">${i.returnOfSaleId ? `From receipt #${i.returnOfSaleId}` : 'No receipt'}${i.returnReason ? ` - ${esc(i.returnReason)}` : ''}</div>`
             : ''
@@ -130,7 +130,7 @@ export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Cus
     .join('')
   const t = wo.totals
   return `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}</style></head><body>
-    ${header(store, logoUrl, 'WORK ORDER', `<div><b>${esc(wo.number)}</b></div><div>Checked in ${dateTime(wo.createdAt)}</div><div>Status: <b>${esc(stage(wo.status).label)}</b></div>`)}
+    ${header(store, logoUrl, 'WORK ORDER', `<div><b>${esc(wo.number)}</b></div>${wo.group?`<div>Work order ${wo.group.position} of ${wo.group.count}</div>`:''}<div>Checked in ${dateTime(wo.createdAt)}</div><div>Status: <b>${esc(stage(wo.status).label)}</b></div>`)}
     <div class="boxes">${customerBlock(customer, wo.customerName)}
       <div class="box"><h3>Unit</h3><b>${esc(unitLabel(wo.unit))}</b>${wo.unit.serial ? `<br>Serial # <span class="sn">${esc(wo.unit.serial)}</span>` : ''}${
         wo.hoursIn !== null && wo.hoursIn !== undefined ? `<br>Hours: ${wo.hoursIn}` : ''

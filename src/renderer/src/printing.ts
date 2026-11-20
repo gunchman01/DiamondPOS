@@ -5,6 +5,7 @@
  *  - work orders → full-page printer
  *  - price tags → label printer (Zebra)
  */
+import { choosePrinter, printWithChoice } from './PrinterPrompt'
 import type { Product, Sale } from '../../shared/types'
 import { printSettings, printsFullPage, type PrintSettings } from '../../shared/printing'
 import type { WorkOrder } from '../../shared/workorders'
@@ -66,7 +67,7 @@ export async function printWorkOrder(wo: WorkOrder): Promise<void> {
   const s = await currentPrintSettings()
   const { store, logo } = await storeAndLogo()
   const customer = await api.getCustomer(wo.customerId).then((d) => d.customer).catch(() => null)
-  await window.pos.print({ html: workOrderHtml(wo, store, customer, logo), printer: s.fullPagePrinter, letter: true })
+  await printWithChoice({ html: workOrderHtml(wo, store, customer, logo), printer: s.fullPagePrinter, letter: true }, 'Print work order')
 }
 
 /** What a work order label shows */
@@ -87,11 +88,12 @@ export async function printWorkOrderLabel(wo: WorkOrder, copies?: number): Promi
   const [s, designs, { store }] = await Promise.all([currentPrintSettings(), printDesigns(), storeAndLogo()])
   const t =
     designs.labels.find((x) => x.id === s.woLabelTemplate && x.kind === 'workorder') ?? designs.labels.find((x) => x.kind === 'workorder') ?? designs.labels[0]
-  await window.pos.print({
+  await printWithChoice({
+    label: true,
     html: tagsHtml([{ product: {}, qty: Math.max(1, copies ?? s.woLabelCopies), wo: woLabelData(wo) }], store, t),
     printer: s.labelPrinter,
     pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
-  })
+  }, 'Print work-order label')
 }
 
 /** Which label template an item uses: the "no price" one for items without a price (parts, bin labels) */
@@ -111,8 +113,9 @@ export async function printTags(items: { product: Product; qty: number; template
     const t = templateFor(it.product, s, designs.labels, it.template || override)
     groups.set(t, [...(groups.get(t) ?? []), it])
   }
+  const printer=await choosePrinter(`Print ${list.reduce((n,i)=>n+i.qty,0)} label(s)`,s.labelPrinter)
   for (const [t, group] of groups)
-    await window.pos.print({ html: tagsHtml(group, store, t), printer: s.labelPrinter, pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 } })
+    await window.pos.print({ html: tagsHtml(group, store, t), label: true, printer, pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 } })
   return list.reduce((n, i) => n + i.qty, 0)
 }
 
@@ -157,17 +160,18 @@ export function sampleSale(serial: boolean): Sale {
 export async function testPrint(kind: 'receipt' | 'fullPage' | 'label', s: PrintSettings): Promise<void> {
   const { store, logo } = await storeAndLogo()
   if (kind === 'receipt')
-    return window.pos.print({
+    return printWithChoice({
       html: receiptHtml(sampleSale(false), store, s.receiptWidthMm, (await printDesigns()).receipt, logo),
       printer: s.receiptPrinter
-    })
+    }, 'Print test receipt')
   if (kind === 'fullPage')
-    return window.pos.print({ html: fullPageSaleHtml(sampleSale(true), store, null, logo, null), printer: s.fullPagePrinter, letter: true })
+    return printWithChoice({ html: fullPageSaleHtml(sampleSale(true), store, null, logo, null), printer: s.fullPagePrinter, letter: true }, 'Print test page')
   const designs = await printDesigns()
   const t = templateFor(SAMPLE_ITEM, s, designs.labels)
-  return window.pos.print({
+  return printWithChoice({
+    label: true,
     html: tagsHtml([{ product: SAMPLE_ITEM, qty: 1 }], store, t),
     printer: s.labelPrinter,
     pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
-  })
+  }, 'Print test label')
 }

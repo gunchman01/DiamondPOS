@@ -7,6 +7,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { PosBridge, UpdateEvent } from '../shared/types'
 
 const api: PosBridge = {
+  restoreFocus:()=>ipcRenderer.invoke('app:restore-focus'),
+  openDiagnostics:()=>ipcRenderer.invoke('app:open-diagnostics'),
+  onClosing:(cb)=>{const listener=()=>cb();ipcRenderer.on('app:closing',listener);return()=>ipcRenderer.removeListener('app:closing',listener)},
   openCashDrawer: () => ipcRenderer.invoke('drawer:open'),
   getBootInfo: () => ipcRenderer.invoke('config:get'),
   saveConfig: (changes) => ipcRenderer.invoke('config:save', changes),

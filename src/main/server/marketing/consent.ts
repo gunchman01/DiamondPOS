@@ -1,3 +1,4 @@
+import { backgroundRequest } from '../../lifecycle/backgroundIO'
 import crypto from 'node:crypto'
 import type express from 'express'
 import type { DB } from '../db'
@@ -43,12 +44,12 @@ export function consentView(db:DB):MarketingConsentView {
 export function ready(db:DB){const cfg=consentConfig(db);if(!cfg.enabled||!cfg.url||!cfg.apiKey)throw unavailable('Configure Website marketing consent in Settings → Email before sending campaigns');return cfg}
 export type ConsentFetch=typeof fetch
 export async function remote(cfg:MarketingConsentConfig,action:string,body:unknown,fetcher:ConsentFetch){
- try{
+ try{return await backgroundRequest(async signal=>{
   const url=new URL(cfg.url);url.searchParams.set('action',action)
-  const response=await fetcher(url.toString(),{method:'POST',redirect:'error',headers:{'Content-Type':'application/json','X-DiamondPOS-Key':cfg.apiKey},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)})
+  const response=await fetcher(url.toString(),{method:'POST',redirect:'error',headers:{'Content-Type':'application/json','X-DiamondPOS-Key':cfg.apiKey},body:JSON.stringify(body),signal})
   if(!response.ok)throw new Error(`Website returned ${response.status}`)
   const value:any=await response.json();if(!value||value.ok!==true)throw new Error('Website response was invalid');return value
- }catch(e){throw unavailable(`Marketing consent check unavailable: ${(e as Error).message}`)}
+ })}catch(e){throw unavailable(`Marketing consent check unavailable: ${(e as Error).message}`)}
 }
 const jobs=new WeakMap<DB,Promise<MarketingConsentView>>()
 export function syncMarketingConsent(db:DB,fetcher:ConsentFetch=fetch):Promise<MarketingConsentView>{

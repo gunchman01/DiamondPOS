@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import { EMPTY_VENDOR, type Vendor, type VendorInput, type VendorDetail } from '../../../shared/vendors'
 import { api } from '../api'
@@ -17,7 +18,7 @@ export default function VendorEditor(props: { vendorId: number | null; onClose: 
     return()=>{live=false}
   },[props.vendorId])
   const dirty=JSON.stringify(form)!==baseline
-  function close(){if(!busy&&(!dirty||confirm('Discard unsaved vendor changes?')))props.onClose()}
+  async function close(){if(!busy&&(!dirty||(await confirmAction('Discard unsaved vendor changes?'))))props.onClose()}
   const text=(key:keyof VendorInput)=>({value:String(form[key]),onChange:(e:React.ChangeEvent<HTMLInputElement>)=>setForm({...form,[key]:e.target.value})})
   function field(label:string,key:keyof VendorInput,type='text') { return <label className="vendor-field" key={key}><span>{label}</span><input type={type} maxLength={500} {...text(key)} /></label> }
   async function save(andNew=false){
@@ -54,7 +55,7 @@ export default function VendorEditor(props: { vendorId: number | null; onClose: 
       <section className="vendor-panel"><h3>History</h3>{detail?<>
         <p className="muted small">{detail.postedCount} posted receiving(s) · {money(detail.postedTotalCents)} total received. Latest 100 vouchers below.</p>
         <div className="vendor-history"><table className="table"><thead><tr><th>Date</th><th>Receiving voucher</th><th>Invoice #</th><th>Status</th><th className="r">Total</th></tr></thead><tbody>
-          {detail.history.map((h)=><tr key={h.id}><td>{dateTime(h.date)}</td><td>{props.onReceiving?<button type="button" className="link" onClick={()=>{if(!dirty||confirm('Discard unsaved vendor changes and open this receiving?'))props.onReceiving!(h.id)}}>{h.number}</button>:h.number}</td><td>{h.invoiceNo}</td><td>{h.status==='posted'?'Received':'Draft'}</td><td className="r">{money(h.totalCents)}</td></tr>)}
+          {detail.history.map((h)=><tr key={h.id}><td>{dateTime(h.date)}</td><td>{props.onReceiving?<button type="button" className="link" onClick={async ()=>{if(!dirty||(await confirmAction('Discard unsaved vendor changes and open this receiving?')))props.onReceiving!(h.id)}}>{h.number}</button>:h.number}</td><td>{h.invoiceNo}</td><td>{h.status==='posted'?'Received':'Draft'}</td><td className="r">{money(h.totalCents)}</td></tr>)}
         </tbody></table>{!detail.history.length&&<p className="muted">No receiving history yet.</p>}</div>
       </>:<p className="muted">Save this vendor to begin tracking receiving history.</p>}</section>
     </fieldset>}

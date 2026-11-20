@@ -202,6 +202,22 @@ export async function testApprovals(
   // Reading previews never sends mail or creates approval records.
   const n = db.prepare('SELECT COUNT(*) AS n FROM work_order_estimates').get().n
   const preview = await call(`/api/workorders/${id}/email-preview?estimate=1`)
+  const unread=await call('/api/workorders/responses')
+  check('website decisions create durable unread notices including approvals, declines and review cases',()=>{
+    assert.equal(unread.status,200)
+    assert.ok(unread.data.some((r:any)=>r.id===decline.estimate!.id&&r.decision==='declined'))
+    assert.ok(unread.data.some((r:any)=>r.id===latest.estimate!.id&&r.decision==='approved'))
+    assert.ok(unread.data.some((r:any)=>r.review))
+  })
+  const seenId=unread.data[0].id
+  await call('/api/workorders/responses/read','POST',{ids:[seenId]})
+  await call('/api/workorders/responses/read','POST',{ids:[seenId]})
+  const remaining=await call('/api/workorders/responses')
+  check('click acknowledgement is idempotent and does not clear responses outside the clicked list',()=>{
+    assert.equal(remaining.data.length,unread.data.length-1)
+    assert.ok(!remaining.data.some((r:any)=>r.id===seenId))
+    assert.ok(db.prepare('SELECT seen_at FROM estimate_notifications WHERE estimate_id=?').get(seenId).seen_at)
+  })
   check('estimate preview shows approval-link explanation without publishing a live token', () => {
     assert.equal(preview.status, 200)
     assert.ok(preview.data.html.includes('links will be added'))

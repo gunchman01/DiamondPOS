@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useMemo, useState } from 'react'
 import type { BootInfo, Health, ReleaseInfo, UpdateEvent } from '../../../shared/types'
 import { compareVersions } from '../../../shared/version'
@@ -65,7 +66,7 @@ export default function Updates(props: { boot: BootInfo; health: Health | null; 
           : '')
       : `Revert this computer to v${r.version}?\n\nThis removes: ${between.map((x) => 'v' + x.version).join(', ')}.` +
         (boot.config.mode === 'server' ? '\nRevert the tills first, then this Store Server.' : '')
-    if (!confirm(msg + '\n\nThe app will restart.')) return
+    if (!(await confirmAction(msg + '\n\nThe app will restart.'))) return
     setStatus({ type: 'checking' })
     try {
       await window.pos.installRelease(r.tag)

@@ -1,49 +1,105 @@
-DiamondPOS v0.3.47 — campaign maps and graphs
-Cumulative source overlay for v0.3.45/v0.3.46. Baseline main: 3fb26375a27e200487977c86ddb1d4754c546940.
-Includes prior confirmed re-subscription and typing changes. Schema 34 includes schema 33.
-Update Store Server first, then all tills. No deletions required.
-Upload all5 public cPanel files; preserve private config/key/database and restore custom configPath.
-Maps require optional user-owned private geolocation key/cURL; charts work without it.
-268 regression checks, typecheck/build, PHP HTTP/provider-fixture/integration checks passed.
-No actual external lookup/email, Git commit/push/tag or deployment performed.
-Git commands in START-HERE.md and both cPanel guides.
+DiamondPOS v0.3.49 cumulative source overlay
+Baseline main: 73e3634867bb8c6fefd7c21d41d3dd3d9266a9f2 (v0.3.47)
+Apply over the existing Git checkout; retain all other files.
 
 CHANGED-FILES.txt
 CHANGELOG.md
 START-HERE.md
+TESTING-NOTES.md
 docs/PROJECT_NOTES.md
-extras/cpanel-marketing/CPANEL-SETUP.md
-extras/cpanel-marketing/GEOGRAPHY-SETUP.md
-extras/cpanel-marketing/MAP-DATA-NOTICE.md
-extras/cpanel-marketing/private/marketing-config.example.php
-extras/cpanel-marketing/public/geography.php
-extras/cpanel-marketing/public/index.php
-extras/cpanel-marketing/public/subscriptions.php
-extras/cpanel-marketing/public/tracking.php
+electron.vite.config.ts
+package-lock.json
+package.json
+scripts/test-dialog-ui.cjs
+scripts/test.cjs
+src/main/backupVerifier.ts
+src/main/index.ts
+src/main/lifecycle/backgroundIO.ts
+src/main/lifecycle/diagnostics.ts
+src/main/lifecycle/httpClose.ts
+src/main/lifecycle/quitController.ts
+src/main/lifecycle/smtpSockets.ts
+src/main/printing.ts
+src/main/qbBridge.ts
+src/main/server/accounts.ts
+src/main/server/approvals.ts
+src/main/server/backup.ts
+src/main/server/endOfDay.ts
 src/main/server/index.ts
-src/main/server/marketing/analytics.ts
 src/main/server/marketing/consent.ts
-src/main/server/marketing/routes.ts
-src/main/server/marketing/subscriptions.ts
-src/main/server/marketing/tracking.ts
+src/main/server/marketing/mailer.ts
 src/main/server/migrations.ts
+src/main/server/quickbooks/qbxml.ts
+src/main/server/quickbooks/summary.ts
+src/main/server/receiving.ts
+src/main/server/receivingWorkOrders.ts
+src/main/server/returns.ts
+src/main/server/workOrderGroups.ts
+src/main/server/workorders.ts
+src/main/verifySnapshot.ts
+src/preload/index.ts
+src/renderer/src/App.tsx
+src/renderer/src/EstimateResponseNotice.tsx
+src/renderer/src/PrinterPrompt.tsx
 src/renderer/src/api.ts
+src/renderer/src/dialogQueue.ts
+src/renderer/src/dialogs.tsx
+src/renderer/src/endOfDayPrint.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/maps/worldLand.ts
-src/renderer/src/screens/CampaignActivity.tsx
-src/renderer/src/screens/CampaignDashboard.tsx
+src/renderer/src/itemColumns.tsx
+src/renderer/src/main.tsx
+src/renderer/src/printTemplates.ts
+src/renderer/src/printerQueue.ts
+src/renderer/src/printing.ts
+src/renderer/src/receipt.ts
+src/renderer/src/saleCancellation.ts
+src/renderer/src/saleColumns.tsx
+src/renderer/src/screens/AccountBalancePicker.tsx
+src/renderer/src/screens/ApprovalSettings.tsx
+src/renderer/src/screens/CustomerAccount.tsx
 src/renderer/src/screens/CustomerEditor.tsx
+src/renderer/src/screens/CustomerPicker.tsx
+src/renderer/src/screens/Customers.tsx
+src/renderer/src/screens/DailyCloseout.tsx
+src/renderer/src/screens/DisplaySettings.tsx
+src/renderer/src/screens/HeldReceipts.tsx
+src/renderer/src/screens/Help.tsx
+src/renderer/src/screens/ItemEditor.tsx
+src/renderer/src/screens/KioskSettings.tsx
+src/renderer/src/screens/LabelDesigner.tsx
 src/renderer/src/screens/MailerEditor.tsx
-src/renderer/src/screens/MailerPreview.tsx
-src/renderer/src/screens/MarketingConsentSettings.tsx
+src/renderer/src/screens/Marketing.tsx
+src/renderer/src/screens/NewWorkOrder.tsx
+src/renderer/src/screens/PrintSettings.tsx
+src/renderer/src/screens/Products.tsx
+src/renderer/src/screens/QuickBooks.tsx
+src/renderer/src/screens/ReceiptDesigner.tsx
+src/renderer/src/screens/Receiving.tsx
+src/renderer/src/screens/Reports.tsx
+src/renderer/src/screens/Sell.tsx
+src/renderer/src/screens/Settings.tsx
+src/renderer/src/screens/Updates.tsx
+src/renderer/src/screens/VendorEditor.tsx
+src/renderer/src/screens/WorkOrderSettings.tsx
+src/renderer/src/screens/WorkOrderTicket.tsx
+src/renderer/src/screens/WorkOrders.tsx
 src/renderer/src/styles.css
-src/shared/campaignAnalytics.ts
-src/shared/mailerTemplate.ts
-tests/cpanel/geography.php
-tests/cpanel/marketing-service.py
-tests/marketing-analytics.ts
-tests/marketing-consent.ts
-tests/marketing-php.ts
-tests/marketing-resubscribe.ts
-tests/marketing-tracking.ts
+src/shared/accounts.ts
+src/shared/constants.ts
+src/shared/display.ts
+src/shared/itemImport.ts
+src/shared/printDesigns.ts
+src/shared/printing.ts
+src/shared/receiving.ts
+src/shared/serviceSms.ts
+src/shared/types.ts
+src/shared/workorders.ts
+tests/accounts-stock.ts
+tests/approvals.ts
+tests/card-types.ts
+tests/dialog-ui.tsx
+tests/lifecycle.ts
+tests/receiving-alerts.ts
 tests/regressions.ts
+tests/retired-stage.ts
+tests/sale-layout-ui.tsx

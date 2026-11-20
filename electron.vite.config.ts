@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,7 +8,8 @@ import react from '@vitejs/plugin-react'
 //   renderer -> the React UI that runs inside the window
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build:{rollupOptions:{input:{index:resolve('src/main/index.ts'),backupVerifier:resolve('src/main/backupVerifier.ts')}}}
   },
   preload: {
     plugins: [externalizeDepsPlugin()]

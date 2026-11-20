@@ -8,12 +8,13 @@ import CustomerEditor from './CustomerEditor'
  * or Customer ID), or add a new one on the spot.
  */
 export default function CustomerPicker(props: {
+  initialQuery?: string
   onPick: (c: Customer) => void
   onCancel: () => void
   /** Push the sign-up form to the customer kiosk (iPad) instead */
   onSendToKiosk?: () => void
 }) {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(props.initialQuery??'')
   const [results, setResults] = useState<Customer[]>([])
   const [active, setActive] = useState(0)
   const [adding, setAdding] = useState(false)

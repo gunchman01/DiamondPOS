@@ -1,41 +1,55 @@
-# DiamondPOS v0.3.47 — Campaign map and graphs
+# DiamondPOS v0.3.49 — cumulative source update
 
-Cumulative source overlay for your v0.3.45 or v0.3.46 project on main, including the v0.3.46 confirmed re-subscription and campaign-typing improvements. Verified GitHub main baseline: 3fb26375a27e200487977c86ddb1d4754c546940 (v0.3.45). No Git commit/push/tag, actual provider lookup, real email or hosting deployment was performed here.
+This ZIP contains all changes since GitHub main v0.3.47, including the previously supplied v0.3.48 focus/shutdown fixes and the new work-order, sale, printing and display features. You do not need to apply v0.3.48 separately.
 
-## Apply the update
+Verified baseline: main commit 73e3634867bb8c6fefd7c21d41d3dd3d9266a9f2. Source only: no customer database, secrets, node_modules or installer included. No commit, push, tag or deployment has been performed for you.
 
-1. Back up the Store Server and private cPanel marketing configuration/database. Pause campaigns and close POS/dev instances.
-2. Extract this source ZIP separately, then merge everything inside DiamondPOS-update-v0.3.47 over your existing Git project. Keep .git and other project files. Source only; no installer or customer database included.
-3. Upgrade the public cPanel service using the separate v0.3.47 ZIP. Upload all five pos-marketing files: index.php, tracking.php, subscriptions.php, geography.php and .htaccess. Preserve the existing private key/config/database and **restore your custom configPath line in the new index.php**.
-4. Follow **extras/cpanel-marketing/GEOGRAPHY-SETUP.md**. Charts work without a geolocation key; new location markers require your own private IPGeolocation.io key, geo_enabled=true and PHP cURL. No API account was created for you and no real request IP was submitted during development. Older activity without geography stays unknown.
-5. In PowerShell in your Git project:
+## 1. Apply to your existing Git project
+
+1. Make a verified backup on the Store Server. Finish/resolve checkout/account-payment recovery and let QuickBooks sync finish. Close all POS and development instances.
+2. Extract DiamondPOS-update-v0.3.49.zip into a separate folder.
+3. Copy the CONTENTS of its DiamondPOS-update-v0.3.49 folder into your existing C:\dev\DiamondPOS project. Merge directories and replace matching files; do not replace the whole project or remove .git. This is an overlay, so files not present in the ZIP stay in place.
+4. Keep your AOD website files, real private config and databases unchanged. No website upload is required for this POS update.
+
+## 2. Verify locally — PowerShell in C:\dev\DiamondPOS
 
 ```powershell
+npm ci
 npm run typecheck
 npm test
 npm run build
 npm run dev
 ```
 
-6. Test a campaign restricted to your own opted-in address, then open Marketing → Mailers → campaign → Campaign activity → Campaign insights. Check map/period controls, charts, unknown counts, export, real location lookup, and existing unsubscribe/re-subscribe/typing behavior on your Windows system.
-7. When verified, run these commands from that same project folder:
+npm ci installs the locked dependencies and rebuilds the SQLite binding for Electron. The package version is already 0.3.49. The build MUST include out/main/backupVerifier.js; the ZIP includes the Vite config needed to build it.
 
-```powershell
+Starting the Store Server applies schemas 35–40 and creates its normal pre-migration backup. Test data uses your current test store DB; no database is supplied here. After testing, close the development instance before starting the installed POS.
+
+Read TESTING-NOTES.md for the test sequence and known limits. New UI and physical printing still require store testing; 318 automated regression checks, typecheck and build passed locally.
+
+## 3. Commit and publish — MobaXterm in your existing project
+
+Review git diff before committing. These commands publish the installer through your existing GitHub Actions workflow:
+
+```bash
+cd /drives/c/dev/DiamondPOS
 git status --short
-git add .
-git commit -m "Add campaign location map and analytics charts"
+git diff --stat
+git add -A
+git commit -m "Release v0.3.49 sale and work order improvements"
 git push origin main
-git tag v0.3.47
-git push origin v0.3.47
+git tag v0.3.49
+git push origin v0.3.49
 ```
 
-Only use an unused tag; never move a published tag. If it already exists, choose the next unused release version. GitHub Actions sets installer version from the tag, while package.json keeps its development version. Update the Store Server first, then all tills (schema 34; includes schema 33). Keep campaign sends paused through website/server upgrades. Older consent protocol versions cannot safely process confirmed subscriptions.
+If Git reports the tag already exists, stop and inspect it; do not force or delete it. The last published release checked here was v0.3.47.
 
-## New inside the POS
+Wait for GitHub → Actions → Release to complete successfully. Then use Updates in the POS to install v0.3.49 on the STORE SERVER FIRST, let the DB upgrade complete, and update every till afterward. This release requires tills at v0.3.49 or newer.
 
-- Zoomable, pannable world/U.S. mainland map, with open/click markers and aggregate location details. No external map tiles/CDN required.
-- Daily trend, activity by Central-Time hour, recipient engagement rings, top locations, full location table, 7/30/90-day/all-time periods and Excel data export.
-- Mapped and unknown activity are counted separately. Markers show approximate network-request locations, not customer addresses or proof of a person's whereabouts. Proxies, VPNs, scanners and forwarded email can affect them.
-- Optional server-side geolocation is private, bounded/cached and rounds coordinates to0.1°. Missing key, provider failures and quota limits preserve ordinary click/open counts. Unknown/old data is never fabricated or backfilled.
+If any local check or GitHub build fails, stop before updating the store and send the exact error. Do not run both installed and development Store Server instances against the same database.
 
-Validation:268 regression checks, TypeScript, production build, real local PHP HTTP, mocked-provider geography checks and a PHP-to-POS integration test with coarse fixture locations. No actual external delivery/provider account or Windows interaction verified here; finish the guide's self-only checks.
+## Included / not included
+
+Included: sale redesign; Quick Pick removal; ALU grid/receipt option; optional costs; Cancel sale; account-payment customer list; Credit/Debit; mechanics/On the Bench; visit grouping; receiving notices; Auto fit; flashing estimate responses; v0.3.48 focus/shutdown fixes.
+
+Not included: working SMS delivery or a confirmed fix for the Citizen blank receipt. See TESTING-NOTES.md. No automatic printing is enabled.

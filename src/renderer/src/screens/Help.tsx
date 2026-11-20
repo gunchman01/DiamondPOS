@@ -54,6 +54,7 @@ export function helpSections(md: string): HelpSection[] {
 
 /** Help: the user manual with a contents list and search. `topic` = section to open at. */
 export default function Help({ topic, onFeedback, boot }: { topic?: string | null; onFeedback?: () => void; boot?: BootInfo }) {
+  const [maintenanceMessage,setMaintenanceMessage]=useState('')
   // {server_ip}, {kiosk_url}… in the manual are filled in with this store's real addresses
   const sections = useMemo(() => helpSections(fillPlaceholders(manual, boot)), [boot])
   const [query, setQuery] = useState('')
@@ -97,6 +98,9 @@ export default function Help({ topic, onFeedback, boot }: { topic?: string | nul
           {shown.length === 0 && <p className="muted small">Nothing found for "{query}".</p>}
         </nav>
         <p className="muted small">Tip: press F1 on any screen to open Help.</p>
+        <button onClick={async()=>{try{await window.pos.restoreFocus();setMaintenanceMessage('Keyboard focus restored. Click the field you want to type in.')}catch{setMaintenanceMessage('Could not restore focus. Close and reopen the application.')}}}>Restore keyboard focus</button>
+        <button onClick={async()=>{try{await window.pos.openDiagnostics();setMaintenanceMessage('Diagnostic folder opened. application.log contains timing/lifecycle events, without customer or payment details.')}catch{setMaintenanceMessage('Could not open the diagnostics folder.')}}}>Open diagnostic logs</button>
+        {maintenanceMessage&&<p className="muted small" role="status">{maintenanceMessage}</p>}
         {onFeedback && (
           <button onClick={onFeedback} title="Ideas, enhancement requests, problems or questions">
             💬 Can't find it? Send feedback

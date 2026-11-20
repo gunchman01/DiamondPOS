@@ -5,7 +5,7 @@ import Database from 'better-sqlite3'
 import { migrations } from '../src/main/server/migrations'
 import { openDatabase } from '../src/main/server/db'
 import { createApp, createSale, readSettings } from '../src/main/server'
-import { customerAccount, receiveAccountPayment, invoiceDue } from '../src/main/server/accounts'
+import { customerAccount, receiveAccountPayment, invoiceDue, accountBalanceCustomers } from '../src/main/server/accounts'
 import { reviewVoid, voidSale } from '../src/main/server/voids'
 import { returnableSale } from '../src/main/server/returns'
 import { getQbConfig, saveQbConfig, saveQbLists } from '../src/main/server/quickbooks/store'
@@ -184,6 +184,23 @@ export async function testAccountsStock(check: Check, dir: string) {
       assert.ok(due.invoices[0].dueDate > due.invoices[0].date.slice(0, 10))
       assert.ok(receiptHtml(sale, readSettings(db), 80).includes('CHARGED TO CUSTOMER ACCOUNT'))
     })
+    const owingCustomers=await call('/api/accounts/balances'),filteredOwing=await call('/api/accounts/balances?search=account%20customer'),noOwing=await call('/api/accounts/balances?search=nonexistent-balances-needle')
+    const unpairedBalances=await fetch(base+'/api/accounts/balances')
+    check('account balance picker lists only owing customers, searches names and requires pairing',()=>{
+      assert.equal(owingCustomers.status,200)
+      assert.equal(owingCustomers.data.find((row:any)=>row.customer.id===customer).balanceCents,200)
+      assert.equal(owingCustomers.data.find((row:any)=>row.customer.id===customer).invoiceCount,1)
+      assert.ok(!owingCustomers.data.some((row:any)=>row.customer.id===stockCustomer))
+      assert.ok(filteredOwing.data.some((row:any)=>row.customer.id===customer))
+      assert.deepEqual(noOwing.data,[]);assert.equal(unpairedBalances.status,401)
+    })
+    db.prepare("UPDATE customers SET active=0,on_account_enabled=0,phone='(918) 555-0123' WHERE id=?").run(customer)
+    const inactiveOwing=await call('/api/accounts/balances?search=9185550123')
+    check('existing debt remains payable for inactive or account-disabled customers and phones are searchable',()=>{
+      assert.equal(inactiveOwing.data.find((row:any)=>row.customer.id===customer).balanceCents,200)
+      assert.equal(inactiveOwing.data.find((row:any)=>row.customer.id===customer).customer.active,false)
+    })
+    db.prepare('UPDATE customers SET active=1,on_account_enabled=1,phone=NULL WHERE id=?').run(customer)
     check('account sales require an enabled customer and cannot mix cash or create cash returns', () => {
       assert.throws(() => createSale(db, req({ onAccount: true, payments: [] })), /customer/)
       assert.throws(() => createSale(db, req({ customerId: stockCustomer, onAccount: true, payments: [] })), /approved for account/)
@@ -194,6 +211,7 @@ export async function testAccountsStock(check: Check, dir: string) {
     const payRequest = { requestId: crypto.randomUUID(), amountCents: 50, method: 'cash' as const, by: 'Test', till: 'Test' }
     const payment = receiveAccountPayment(db, customer, payRequest),
       paymentRetry = receiveAccountPayment(db, customer, payRequest)
+    check('account picker balance follows a partial payment without a duplicate sale',()=>assert.equal(accountBalanceCustomers(db).find(row=>row.customer.id===customer)!.balanceCents,150))
     check('payment on account reduces debt without another sale or stock movement and retries are idempotent', () => {
       assert.equal(payment.paymentId, paymentRetry.paymentId)
       assert.equal(customerAccount(db, customer).balanceCents, 150)
@@ -386,6 +404,11 @@ export async function testAccountsStock(check: Check, dir: string) {
     check('a payment recorded in QuickBooks reduces the refreshed POS invoice balance', () =>
       assert.equal(customerAccount(db, customer).balanceCents, 120)
     )
+    check('account picker agrees with reconciled QuickBooks balances',()=>assert.equal(accountBalanceCustomers(db).find(row=>row.customer.id===customer)!.balanceCents,120))
+    const savedBalance=db.prepare('SELECT qb_balance_cents FROM account_invoices WHERE sale_id=?').get(sale.id).qb_balance_cents
+    db.prepare('UPDATE account_invoices SET qb_balance_cents=0 WHERE sale_id=?').run(sale.id)
+    check('fully paid invoices disappear from the owing-customer list',()=>assert.ok(!accountBalanceCustomers(db).some(row=>row.customer.id===customer)))
+    db.prepare('UPDATE account_invoices SET qb_balance_cents=? WHERE sale_id=?').run(savedBalance,sale.id)
     const card = receiveAccountPayment(db, customer, {
       requestId: crypto.randomUUID(),
       amountCents: 40,

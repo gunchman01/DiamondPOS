@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Sale, StoreSettings } from '../../../shared/types'
 import {
@@ -41,7 +42,7 @@ function samples(): Record<string, Sale> {
   const serial = sampleSale(true)
   return {
     normal: { ...sampleSale(false), id: 1042, customerId: 1, customerName: 'Kim Lee' },
-    serial: { ...serial, id: 1043, customerId: 1, customerName: 'Kim Lee', items: serial.items.map((i) => ({ ...i, sku: i.serial ? 'BG50' : 'OIL-1QT' })) },
+    serial: { ...serial, id: 1043, customerId: 1, customerName: 'Kim Lee', items: serial.items.map((i) => ({ ...i, alu: i.serial ? 'STIHL-BG50' : 'OIL-QUART', sku: i.serial ? 'BG50' : 'OIL-1QT' })) },
     refund: {
       ...sampleSale(false),
       id: 1044,
@@ -402,6 +403,7 @@ export default function ReceiptDesigner() {
             )}
             {selBlock.type === 'items' && (
               <>
+                <label className="check"><input type="checkbox" checked={selBlock.showAlu} onChange={e=>setBlock(selBlock.id,{showAlu:e.target.checked})}/>Alt lookup (ALU)</label>
                 <label className="check">
                   <input type="checkbox" checked={selBlock.showSku} onChange={(e) => setBlock(selBlock.id, { showSku: e.target.checked })} />
                   Show the Item #
@@ -436,8 +438,8 @@ export default function ReceiptDesigner() {
             Save receipt layout
           </button>
           <button
-            onClick={() => {
-              if (!confirm('Put the receipt back to the standard layout?')) return
+            onClick={async () => {
+              if (!(await confirmAction('Put the receipt back to the standard layout?'))) return
               setLayout(defaultDesigns().receipt)
               setSel(null)
             }}

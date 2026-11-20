@@ -93,6 +93,8 @@ export function printsFullPage(
 /** Options for one print job (sent to the main process) */
 export interface PrintJob {
   html: string
+  /** Label jobs require an explicitly selected printer; never fall back to Windows default. */
+  label?: boolean
   /** '' = Windows default printer */
   printer: string
   copies?: number

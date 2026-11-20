@@ -1,3 +1,5 @@
+import { printWithChoice } from '../PrinterPrompt'
+import { confirmAction } from '../dialogs'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Product, StoreSettings } from '../../../shared/types'
 import { LABEL_SIZES } from '../../../shared/printing'
@@ -150,11 +152,11 @@ export default function LabelDesigner() {
     setSel(null)
     setDirty(true)
   }
-  function deleteTemplate() {
+  async function deleteTemplate() {
     if (!designs || !t || designs.labels.length <= 1) return
     if (t.kind === 'workorder' && designs.labels.filter((x) => x.kind === 'workorder').length <= 1)
       return setMsg({ ok: false, text: 'Keep at least one work order label' })
-    if (!confirm(`Delete the label "${t.name}"?`)) return
+    if (!(await confirmAction(`Delete the label "${t.name}"?`))) return
     const rest = designs.labels.filter((x) => x.id !== t.id)
     setDesigns({ ...designs, labels: rest })
     setTid(rest[0].id)
@@ -176,11 +178,12 @@ export default function LabelDesigner() {
     try {
       if (isWo) {
         const ps = await currentPrintSettings()
-        await window.pos.print({
+        await printWithChoice({
+          label: true,
           html: tagsHtml([{ product: {}, qty: 1, wo: SAMPLE_WO }], store!, t),
           printer: ps.labelPrinter,
           pageMm: { width: t.widthIn * 25.4, height: t.heightIn * 25.4 }
-        })
+        }, 'Print test work-order label')
       } else await printTags([{ product: preview as Product, qty: 1 }], t.id)
       setMsg({ ok: true, text: 'Test label sent to the label printer' })
     } catch (e) {

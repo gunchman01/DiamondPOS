@@ -1,3 +1,4 @@
+import { groupInfo,relatedOrders,linkOrders,unlinkOrder } from './workOrderGroups'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
 import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
 /**
@@ -243,6 +244,7 @@ type WoRow = {
   customer_id: number
   unit_id: number
   status: WoStatus
+  mechanic_id: number | null
   problem: string
   diagnosis: string
   work_done: string
@@ -355,9 +357,13 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       }[]
     ).map((h) => ({ at: iso(h.at)!, status: h.status, note: h.note, by: h.by_name }))
     const result: WorkOrder = {
+      relatedOrders: relatedOrders(db,id),
       id: r.id,
       number: woNumber(r.id),
       status: r.status,
+      group: groupInfo(db,r.id),
+      mechanicId: r.mechanic_id,
+      mechanicName: (db.prepare('SELECT name FROM mechanics WHERE id=?').get(r.mechanic_id) as {name:string}|undefined)?.name ?? null,
       customerId: r.customer_id,
       customerName: customerDisplayName(customer),
       customerEmail: (c.email as string) || null,
@@ -485,6 +491,44 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
   const by = (req: express.Request) => String((req.body as Record<string, unknown>)?.by ?? req.header('X-Till') ?? 'Staff')
 
   // ================= Settings =================
+  app.post('/api/workorders/:id/group',wrap((req,res)=>{
+    const wo=need(Number(req.params.id))
+    const other=Number(req.body?.otherId)
+    if(!Number.isSafeInteger(other))throw new WoError(400,'Choose another work order')
+    db.transaction(()=>linkOrders(db,wo.id,other,by(req)))()
+    res.json(need(wo.id))
+  }))
+  app.post('/api/workorders/:id/ungroup',wrap((req,res)=>{
+    const wo=need(Number(req.params.id))
+    db.transaction(()=>unlinkOrder(db,wo.id,by(req)))()
+    res.json(need(wo.id))
+  }))
+  app.get('/api/workorders/responses',wrap((_req,res)=>{res.json((db.prepare(`SELECT n.*,c.first_name,c.last_name,c.company,c.track_as_company FROM estimate_notifications n JOIN work_orders w ON w.id=n.work_order_id JOIN customers c ON c.id=w.customer_id WHERE n.seen_at IS NULL ORDER BY n.received_at,n.estimate_id`).all() as any[]).map(r=>({id:r.estimate_id,workOrderId:r.work_order_id,number:woNumber(r.work_order_id),customer:customerDisplayName({firstName:r.first_name,lastName:r.last_name,company:r.company,trackAsCompany:r.track_as_company===1}),decision:r.decision,review:!!r.review,receivedAt:iso(r.received_at)})))}))
+  app.post('/api/workorders/responses/read',wrap((req,res)=>{const ids=req.body?.ids;if(!Array.isArray(ids)||ids.length>1000||ids.some(id=>typeof id!=='string'||id.length>100))throw new WoError(400,'Invalid response list');db.transaction(()=>{const mark=db.prepare("UPDATE estimate_notifications SET seen_at=COALESCE(seen_at,datetime('now')) WHERE estimate_id=?");for(const id of ids)mark.run(id)})();res.json({ok:true})}))
+  app.get('/api/workorders/mechanics' , (_req,res) => res.json((db.prepare('SELECT * FROM mechanics ORDER BY name').all() as {id:number;name:string;active:number}[]).map(m=>({...m,active:!!m.active}))))
+  app.post('/api/workorders/mechanics',wrap((req,res)=>{
+    const name=String(req.body?.name??'').trim()
+    if(!name || name.length>80)throw new WoError(400,'Enter a mechanic name (up to 80 characters)')
+    db.prepare('INSERT INTO mechanics(name) VALUES (?) ON CONFLICT(name) DO UPDATE SET active=1').run(name)
+    res.json({ok:true})
+  }))
+  app.post('/api/workorders/mechanics/:mechanicId/remove',wrap((req,res)=>{
+    db.prepare('UPDATE mechanics SET active=0 WHERE id=?').run(Number(req.params.mechanicId))
+    res.json({ok:true})
+  }))
+  app.post('/api/workorders/:id/mechanic',wrap((req,res)=>{
+    const wo=need(Number(req.params.id))
+    if(wo.status==='closed')throw new WoError(409,'This work order is closed')
+    const id=req.body?.mechanicId
+    const m=id===null?null:db.prepare('SELECT id,name FROM mechanics WHERE id=? AND active=1').get(Number(id)) as {id:number;name:string}|undefined
+    if(id!==null&&(!Number.isInteger(id)||!m))throw new WoError(400,'Choose an active mechanic')
+    db.transaction(()=>{
+      db.prepare("UPDATE work_orders SET mechanic_id=?,updated_at=datetime('now') WHERE id=?").run(m?.id??null,wo.id)
+      hist(wo.id,`Mechanic: ${wo.mechanicName??'Unassigned'} → ${m?.name??'Unassigned'}`,by(req))
+    })()
+    res.json(need(wo.id))
+  }))
+
   app.get('/api/workorders/settings', (_req, res) => res.json(getWoSettings(db)))
   app.put(
     '/api/workorders/settings',
@@ -590,6 +634,9 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         id: r.id,
         number: woNumber(r.id),
         status: r.status,
+      group: groupInfo(db,r.id),
+      mechanicId: r.mechanic_id,
+      mechanicName: (db.prepare('SELECT name FROM mechanics WHERE id=?').get(r.mechanic_id) as {name:string}|undefined)?.name ?? null,
         customerName: customerDisplayName({
           firstName: r.first_name as string,
           lastName: r.last_name as string,
@@ -653,6 +700,11 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
           ).run(woId, shop.description, shop.priceCents, settings.shopTaxable ? 1 : 0)
         if (unit.category === 'mower' && hoursIn !== null)
           db.prepare('UPDATE customer_units SET hours = ? WHERE id = ?').run(hoursIn, unit.id)
+        if(b.linkToId!==undefined){
+          const anchor=Number(b.linkToId)
+          if(!Number.isSafeInteger(anchor))throw new WoError(400,'Choose a valid related work order')
+          linkOrders(db,anchor,woId,by(req))
+        }
         hist(woId, 'Checked in', by(req), 'needs_estimate')
         if (fee !== defaultFee) hist(woId, `Estimate fee set to $${(fee / 100).toFixed(2)} for this ticket (configured default $${(defaultFee / 100).toFixed(2)}).`, by(req), 'needs_estimate')
         return woId
@@ -695,6 +747,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       const to = String((req.body as Record<string, unknown>)?.status ?? '') as WoStatus
       if (!STAGES.some((s) => s.status === to)) throw new WoError(400, 'Unknown stage')
       if (to === wo.status) return res.json(wo)
+      if(to==='on_bench' && !['approved','waiting_parts','ready_review'].includes(wo.status))throw new WoError(409,'Approve the repair before moving it onto the bench')
+      if(to==='on_bench' && wo.lines.some(l=>l.kind==='part' && l.short))throw new WoError(409,'Receive all required parts before moving this ticket onto the bench')
       if (wo.status==='waiting_customer' && wo.estimate && (to==='approved'||to==='not_fixed')) {
         if(wo.estimate.state!=='pending')throw new WoError(409,'Send a fresh estimate before recording a new decision.')
         if(wo.estimate.needsResend)throw new WoError(409,'The estimate changed. Send a revised estimate before recording a decision.')

@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import VendorEditor from './VendorEditor'
 import { useEffect, useState } from 'react'
 import type { ItemType, Product, ProductInput } from '../../../shared/types'
@@ -181,7 +182,6 @@ export interface ItemEditorProps {
   item: Product | null // null = add a new item
   departments: string[]
   vendors: string[]
-  groups: string[]
   /** Called after each successful save (the list should reload) */
   onSaved: () => void
   /** Called after the item was deleted (or made inactive), with a message */
@@ -202,7 +202,7 @@ export default function ItemEditor(props: ItemEditorProps) {
 
   async function remove() {
     if (!editing) return
-    if (!confirm(`Delete "${editing.name}"?\n\n${DELETE_EXPLAIN}`)) return
+    if (!(await confirmAction(`Delete "${editing.name}"?\n\n${DELETE_EXPLAIN}`))) return
     setBusy(true)
     try {
       const r = await api.deleteProducts([editing.id])
@@ -322,14 +322,6 @@ export default function ItemEditor(props: ItemEditorProps) {
               </Row>
               <Row label="UPC / Barcode">
                 <input placeholder="Click here and scan" {...text('barcode')} />
-              </Row>
-              <Row label="Quick Pick">
-                <div className="with-hint">
-                  <label className="check inline-check">
-                    <input {...check('quickPick')} /> Show on Sale screen
-                  </label>
-                  <input list="dl-groups" placeholder="Group" disabled={!form.quickPick} {...text('quickPickGroup')} />
-                </div>
               </Row>
             </fieldset>
 
@@ -467,11 +459,6 @@ export default function ItemEditor(props: ItemEditorProps) {
         </datalist>
         <datalist id="dl-vendors">
           {[...new Set([...props.vendors,...newVendorNames])].map((d) => (
-            <option key={d} value={d} />
-          ))}
-        </datalist>
-        <datalist id="dl-groups">
-          {props.groups.map((d) => (
             <option key={d} value={d} />
           ))}
         </datalist>

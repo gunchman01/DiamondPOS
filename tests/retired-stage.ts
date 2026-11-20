@@ -30,17 +30,17 @@ export function testRetiredStage(check:(name:string,fn:()=>void)=>void,dir:strin
   assert.ok(wo.history.some(h=>h.note==='Repair started'&&String(h.status)==='on_bench'))
   assert.ok(wo.history.some(h=>h.note.includes('stage retired')&&h.by==='System update'))
   assert.equal(String(wo.lastEmailedStatus),'on_bench')
-  assert.equal(stage('on_bench' as WoStatus).label,'On the Bench (retired)')
+  assert.equal(stage('on_bench' as WoStatus).label,'On the Bench')
  })
- check('retired stage is absent from stage choices, suggested moves, colors and templates',()=>{
-  assert.ok(!STAGES.some(s=>String(s.status)==='on_bench'))
-  assert.ok(STAGES.every(s=>s.next.every(n=>String(n)!=='on_bench')))
+ check('restored bench stage is offered with colors and no automatic email template',()=>{
+  assert.ok(STAGES.some(s=>s.status==='on_bench'))
+  assert.ok(stage('approved').next.includes('on_bench'))
   assert.ok(stage('approved').next.includes('ready_review'))
   assert.ok(stage('waiting_parts').next.includes('ready_review'))
   assert.ok(stage('ready_review').next.includes('approved'))
   const settings=getWoSettings(db)
   assert.equal(settings.stageColors.approved,'#123456')
-  assert.ok(!('on_bench' in settings.stageColors));assert.ok(!('on_bench' in settings.templates))
+  assert.ok('on_bench' in settings.stageColors);assert.ok(!('on_bench' in settings.templates))
  })
  const historyCount=db.prepare('SELECT COUNT(*) AS n FROM work_order_history WHERE work_order_id=?').get(id).n
  db.close();db=openDatabase(file)

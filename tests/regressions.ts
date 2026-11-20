@@ -1,3 +1,8 @@
+import { testCardTypes } from './card-types'
+import { testReceivingAlerts } from './receiving-alerts'
+import { displayScale,normaliseDisplayZoom } from '../src/shared/display'
+import { costCell, SALE_COLUMNS, DEFAULT_SALE_COLUMNS, visibleColumns } from '../src/renderer/src/saleColumns'
+import { testLifecycle } from './lifecycle'
 import { testCampaignAnalytics } from './marketing-analytics'
 import { testResubscribe } from './marketing-resubscribe'
 import { testServiceAudience } from './marketing-service-audience'
@@ -47,6 +52,35 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
 let checks = 0
 const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`PASS ${name}`) }
 async function main() {
+  testCardTypes(check,dir)
+  await testReceivingAlerts(check,dir)
+  check('auto fit uses available window size rather than physical monitor pixels and avoids excessive shrinking',()=>{
+    assert.equal(displayScale(1536,800),.94);assert.equal(displayScale(1920,1080),1)
+    assert.equal(displayScale(1024,600),.85);assert.equal(displayScale(8000,4000),1)
+    assert.equal(displayScale(1536,800,1.1),1.1)
+  })
+  check('invalid display preferences fall back to auto fit and invalid geometry stays at normal scale',()=>{
+    assert.equal(normaliseDisplayZoom(0),'auto');assert.equal(normaliseDisplayZoom(Number.NaN),'auto')
+    assert.equal(displayScale(0,0),1);assert.equal(displayScale(1536,800,'bad'),.94)
+  })
+
+  const costRow:any={kind:'item',hasCostItem:true,costInfo:{orderCostCents:1200,lastReceivedCostCents:1400,currentAvgCents:1350}}
+  check('sale column menu offers three distinct unit costs without exposing them in default columns',()=>{
+    assert.ok(['cost','lastReceivedCost','averageCost'].every(id=>SALE_COLUMNS.some(c=>c.id===id)))
+    assert.ok(['cost','lastReceivedCost','averageCost'].every(id=>!DEFAULT_SALE_COLUMNS.includes(id)))
+    assert.ok(visibleColumns(['sku','lastReceivedCost','averageCost']).some(c=>c.id==='lastReceivedCost'))
+    assert.equal(costCell(costRow,'orderCostCents'),'$12.00');assert.equal(costCell(costRow,'lastReceivedCostCents'),'$14.00');assert.equal(costCell(costRow,'currentAvgCents'),'$13.50')
+  })
+  check('cost columns distinguish zero cost, no history, unavailable data and non-product rows',()=>{
+    assert.equal(costCell({...costRow,costInfo:{...costRow.costInfo,lastReceivedCostCents:0}},'lastReceivedCostCents'),'$0.00')
+    assert.equal(costCell({...costRow,costInfo:{...costRow.costInfo,lastReceivedCostCents:null}},'lastReceivedCostCents'),'—')
+    assert.equal(costCell({...costRow,costInfo:null},'currentAvgCents'),'Unavailable')
+    assert.equal(costCell({...costRow,costInfo:undefined},'currentAvgCents'),'…')
+    assert.equal(costCell({hasCostItem:false} as any,'currentAvgCents'),'')
+    assert.equal(costCell({...costRow,kind:'return'},'currentAvgCents'),'$13.50')
+  })
+
+  await testLifecycle(check, dir)
   await testCampaignAnalytics(check, dir)
   await testResubscribe(check, dir)
   testServiceAudience(check, dir)
@@ -115,7 +149,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 34)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 40)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
@@ -178,9 +212,9 @@ async function main() {
     assert.equal(checkSale.payments[0].cardBrand, undefined)
   })
   check('invalid brands and brands on noncard payments are rejected without recording a sale', () => {
-    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 11, cardBrand: 'invalid' as any }] })), /valid card brand/)
-    assert.throws(() => createSale(db, request({ payments: [{ method: 'cash', amountCents: 11, cardBrand: 'visa' }] })), /valid card brand/)
-    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 5, cardBrand: 'visa' }, { method: 'card', amountCents: 6, cardBrand: 'mastercard' }] })), /one card brand/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 11, cardBrand: 'invalid' as any }] })), /valid card type/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'cash', amountCents: 11, cardBrand: 'visa' }] })), /valid card type/)
+    assert.throws(() => createSale(db, request({ payments: [{ method: 'card', amountCents: 5, cardBrand: 'visa' }, { method: 'card', amountCents: 6, cardBrand: 'mastercard' }] })), /one card type/)
     assert.throws(() => createSale(db, request({ payments: [{ method: 'check', amountCents: 11 }] })), /check number/)
   })
   db.prepare('UPDATE products SET on_hand = 100 WHERE id = 1').run()
@@ -416,6 +450,88 @@ async function main() {
   const port = (server.address() as any).port
   const base = `http://127.0.0.1:${port}`
   const vendorHeaders={'X-Api-Key':'test','Content-Type':'application/json'}
+  const mechanicRequest=async(url:string,body:unknown)=>fetch(base+url,{method:'POST',headers:vendorHeaders,body:JSON.stringify(body)})
+  await mechanicRequest('/api/workorders/mechanics',{name:'Bench Mechanic'})
+  const mechanics=await (await fetch(base+'/api/workorders/mechanics',{headers:vendorHeaders})).json()
+  const mechanic=mechanics.find((m:any)=>m.name==='Bench Mechanic')
+  const benchCustomer=Number(db.prepare("INSERT INTO customers(first_name,last_name) VALUES ('Bench','Test')").run().lastInsertRowid)
+  const benchUnit=Number(db.prepare("INSERT INTO customer_units(customer_id,model) VALUES (?,'Test')").run(benchCustomer).lastInsertRowid)
+  const benchWo=Number(db.prepare('INSERT INTO work_orders(customer_id,unit_id) VALUES (?,?)').run(benchCustomer,benchUnit).lastInsertRowid)
+  const unapproved=await mechanicRequest(`/api/workorders/${benchWo}/status`,{status:'on_bench'})
+  const assigned=await (await mechanicRequest(`/api/workorders/${benchWo}/mechanic`,{mechanicId:mechanic.id,by:'Test staff'})).json()
+  await mechanicRequest(`/api/workorders/mechanics/${mechanic.id}/remove`,{})
+  const removed=await (await fetch(base+`/api/workorders/${benchWo}`,{headers:vendorHeaders})).json()
+  const rejected=await mechanicRequest(`/api/workorders/${benchWo}/mechanic`,{mechanicId:mechanic.id})
+  db.prepare("UPDATE work_orders SET status='approved' WHERE id=?").run(benchWo)
+  db.prepare('UPDATE products SET on_hand=-1 WHERE id=1').run()
+  db.prepare("INSERT INTO work_order_lines(work_order_id,kind,product_id,description,qty,stock_taken) VALUES (?,'part',1,'Bench part',1,1)").run(benchWo)
+  const shortBench=await mechanicRequest(`/api/workorders/${benchWo}/status`,{status:'on_bench'})
+  db.prepare('UPDATE products SET on_hand=2 WHERE id=1').run()
+  const benched=await (await mechanicRequest(`/api/workorders/${benchWo}/status`,{status:'on_bench'})).json()
+  check('bench requires approval and available parts, and does not deduct reserved stock again',()=>{
+    assert.equal(unapproved.status,409);assert.equal(shortBench.status,409)
+    assert.equal(benched.status,'on_bench');assert.equal(db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand,2)
+  })
+  check('removed mechanics remain on assigned tickets and history but cannot receive new assignments',()=>{
+    assert.equal(assigned.mechanicId,mechanic.id);assert.equal(removed.mechanicName,'Bench Mechanic')
+    assert.equal(rejected.status,400);assert.ok(removed.history.some((h:any)=>h.note.includes('Bench Mechanic')&&h.by==='Test staff'))
+  })
+  await mechanicRequest('/api/workorders/mechanics',{name:'bench mechanic'})
+  const restoredMechanics=await (await fetch(base+'/api/workorders/mechanics',{headers:vendorHeaders})).json()
+  check('adding a removed mechanic again restores the original identity',()=>assert.equal(restoredMechanics.find((m:any)=>m.id===mechanic.id).active,true))
+  const groupGet=async(id:number)=> (await fetch(base+`/api/workorders/${id}`,{headers:vendorHeaders})).json()
+  const groupNew=async(linkToId?:number)=>{
+    const u=Number(db.prepare("INSERT INTO customer_units(customer_id,unit_type,brand,model,serial) VALUES (?,'Chainsaw','Test','Saw',?)").run(benchCustomer,crypto.randomUUID()).lastInsertRowid)
+    const res=await mechanicRequest('/api/workorders',{customerId:benchCustomer,unitId:u,problem:'Repair saw',feeCents:0,linkToId,by:'Group staff'})
+    assert.equal(res.status,201);return res.json()
+  }
+  const groupA=await groupNew(benchWo),groupB=await groupNew(),groupC=await groupNew(groupB.id)
+  const unrelated=await groupNew()
+  const stockBeforeGroup=db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand
+  const totalsBeforeGroup=(await groupGet(benchWo)).totals
+  const merged=await (await mechanicRequest(`/api/workorders/${benchWo}/group`,{otherId:groupB.id,by:'Group staff'})).json()
+  await mechanicRequest(`/api/workorders/${benchWo}/group`,{otherId:groupB.id,by:'Group staff'})
+  const allGrouped=await Promise.all([benchWo,groupA.id,groupB.id,groupC.id].map(groupGet))
+  const unrelatedState=await groupGet(unrelated.id)
+  check('a visit can join two groups into four ordered tickets while leaving unrelated visits separate',()=>{
+    assert.equal(merged.group.count,4)
+    assert.deepEqual(allGrouped.map(w=>w.group.position),[1,2,3,4])
+    assert.ok(allGrouped.every(w=>w.group.count===4&&w.group.id===merged.group.id))
+    assert.equal(unrelatedState.group,null)
+    assert.equal(merged.relatedOrders.filter((w:any)=>w.linked).length,4)
+  })
+  check('grouping preserves statuses, stock reservations and ticket totals',()=>{
+    assert.equal(merged.status,'on_bench');assert.deepEqual(merged.totals,totalsBeforeGroup)
+    assert.equal(db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand,stockBeforeGroup)
+    assert.equal(allGrouped[1].status,'needs_estimate')
+    assert.ok(merged.history.some((h:any)=>h.note.includes('Grouped customer visit')&&h.by==='Group staff'))
+  })
+  const otherCustomer=Number(db.prepare("INSERT INTO customers(first_name,last_name) VALUES ('Other','Group')").run().lastInsertRowid)
+  const otherUnit=Number(db.prepare('INSERT INTO customer_units(customer_id) VALUES (?)').run(otherCustomer).lastInsertRowid)
+  const otherTicket=Number(db.prepare('INSERT INTO work_orders(customer_id,unit_id) VALUES (?,?)').run(otherCustomer,otherUnit).lastInsertRowid)
+  const crossGroup=await mechanicRequest(`/api/workorders/${benchWo}/group`,{otherId:otherTicket})
+  const beforeBadCreate=db.prepare('SELECT COUNT(*) AS n FROM work_orders').get().n
+  const badCreate=await mechanicRequest('/api/workorders',{customerId:otherCustomer,unitId:otherUnit,problem:'Different customer',linkToId:benchWo})
+  check('grouping rejects different customers and rolls back a new ticket if linking fails',()=>{
+    assert.equal(crossGroup.status,400);assert.equal(badCreate.status,400)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM work_orders').get().n,beforeBadCreate)
+  })
+  db.prepare("UPDATE work_orders SET status='closed' WHERE id=?").run(groupC.id)
+  const withClosed=await groupGet(benchWo)
+  await mechanicRequest(`/api/workorders/${groupA.id}/ungroup`,{by:'Group staff'})
+  const detached=await groupGet(groupA.id),remaining=await groupGet(benchWo)
+  check('completed equipment remains in visit counts and detaching renumbers remaining tickets without deleting repairs',()=>{
+    assert.equal(withClosed.group.count,4);assert.ok(withClosed.relatedOrders.some((w:any)=>w.id===groupC.id&&w.linked&&w.status==='closed'))
+    assert.equal(detached.group,null);assert.equal(remaining.group.count,3)
+    assert.equal(detached.status,'needs_estimate');assert.equal(remaining.status,'on_bench')
+    assert.ok(detached.history.some((h:any)=>h.note.includes('removed from customer visit group')))
+  })
+  await mechanicRequest(`/api/workorders/${groupB.id}/ungroup`,{})
+  await mechanicRequest(`/api/workorders/${benchWo}/ungroup`,{})
+  check('removing the last pair dissolves a group cleanly',()=>{
+    assert.equal(db.prepare('SELECT group_id FROM work_orders WHERE id=?').get(benchWo).group_id,null)
+    assert.equal(db.prepare('SELECT group_id FROM work_orders WHERE id=?').get(groupC.id).group_id,null)
+  })
   const activeVendors=await (await fetch(`${base}/api/vendors`,{headers:vendorHeaders})).json()
   const allVendors=await (await fetch(`${base}/api/vendors?includeInactive=1`,{headers:vendorHeaders})).json()
   const vendorUnauthorized=await fetch(`${base}/api/vendors`)
@@ -651,7 +767,7 @@ async function main() {
   await new Promise<void>((resolve) => server.close(() => resolve()))
   await startServer({ dbFile: path.join(dir, 'retry.db'), apiKey: 'test', port, host: '127.0.0.1', appVersion: '0.3.22' })
   await stopServer()
-  check('server starts after a failed startup and waits for backup before closing', () => assert.equal(isServerRunning(), false))
+  check('server starts after a failed startup and safely stops before closing', () => assert.equal(isServerRunning(), false))
   db.close()
   testRetiredStage(check,dir)
   await testReportingVoids(check,dir)

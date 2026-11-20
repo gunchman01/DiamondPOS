@@ -66,6 +66,7 @@ export type WoStatus =
   | 'needs_estimate'
   | 'waiting_customer'
   | 'approved'
+  | 'on_bench'
   | 'waiting_parts'
   | 'ready_review'
   | 'ready_pickup'
@@ -87,8 +88,9 @@ export interface StageDef {
 export const STAGES: StageDef[] = [
   { status: 'needs_estimate', label: 'Needs Estimate', color: '#6b7280', partsTaken: true, canEmail: true, next: ['waiting_customer', 'approved', 'not_fixed'] },
   { status: 'waiting_customer', label: 'Waiting on Customer', color: '#a16207', partsTaken: true, canEmail: true, next: ['approved', 'not_fixed'] },
-  { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'ready_review'] },
-  { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['approved', 'ready_review'] },
+  { status: 'approved', label: 'Approved to Fix', color: '#1e66d0', partsTaken: true, canEmail: true, next: ['waiting_parts', 'on_bench', 'ready_review'] },
+  { status: 'waiting_parts', label: 'Waiting on Parts', color: '#b45309', partsTaken: true, canEmail: true, next: ['on_bench', 'approved', 'ready_review'] },
+  { status: 'on_bench', label: 'On the Bench', color: '#7c3aed', partsTaken: true, canEmail: false, next: ['waiting_parts', 'ready_review'] },
   { status: 'ready_review', label: 'Ready for Review', color: '#0e7490', partsTaken: true, canEmail: false, next: ['ready_pickup', 'approved'] },
   { status: 'ready_pickup', label: 'Ready for Pick Up', color: '#15803d', partsTaken: true, canEmail: true, next: ['closed'] },
   { status: 'not_fixed', label: 'Ready for Pick Up – NOT FIXED!!', color: '#c8102e', partsTaken: false, canEmail: true, next: ['closed'] },
@@ -100,10 +102,8 @@ export function normaliseStageColors(input?: Partial<Record<WoStatus, string>>):
   return Object.fromEntries(STAGES.map((s) => [s.status, /^#[0-9a-f]{6}$/i.test(input?.[s.status] ?? '') ? input![s.status]!.toLowerCase() : s.color])) as Record<WoStatus, string>
 }
 export const stage = (s: WoStatus, colors?: Partial<Record<WoStatus, string>>): StageDef => {
-  // Retain a truthful label for old email/history records; the retired stage is never offered as a choice.
-  const retired = String(s) === 'on_bench'
-  const def = STAGES.find((x) => x.status === (retired ? 'approved' : s)) ?? STAGES[0]
-  return { ...def, label: retired ? 'On the Bench (retired)' : def.label, color: normaliseStageColors(colors)[def.status] }
+  const def = STAGES.find((x) => x.status === s) ?? STAGES[0]
+  return { ...def, color: normaliseStageColors(colors)[def.status] }
 }
 export function stageStyle(s: WoStatus, colors?: Partial<Record<WoStatus, string>>): { background: string; color: string } {
   const background = stage(s, colors).color
@@ -151,6 +151,9 @@ export interface WorkOrder {
   id: number
   number: string // WO-000123
   status: WoStatus
+  mechanicId: number | null
+  group: WorkOrderGroup | null
+  mechanicName: string | null
   /** Estimate fee charged at drop-off (credited toward the repair or a new purchase) */
   feeCents: number
   feeStatus: FeeStatus
@@ -176,6 +179,7 @@ export interface WorkOrder {
   updatedAt: string
   lastEmailedAt: string | null
   lastEmailedStatus: WoStatus | null
+  relatedOrders: RelatedWorkOrder[]
   history: WoHistory[]
 }
 
@@ -185,6 +189,8 @@ export interface WoSummary {
   number: string
   status: WoStatus
   customerName: string
+  group: WorkOrderGroup | null
+  mechanicName: string | null
   unitLabel: string
   serial: string
   createdAt: string
@@ -266,7 +272,7 @@ export interface WoSettings {
   laborTaxable: boolean
   shopTaxable: boolean
   shopSupplies: Record<UnitCategory, ShopSupply>
-  templates: Record<Exclude<WoStatus, 'ready_review' | 'closed'>, WoTemplate>
+  templates: Record<Exclude<WoStatus, 'on_bench' | 'ready_review' | 'closed'>, WoTemplate>
 }
 
 export const TEMPLATE_PLACEHOLDERS: { key: string; meaning: string }[] = [
@@ -424,3 +430,8 @@ export interface EquipmentMatch {
   customerName: string
   tickets: { id: number; number: string; status: WoStatus }[]
 }
+
+export interface Mechanic { id: number; name: string; active: boolean }
+
+export interface WorkOrderGroup { id: number; position: number; count: number }
+export interface RelatedWorkOrder { id:number; number:string; status:WoStatus; unitLabel:string; serial:string; linked:boolean; group:WorkOrderGroup|null }

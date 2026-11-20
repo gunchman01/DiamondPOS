@@ -20,10 +20,14 @@ export default function WorkOrders({
   boot,
   onPayAtTill,
   startCheckIn,
+  ticketToOpen,
+  onTicketOpened,
   onIntentDone
 }: {
   boot: BootInfo
   /** Opened from "I want to… Check in a repair" */
+  ticketToOpen?: number|null
+  onTicketOpened?:()=>void
   startCheckIn?: boolean
   onIntentDone?: () => void
   /** Open the Sale screen with this work order loaded */
@@ -31,6 +35,7 @@ export default function WorkOrders({
 }) {
   const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [view, setView] = useState<View>({ kind: 'list' })
+  useEffect(()=>{if(ticketToOpen){setView({kind:'ticket',id:ticketToOpen});onTicketOpened?.()}},[ticketToOpen])
   const [filter, setFilter] = useState<WoStatus | 'open' | 'all' | 'needs_call'>('open')
   const [search, setSearch] = useState('')
   const [list, setList] = useState<WoSummary[]>([])
@@ -62,7 +67,7 @@ export default function WorkOrders({
   }, [filter, search, view.kind])
 
   if (view.kind === 'ticket')
-    return <WorkOrderTicket id={view.id} by={by} onBack={() => setView({ kind: 'list' })} onPayAtTill={onPayAtTill} />
+    return <WorkOrderTicket key={view.id} onOpenRelated={id=>setView({kind:'ticket',id})} id={view.id} by={by} onBack={() => setView({ kind: 'list' })} onPayAtTill={onPayAtTill} />
   if (view.kind === 'settings') return <WorkOrderSettings onBack={() => setView({ kind: 'list' })} />
 
   const openCount = STAGES.filter((s) => s.status !== 'closed').reduce((n, s) => n + (counts[s.status] ?? 0), 0)
@@ -118,6 +123,7 @@ export default function WorkOrders({
             <th>Unit</th>
             <th>Serial #</th>
             <th>Stage</th>
+            <th>Mechanic</th>
             <th>In shop</th>
             <th className="r">Total</th>
           </tr>
@@ -126,7 +132,7 @@ export default function WorkOrders({
           {list.map((w) => (
             <tr key={w.id} className="clickable" onClick={() => setView({ kind: 'ticket', id: w.id })}>
               <td>
-                <b>{w.number}</b>
+                <b>{w.number}</b>{w.group&&<div className="muted small">{w.group.position} of {w.group.count}</div>}
               </td>
               <td>{w.customerName}{w.estimate?.due&&<span className="pill short-pill">Needs customer call</span>}{w.estimate?.needsResend&&w.status==='waiting_customer'&&<span className="pill">Revised estimate needs sending</span>}{w.estimate?.state==='review'&&<span className="pill short-pill">Decision needs review</span>}</td>
               <td>
@@ -140,6 +146,7 @@ export default function WorkOrders({
                   {stage(w.status).label}
                 </span>
               </td>
+              <td>{w.mechanicName || 'Unassigned'}</td>
               <td className="muted">{age(w.createdAt)}</td>
               <td className="r">
                 {money(w.totalCents)}

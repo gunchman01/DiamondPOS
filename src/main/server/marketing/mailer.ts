@@ -1,3 +1,4 @@
+import { smtpSocket, stopSmtpSockets } from '../../lifecycle/smtpSockets'
 import { prepareDelivery } from './tracking'
 import { messageLinks } from '../../../shared/mailerTemplate'
 import { consentConfig, isMarketingSuppressed, normalizedEmail, MarketingSuppressed } from './consent'
@@ -80,6 +81,7 @@ export function smtpProblems(s: SmtpSettings): string[] {
 
 function transport(s: SmtpSettings) {
   return nodemailer.createTransport({
+    getSocket:smtpSocket,
     host: s.host,
     port: s.port,
     secure: s.security === 'ssl',
@@ -89,6 +91,13 @@ function transport(s: SmtpSettings) {
     greetingTimeout: 20_000,
     socketTimeout: 30_000
   })
+}
+
+const activeMail=new Set<ReturnType<typeof transport>>()
+export function stopMailConnections(){stopSmtpSockets();for(const t of activeMail){try{t.close?.()}catch{}}}
+async function deliver(s:SmtpSettings,message:Parameters<ReturnType<typeof transport>['sendMail']>[0]){
+ const t=transport(s);activeMail.add(t)
+ try{return await t.sendMail(message)}finally{activeMail.delete(t);t.close?.()}
 }
 
 export interface OutgoingMailer {
@@ -136,7 +145,7 @@ export async function sendMailer(db: DB, store: StoreSettings, m: OutgoingMailer
     recipientName: m.recipientName,
     ...delivery
   }
-  const info = await transport(s).sendMail({
+  const info = await deliver(s,{
     from: { name: s.fromName || store.storeName, address: s.fromEmail },
     to: m.to,
     replyTo,
@@ -168,7 +177,7 @@ export async function sendEmail(
   const s = getSmtp(db)
   const problems = smtpProblems(s)
   if (problems.length) throw new Error(`Email isn't set up yet (Marketing → Email settings): ${problems.join('; ')}`)
-  const info = await transport(s).sendMail({
+  const info = await deliver(s,{
     from: { name: s.fromName || store.storeName, address: s.fromEmail },
     to: m.to,
     replyTo: m.replyTo || s.replyTo || s.fromEmail,

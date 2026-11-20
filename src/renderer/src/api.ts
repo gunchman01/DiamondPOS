@@ -103,6 +103,7 @@ export const api = {
   saveBackupSettings: (settings: BackupSettings) => request<BackupOverview>('PUT', '/api/backups/settings', settings, undefined, undefined, 60000),
   runBackup: () => request<BackupOverview>('POST', '/api/backups/run', {}, undefined, undefined, 180000),
   accountSyncStatus: () => request<{kind:string;customerId:number;customerName:string;reference:string;status:string;error:string|null;date:string}[]>('GET','/api/accounts/sync-status'),
+  accountBalances: (search='') => request<import('../../shared/accounts').AccountBalanceCustomer[]>('GET',`/api/accounts/balances?search=${encodeURIComponent(search)}`),
   customerAccount: (id:number) => request<CustomerAccount>('GET',`/api/customers/${id}/account`),
   receiveAccountPayment: (id:number,body:AccountPaymentRequest) => request<{paymentId:number;account:CustomerAccount}>('POST',`/api/customers/${id}/account-payments`,body),
   retryAccountSync: (customerId:number) => request<CustomerAccount>('POST','/api/accounts/retry',{customerId}),
@@ -129,7 +130,6 @@ export const api = {
     ),
   /** Every item including inactive ones, no limit (for Export to Excel) */
   listAllProducts: () => request<Product[]>('GET', '/api/products?includeInactive=1&all=1', undefined, undefined, undefined, 60000),
-  listQuickPicks: () => request<Product[]>('GET', '/api/products?quickPick=1'),
   product: (id:number) => request<Product>('GET',`/api/products/${id}`),
   lookupProduct: (code: string) => request<Product>('GET', `/api/products/lookup/${encodeURIComponent(code)}`),
   createProduct: (p: ProductInput) => request<Product>('POST', '/api/products', p),
@@ -173,6 +173,14 @@ export const api = {
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
 
   // Work orders + customer units
+  woGroup: (id:number,otherId:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/group`,{otherId,by}),
+  woUngroup: (id:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/ungroup`,{by}),
+  estimateResponses:()=>request<import('./EstimateResponseNotice').EstimateResponse[]>('GET','/api/workorders/responses'),
+  markEstimateResponsesRead:(ids:string[])=>request('POST','/api/workorders/responses/read',{ids}),
+  woMechanics: () => request<import('../../shared/workorders').Mechanic[]>('GET','/api/workorders/mechanics'),
+  woAddMechanic: (name:string) => request('POST','/api/workorders/mechanics',{name}),
+  woRemoveMechanic: (id:number) => request('POST',`/api/workorders/mechanics/${id}/remove`),
+  woAssignMechanic: (id:number,mechanicId:number|null,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/mechanic`,{mechanicId,by}),
   woSettings: () => request<WoSettings>('GET', '/api/workorders/settings'),
   woSaveSettings: (st: Partial<WoSettings>) => request<WoSettings>('PUT', '/api/workorders/settings', st),
   units: (customerId: number) => request<CustomerUnit[]>('GET', `/api/customers/${customerId}/units`),
@@ -183,7 +191,7 @@ export const api = {
     request<WoSummary[]>('GET', `/api/workorders?status=${status}&search=${encodeURIComponent(search)}`),
   woCounts: () => request<Record<WoStatus, number>>('GET', '/api/workorders/counts'),
   wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
-  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean; feeCents?: number }) =>
+  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean; feeCents?: number; linkToId?:number }) =>
     request<WorkOrder>('POST', '/api/workorders', b),
   woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}`, b),

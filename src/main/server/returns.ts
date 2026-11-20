@@ -126,7 +126,7 @@ export function returnableSale(db: DB, saleId: number, fallbackRate = 0): Return
   })
   const refunded = refundedAgainst(db, saleId)
   const total = s.total_cents as number
-  const payments = db.prepare('SELECT method, amount_cents, reference, card_brand FROM payments WHERE sale_id = ? ORDER BY id').all(saleId) as {
+  const payments = db.prepare('SELECT method, amount_cents, reference, COALESCE(card_type,card_brand) AS card_brand FROM payments WHERE sale_id = ? ORDER BY id').all(saleId) as {
     method: 'cash' | 'card' | 'check'
     amount_cents: number
     reference: string | null

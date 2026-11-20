@@ -8,13 +8,15 @@ import UnitEditor from './UnitEditor'
 
 /** Check in a unit: 1. customer → 2. unit (theirs, or add one) → 3. what's wrong. */
 export default function NewWorkOrder(props: {
+  initialCustomerId?: number
+  linkToId?: number
   by: string
   /** collectFee = go straight to the till to take the estimate fee */
   onCreated: (wo: WorkOrder, collectFee: boolean) => void
   onCancel: () => void
 }) {
   const [customer, setCustomer] = useState<Customer | null>(null)
-  const [picking, setPicking] = useState(true)
+  const [picking, setPicking] = useState(!props.initialCustomerId)
   const [units, setUnits] = useState<CustomerUnit[]>([])
   const [unit, setUnit] = useState<CustomerUnit | null>(null)
   const [addingUnit, setAddingUnit] = useState(false)
@@ -29,6 +31,7 @@ export default function NewWorkOrder(props: {
 
   async function loadSettings(){setSettingsError('');try{setSettings(await api.woSettings())}catch(e){setSettingsError((e as Error).message)}}
   useEffect(() => {
+    if(props.initialCustomerId)api.getCustomer(props.initialCustomerId).then(d=>setCustomer(d.customer)).catch(e=>setError(e.message))
     api.mkOptions().then((o) => setBrands(o.manufacturers)).catch(() => {})
     void loadSettings()
   }, [])
@@ -55,6 +58,7 @@ export default function NewWorkOrder(props: {
     try {
       const created = await api.woCreate({
         customerId: customer.id,
+        linkToId: props.linkToId,
         unitId: unit.id,
         problem,
         hoursIn: unit.category === 'mower' && hours.trim() ? Number(hours) : null,
@@ -91,7 +95,7 @@ export default function NewWorkOrder(props: {
             <b>{customer ? customerDisplayName(customer) : ''}</b>
             <span className="muted small"> {[customer?.phone || customer?.mobile, customer?.email].filter(Boolean).join(' · ')}</span>
           </div>
-          <button className="link" onClick={() => setPicking(true)}>
+          <button className="link" disabled={!!props.linkToId} onClick={() => setPicking(true)}>
             Change
           </button>
         </div>

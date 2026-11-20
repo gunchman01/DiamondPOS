@@ -4,7 +4,7 @@ import { COLUMNS } from '../../shared/itemImport'
 import { money } from './format'
 
 export interface ItemColumn { id: string; label: string; required?: boolean; num?: boolean; cell: (p: Product) => ReactNode }
-const defaults = ['sku', 'name', 'department', 'type', 'barcode', 'onHand', 'priceCents', 'quickPick', 'active']
+const defaults = ['sku', 'name', 'department', 'type', 'barcode', 'onHand', 'priceCents', 'active']
 const types = { inventory: 'Inventory', non_inventory: 'Non-inv.', service: 'Service' }
 export const ITEM_COLUMNS: ItemColumn[] = COLUMNS.map((c) => ({
   id: c.key, label: c.key === 'costCents' ? 'Current Cost' : c.header, required: c.key === 'name',

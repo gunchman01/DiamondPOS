@@ -192,7 +192,7 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
     const suffix = ` [DP${s.customer_id}]`
     const customerName = s.exported_customer ?? (s.customer_id === null ? cfg.customerName.slice(0, 41) :
       `${(name || s.company || 'Customer').replace(/[:\x00-\x1f]/g, ' ').trim().slice(0, 41 - suffix.length)}${suffix}`)
-    const payments = db.prepare('SELECT method, SUM(amount_cents) AS amount, MAX(card_brand) AS card_brand FROM payments WHERE sale_id = ? GROUP BY method ORDER BY method')
+    const payments = db.prepare('SELECT method, SUM(amount_cents) AS amount, MAX(COALESCE(card_type,card_brand)) AS card_brand FROM payments WHERE sale_id = ? GROUP BY method ORDER BY method')
       .all(s.id) as { method: QbMethod; amount: number; card_brand: CardBrand | null }[]
     for (const p of payments) if (p.method === 'cash') p.amount -= s.change_cents
     const tenders = payments.filter((p) => p.amount !== 0)

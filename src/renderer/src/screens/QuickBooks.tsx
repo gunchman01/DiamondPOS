@@ -1,6 +1,7 @@
+import { confirmAction } from '../dialogs'
 import AccountSync from './AccountSync'
 import VoidQueue from './VoidQueue'
-import { CARD_BRANDS, type CardBrand } from '../../../shared/types'
+import { CARD_BRANDS, CARD_TYPES, type CardBrand } from '../../../shared/types'
 import { PAYMENT_LABEL } from '../../../shared/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo } from '../../../shared/types'
@@ -221,8 +222,8 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                 </button>{' '}
                 <button
                   className="link"
-                  onClick={() =>
-                    confirm('Make a new password? You will need to download and add the connector file again.') &&
+                  onClick={async () =>
+                    (await confirmAction('Make a new password? You will need to download and add the connector file again.')) &&
                     run(() => api.qbNewPassword(), 'New password created')
                   }
                 >
@@ -361,10 +362,10 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             ))}
           </tbody>
         </table>
-        <h4>Optional card-brand payment methods</h4>
-        <p className="small muted">Map a card brand to its QuickBooks payment method. Blank uses the general Card mapping above. Deposit accounts stay the same; the brand is also included in the sale memo.</p>
-        <table className="table qb-table"><thead><tr><th>Card brand</th><th>QuickBooks payment method</th></tr></thead><tbody>
-          {Object.entries(CARD_BRANDS).map(([brand, label]) => <tr key={brand}><td>{label}</td><td>
+        <h4>Credit and Debit payment methods</h4>
+        <p className="small muted">Map Credit and Debit to their QuickBooks payment methods. Blank uses the general Card mapping above. Deposit accounts stay the same; the type is included in the sale memo. Historical brand mappings remain saved for older transactions.</p>
+        <table className="table qb-table"><thead><tr><th>Card type</th><th>QuickBooks payment method</th></tr></thead><tbody>
+          {Object.entries(CARD_TYPES).map(([brand, label]) => <tr key={brand}><td>{label}</td><td>
             <Select value={draft.cardBrands?.[brand as CardBrand] ?? ''} placeholder="— use general Card method —" options={lists.paymentMethods}
               onChange={(value) => set({ cardBrands: { ...draft.cardBrands, [brand]: value } })} />
           </td></tr>)}
@@ -459,8 +460,8 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                     )}
                     {e.status === 'manual' && (
                       <button
-                        onClick={() =>
-                          confirm(`Have you entered receipt #${e.saleId} (${money(e.totalCents)}) in QuickBooks yourself?`) &&
+                        onClick={async () =>
+                          (await confirmAction(`Have you entered receipt #${e.saleId} (${money(e.totalCents)}) in QuickBooks yourself?`)) &&
                           run(() => api.qbManualDone(e.id), 'Marked as entered by hand')
                         }
                       >

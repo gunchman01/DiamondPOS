@@ -1,6 +1,7 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useRef, useState } from 'react'
 import type { CustomerAccount as Account, AccountPaymentRequest } from '../../../shared/accounts'
-import { CARD_BRANDS, customerDisplayName, type Customer, type PaymentMethod, type CardBrand } from '../../../shared/types'
+import { CARD_TYPES, customerDisplayName, type Customer, type PaymentMethod, type CardBrand } from '../../../shared/types'
 import { api, serverBaseUrl } from '../api'
 import { dateTime, escapeHtml, money, parseMoney } from '../format'
 export default function CustomerAccount({ customer, onClose }: { customer: Customer; onClose: () => void }) {
@@ -8,7 +9,7 @@ export default function CustomerAccount({ customer, onClose }: { customer: Custo
     [amount, setAmount] = useState(''),
     [method, setMethod] = useState<PaymentMethod>('cash'),
     [reference, setReference] = useState(''),
-    [brand, setBrand] = useState<CardBrand>('unknown'),
+    [brand, setBrand] = useState<CardBrand>('credit'),
     [error, setError] = useState(''),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false),
@@ -44,9 +45,9 @@ export default function CustomerAccount({ customer, onClose }: { customer: Custo
         if (!data || amountCents > data.balanceCents) throw new Error('Payment exceeds the current POS account balance')
         if (method === 'check' && !reference.trim()) throw new Error('Enter a check number')
         if (
-          !confirm(
+          !(await confirmAction(
             `Record ${money(amountCents)} received by ${method} on this customer account? Confirm the actual payment separately on the terminal when applicable.`
-          )
+          ))
         )
           return
         const boot = await window.pos.getBootInfo()
@@ -198,9 +199,9 @@ export default function CustomerAccount({ customer, onClose }: { customer: Custo
                   )}
                   {method === 'card' && (
                     <label>
-                      Card brand
+                      Card type
                       <select value={brand} onChange={(e) => setBrand(e.target.value as CardBrand)}>
-                        {Object.entries(CARD_BRANDS).map(([k, v]) => (
+                        {Object.entries(CARD_TYPES).map(([k, v]) => (
                           <option key={k} value={k}>
                             {v}
                           </option>

@@ -66,6 +66,7 @@ export interface Receiving {
   postedAt: string | null
   lines: ReceivingLine[]
   totals: ReceivingTotals
+  waitingWorkOrders?: ReceivingWorkOrderMatch[]
 }
 
 export interface ReceivingTotals {
@@ -154,4 +155,9 @@ export interface ItemCostSummary {
   productId:number;currentAvgCents:number|null;orderCostCents:number|null;
   lastReceivedCostCents:number|null;lastLandedCostCents:number|null;lastReceivedAt:string|null;
   lifetimeQty:number;lifetimeInvoiceAvgCents:number|null;lifetimeLandedAvgCents:number|null;receivingCount:number
+}
+
+export interface ReceivingWorkOrderMatch {
+ id:number;number:string;customerName:string;unitLabel:string;mechanicName:string|null;allPartsAvailable:boolean;
+ parts:{productId:number;sku:string|null;name:string;ticketQty:number;receivedQty:number}[]
 }

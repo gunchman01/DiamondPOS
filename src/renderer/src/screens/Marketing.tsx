@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
 import { SMTP_PRESETS, type AudienceOptions, type Campaign, type SmtpSettings, type SmtpSettingsView } from '../../../shared/marketing'
 import type { StoreSettings } from '../../../shared/types'
@@ -119,7 +120,7 @@ export default function Marketing() {
                       {c.skipped ? <span> ({c.skipped} skipped)</span> : null}
                       {c.failed ? <span className="err-text"> ({c.failed} failed)</span> : null}
                     </td>
-                    <td>{c.trackedSent?`${c.opened} / ${c.trackedSent}`:'—'}</td><td>{c.trackedSent?`${c.clicked} / ${c.trackedSent}`:'—'}</td><td>{dateTime(c.sentAt ?? c.createdAt)}</td><td><button className="danger" disabled={c.status==='sending'} onClick={e=>{e.stopPropagation();if(!confirm(`Delete campaign "${c.name}" and its local recipient/activity history? This cannot be undone. Unsubscribe preferences and emailed links are preserved.`))return;void api.mkRemove(c.id).then(load).catch(err=>setError(err.message))}}>Delete</button></td>
+                    <td>{c.trackedSent?`${c.opened} / ${c.trackedSent}`:'—'}</td><td>{c.trackedSent?`${c.clicked} / ${c.trackedSent}`:'—'}</td><td>{dateTime(c.sentAt ?? c.createdAt)}</td><td><button className="danger" disabled={c.status==='sending'} onClick={async e=>{e.stopPropagation();if(!(await confirmAction(`Delete campaign "${c.name}" and its local recipient/activity history? This cannot be undone. Unsubscribe preferences and emailed links are preserved.`)))return;void api.mkRemove(c.id).then(load).catch(err=>setError(err.message))}}>Delete</button></td>
                   </tr>
                 ))}
               </tbody>

@@ -41,7 +41,7 @@ Home is where every area of the app starts.
 ## Making a sale
 The **Item # / Barcode** scan/search bar is at the top, directly below the sale header and above the receipt. Type-ahead suggestions open downward. Use the same scan-and-Enter workflow as before; line-action buttons remain below the receipt.
 
-**Card payments/refunds:** after the standalone terminal approves the payment, optionally choose the card brand (Visa, Mastercard, Discover, American Express, Other, or Unknown). No terminal reference is requested for new card checkouts. Check numbers remain required for checks. Historical references are retained. Receipts/history show the selected brand; daily Card totals still combine all brands. No card-reader or payment-gateway integration is included.
+**Card payments/refunds:** after the standalone terminal approves the payment, choose **Credit** or **Debit**. No terminal reference is requested for new card checkouts. Check numbers remain required for checks. Historical references are retained. Receipts/history show Credit or Debit; daily Card totals still combine both, with a separate card-type breakdown. No card-reader or payment-gateway integration is included.
 
 
 **Serialized equipment:** select a customer for every sale containing a serial number. Items marked Use Serial # must have a serial at checkout, and every serialized unit must be on its own line. The Store Server independently checks these rules. Receiving remains quantity-only; serials are captured at sale time.
@@ -58,14 +58,14 @@ F3 / Change qty and its + Sale / − Return sign buttons are still available.
 
 Open **Make a Sale**.
 1. **Scan** the barcode, or start typing an item number or description: matching items pop up as you type. Click one, or use **↑ ↓** and **Enter** to add it. Typing a full item number and pressing Enter adds it straight away.
-2. Tap a **Quick Pick** button for items that are often sold (if any are set up).
+2. Use **F2 Find item** to search for an item when you do not have its barcode.
 3. Click a line to select it, then use **+1 / −1**, **Change qty** or **Remove line**. The red **✕** at the left of each line removes that item.
    - **Change a price:** click the price on the line, type the new price and press **Enter** (Esc cancels). It's for this sale only; the item's regular price doesn't change. A changed price shows in red with the regular price crossed out under it, and the receipt keeps the regular price for reports. Type the regular price again to undo it. A held receipt keeps the changed price.
 4. Add a **customer** if needed (F5), see below.
 5. Take payment with **Cash (F7)**, **Card (F8)** or **Check**.
 
 **Cash:** type the amount received (or tap Exact / $10 / $20…). The change is shown.
-**Card:** enter the total on the card terminal. When it says APPROVED, optionally choose the card brand and click **Card approved – complete sale**.
+**Card:** enter the total on the card terminal. When it says APPROVED, choose Credit or Debit and click **Card approved – complete sale**.
 **Check:** check the amount and signature, type the **check number** (required) and click **Check received – complete sale**. No change is given from a check.
 
 After the sale, click **Print receipt** or **Reprint last receipt**. A window asks where to print: the **receipt printer** or a **full page**, on any printer. The usual choice is already picked, so just press Enter. Sales with a serial-numbered unit and work order payments can print on a full Letter page on the laser printer instead of the receipt printer.
@@ -84,7 +84,7 @@ After the sale, click **Print receipt** or **Reprint last receipt**. A window as
 
 **Sales tax:** shelf prices are before tax. The totals show the **Subtotal**, the **sales tax** at the sale's rate, and the **Total** the customer pays. If the store has more than one tax rate (Settings → Taxes), pick the rate for this sale from the drop-down on the tax line; the next sale goes back to the default rate. Items marked non-taxable never get tax.
 
-**Choosing the columns:** right-click the column headings on the receipt (Item #, Description, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Description, Qty, Price and Ext. Price are always shown.
+**Choosing the columns:** right-click the column headings on the receipt (Item #, Item Name, Qty…) to pick which columns show: UPC, ALU, Department, Manufacturer, Vendor, Size, Attribute, Unit, Serial #, On Hand, Tax, Cost, Last received cost, Current average cost, Reg Price and more. Right-click a heading to move that column left or right. **Reset to default** puts it back. Each till remembers its own choice. Item Name, Qty, Price and Ext. Price are always shown.
 
 **Serial-numbered items** (items with "Use Serial #" ticked) ask for the serial number when scanned. Type it or scan the barcode on the unit. A customer must be on the sale, and the unit is saved under that customer for repairs later.
 
@@ -124,7 +124,7 @@ Use a held receipt when a sale is built ahead of time, for example when a custom
 
 Serialized equipment is returned one unit per line. A receipt-linked serial must match the scanned unit. Without a receipt, the serial is retained on the return but the app cannot identify which original customer-unit record to retire. Complete a work order payment before starting a return.
 
-You can also click **↩ Return** on the Sale screen to start from a receipt or customer search.
+You can also choose **I want to… → Return** on the Sale screen to start from a receipt or customer search.
 1. Find the original sale:
    - type or **scan** the **receipt number** (receipts can print a barcode, see Receipt Layout), or
    - click **Find by customer** and pick the receipt from their list, or
@@ -134,7 +134,7 @@ You can also click **↩ Return** on the Sale screen to start from a receipt or 
 4. For an **exchange**, now scan the new items. Only the difference is paid or refunded.
 5. If the customer is owed money the total box says **Refund due**:
    - **Refund cash**: give the amount back from the drawer.
-   - **Refund card**: do a refund on the card terminal for that amount, then optionally choose the card brand and confirm.
+   - **Refund card**: do a refund on the card terminal for that amount, then choose Credit or Debit and confirm.
    - The screen suggests the same way the original sale was paid.
 
 **Good to know**
@@ -185,13 +185,12 @@ Open **Work Orders**. The coloured buttons at the top filter by stage; the searc
 - If the customer buys a new unit instead, the fee is credited toward the new purchase: on the ticket click **Buying new instead → credit $X at till**, then scan the new item.
 - If they decline and take the unit back, click **Picked up: keep $X fee**.
 
-**Ringing up a repair:** when the ticket is Ready for Pick Up, click **💳 Ring up at till**. On the Sale screen you can also click **🔧 Work order** and choose the ticket. The ticket lines are locked on the sale, the fee credit is shown, and the box says **Balance due**. Extra items can be scanned onto the same sale.
+**Ringing up a repair:** when the ticket is Ready for Pick Up, click **💳 Ring up at till**. On the Sale screen you can also choose **I want to… → Work order** and choose the ticket. The ticket lines are locked on the sale, the fee credit is shown, and the box says **Balance due**. Extra items can be scanned onto the same sale.
 
 ## Items
 Open **Item List**.
 - Search by name, item #, UPC or department. Click an item to edit it; click **+ Add item** to add one.
 - The item window holds price, cost, MSRP, Custom Prices 1-4, department, on-hand quantity, vendor, taxable, and more.
-- Tick **Quick Pick** to show the item as a button on the Sale screen.
 - Tick **Use Serial #** for items that have a serial number (mowers, saws, blowers…).
 - Untick **Active** to hide an item from sales without deleting it.
 
@@ -278,7 +277,7 @@ Open **Sales History** or **Reports**, choose **End of Day & receipts**, and pic
 
 ## QuickBooks
 
-**Card-brand mappings:** in Where sales go in QuickBooks, use Optional card-brand payment methods to select existing QuickBooks methods for Visa, Mastercard and other brands. Create missing methods in QuickBooks and refresh lists first. Blank mappings fall back to the general Card payment method. All brands retain the configured Card deposit account. The recorded brand also appears in the sale memo even when its mapping is blank; Unknown is never guessed from historical card references. Previously synced sales are not resent or rewritten.
+**Credit/Debit mappings:** in Where sales go in QuickBooks, map Credit and Debit to existing QuickBooks payment methods. Create missing methods in QuickBooks and refresh lists first. Blank mappings fall back to the general Card payment method; both retain the configured Card deposit account. The type appears in the sale memo. Historical brand details and mappings remain saved for older transactions; previously synced sales are not resent or rewritten.
 
 The **Transaction sync queue** near the top of the QuickBooks screen lists all POS sales, including ones that have not created an export record yet. It refreshes every 15 seconds. Filter by status, POS receipt/customer/QuickBooks number, or date range; each page contains up to 50 transactions.
 
@@ -567,7 +566,7 @@ Right-click an **Item List column heading** (or use **Columns…**) to choose di
 
 ## Bulk item/customer cleanup (v0.3.39)
 
-Use checkboxes, **Select shown**, **Select entire Item/Customer List…**, or **Clear selection**. Select shown uses the currently displayed rows, up to 500. Select entire list selects every record, including inactive records and records outside the search/Quick Pick filter. Selection remains across searches, and its full count is shown. **Delete selected** confirms and processes all selected IDs, not just visible rows; Clear selection starts over. Up to 50,000 IDs may be submitted at once.
+Use checkboxes, **Select shown**, **Select entire Item/Customer List…**, or **Clear selection**. Select shown uses the currently displayed rows, up to 500. Select entire list selects every record, including inactive records and records outside the search filter. Selection remains across searches, and its full count is shown. **Delete selected** confirms and processes all selected IDs, not just visible rows; Clear selection starts over. Up to 50,000 IDs may be submitted at once.
 
 Export to Excel and make a verified server backup before deleting. Unlinked test items/customers are erased permanently. Records linked to sales, work orders or open held receipts are made inactive to retain history; items on receiving vouchers are also retained. The completion message separates deleted and inactive counts. Existing sales, QuickBooks transactions, stock allocations and work orders are not erased or reset. Item List includes inactive items; Customer List has Show inactive. This is cleanup, not a complete database reset.
 
@@ -626,7 +625,7 @@ Expected cash = opening cash + actual-date net cash payments + other cash in −
 
 Saved snapshots appear by date and till. Open one to view/print/export its original values; **Refresh / live report** returns to current transactions. Later entries, refunds or voids do not rewrite saved snapshots. Create a new one after reviewing late changes. Closeout snapshots do not automatically carry opening float to the next day or prevent multiple closes for a date.
 
-**Print report** sends a full-page report to the configured full-page printer (Windows default if unset). No printing occurs on save. **Export to Excel** includes summary, payment methods, card brands, money detail, sales, voids, per-till totals and drawer calculations. Receipt buttons open original receipt details for the existing manual reprint/void workflow. Report print/export without a cash count is a status report marked not counted, not a saved drawer close.
+**Print report** sends a full-page report to the configured full-page printer (Windows default if unset). No printing occurs on save. **Export to Excel** includes summary, payment methods, card types, money detail, sales, voids, per-till totals and drawer calculations. Receipt buttons open original receipt details for the existing manual reprint/void workflow. Report print/export without a cash count is a status report marked not counted, not a saved drawer close.
 
 At closing, separately reconcile/settle the standalone card terminal, run QuickBooks Web Connector and verify backup status. Gift cards/store credits, discount reason codes, cashier/shift accounting and integrated card settlement are not implemented and are not fabricated by this report.
 
@@ -686,3 +685,108 @@ Open Marketing → Mailers → a sent/stopped campaign, then scroll to Campaign 
 These are approximate network-request locations, not customer addresses or proof of a person's whereabouts. Privacy services, scanners, VPNs and forwarded copies can change them. No open detected never proves unread. Older/unavailable locations remain unknown; they are excluded from markers but included in totals. Recipient engagement divides distinct period-active recipients by all successfully sent tracked messages for that campaign. The existing recipient activity table remains all time.
 
 The map outline works locally with no external map tiles. To record new city markers, configure your own private geolocation API key and optional lookup on cPanel, following extras/cpanel-marketing/GEOGRAPHY-SETUP.md. Until then, graphs work and map setup/unknown-location messages are shown. Provider outages/quotas do not remove ordinary tracking counts. App records coarse coordinates only; the provider receives the request IP transiently for its lookup. Existing private consent/key/database must be preserved when upgrading all five public files.
+
+## Input focus, printing and closing (v0.3.48)
+
+Confirmations now appear inside the POS. Choose Continue to approve, or Cancel/Escape to cancel. The initial button is Cancel for safety; this replaces old OK/Cancel browser popups and returns focus when finished. A scanner's Enter should not approve a destructive action accidentally.
+
+If clicking still works but typing stops, open Help and choose Restore keyboard focus, then click the desired field. Open diagnostic logs in Help opens application.log for support. Note the time and whether this PC is Store Server or Till. These logs describe timing/lifecycle, not customer or payment contents.
+
+Hidden printing windows do not take keyboard focus and are cleaned up. A printer timeout after about30 seconds does not mean the sale failed or that nothing printed; check the printer and original receipt before retrying. Prints are still manual; no auto-reprint is added.
+
+Closing/Alt+F4 shows Closing Diamond POS while connections/jobs stop, then exits. A stalled asynchronous cleanup has an approximately20-second fallback. Backup verification runs separately from the main loop; closing can discard an unfinished unpublished snapshot while preserving prior verified backups. Finish actual payments/QuickBooks sync before deliberately closing. If checkout was uncertain, use its existing recovery rather than charging again.
+
+The installed app should not leave an invisible print window keeping it alive. In development, npm run dev can leave a separate terminal watcher; stop that watcher with Ctrl+C. The exact intermittent Windows issue still requires on-PC verification. If it recurs after this update, send the diagnostic log.
+
+### Mechanics and On the Bench
+
+In **Work Orders → Work order settings → Mechanics**, enter a name and click **Add mechanic**. **Remove** hides that mechanic from new assignments while keeping their name on existing tickets and in history. Add the same name again to restore them.
+
+Open a ticket and use **Assigned mechanic** to choose a mechanic or **Unassigned**. Assignments are shared across tills, recorded in ticket history, and displayed on the work-order list. Closed tickets retain their assignment.
+
+Move an approved repair to **On the Bench** once all listed parts are available and the mechanic starts work. You can move there from **Approved to Fix** or **Waiting on Parts**. Tickets with listed parts still short must wait until receiving is complete. The stage keeps existing parts reservations without taking stock again. Next move to **Ready for Review**, or back to **Waiting on Parts** if needed. Set its color under **Stage colors**. Changing this stage does not automatically print or email anything.
+
+### Several units brought in together
+
+Keep one work order per unit, then group the tickets for that customer visit. For example, four chainsaws become four tickets marked **1 of 4**, **2 of 4**, **3 of 4**, and **4 of 4**.
+
+From a ticket, use **Add another unit for this visit**. The customer is already selected; choose or add the next unit and enter its problem and estimate fee. The new ticket joins the visit automatically. To group tickets already created, choose an existing ticket under **Customer visit** and click **Link existing ticket**. Only tickets for the same customer can be linked. Linking a ticket from another visit group joins that entire group after confirmation.
+
+The group lists each unit, serial number and repair stage. Click its work-order number to open it. The work-order list, ticket header and manually printed full-page ticket show the current position and group count. Tickets retain separate estimates, approval links, mechanic assignments, stock reservations and payments. Completing or picking up one unit keeps it in the visit count; the other units can continue through their own repair stages.
+
+Use **Remove this ticket from group** to correct a link. This keeps the ticket and its charges. Numbering reflects the current group in work-order creation order and can change when tickets are linked or removed; previously printed pages are not updated automatically. Unrelated visits for the same customer stay separate unless you explicitly link them.
+
+### Default printers and choosing a different printer
+
+Under **Settings → Printing**, save the default **Receipt printer**, **Full-page printer**, and **Label printer** for each computer. Defaults are local to that PC. Keep **Ask which printer every time** checked for sale receipts so you can choose the format and printer before sending them.
+
+Labels, work-order pages, printer test pages and custom reports show a printer prompt before sending the job. The saved printer is selected when it is installed on that PC. Change the selection for this job and click **Print**, or **Cancel** to send nothing. Choosing a different printer does not overwrite your saved defaults. A label batch prompts once and uses the chosen printer for all of its label templates.
+
+If no default has been saved or that printer is missing, choose an installed printer explicitly. Labels do not silently fall back to the Windows default. **Refresh printers** reloads the list after you reconnect or install a printer.
+
+### Cancel an entire sale before checkout
+
+Click **Cancel sale** at the bottom of the Sale screen and confirm. This clears all current items and returns, the customer, selected tax settings and any chosen sale date/time, so you can start again. The last completed receipt remains available to reprint.
+
+If you recalled a held receipt, cancelling this checkout leaves the saved hold in **Held Receipts**, with its inventory reservation. Delete the saved hold from Held Receipts if you also want to release it. If you loaded a work order for payment, cancelling removes it from this checkout while keeping the work order and its reserved parts.
+
+You cannot cancel a checkout or hold while its save result is still being confirmed. Use its **Check / retry original** action first. To reverse a completed sale, use the existing **Void** process from its saved receipt.
+
+### Sales Receipt layout and internal cost columns
+
+**Make a Sale** uses a full-width Sales Receipt grid. Scan or search items across the top. Type a customer name or phone in the customer box and click **Find** (or press Enter) to open the customer search with that text already entered. Use **I want to…** for Find item, Quantity, Remove line, Customer, Work order, Return and Kiosk. Existing F-key shortcuts still work. Quick Picks have been removed; use scanning or Find item.
+
+Select an item row and use the **−1**, **+1**, **Change qty** or **Remove line** buttons below the grid. Totals are at the lower right, followed by **Cash**, **Credit / Debit**, **Check** and **Charge to account** along the bottom. Account payment is available for an eligible customer; refunds retain their existing payment restrictions. **Amount Due** (or **Refund Due**) is shown beside the payment buttons. The footer has Hold/Held receipts, Cancel sale and Reprint last receipt. Gift payments are not offered. Payments keep the existing confirmation flow; there are no placeholder Save buttons.
+
+Open **Sale options · date & time** below the grid to override a sale date; an active override is shown in that heading. Tax selection/exemption, fee credits, change due and the last completed receipt remain visible when applicable.
+
+Right-click a grid heading to show or hide **Cost**, **Last received cost** and **Current average cost**:
+- **Cost:** the configured order/purchase cost per unit, as entered on the item (may differ from the latest invoice if receiving did not update order cost).
+- **Last received cost:** per-unit invoice cost from the latest posted receiving, excluding allocated freight. Draft vouchers do not count.
+- **Current average cost:** the current saved inventory unit average, including freight when it was allocated to cost. This is not the lifetime receiving average.
+
+These optional columns start hidden and are remembered separately on each PC. Existing saved column selections remain intact; **Reset to default** uses Item #, Alt lookup, Item Name, Attribute, Size, Qty, Price, Ext. Price and Tax. Costs are fetched only when a cost column is visible. A dash means no cost/history is set, $0.00 means a genuine zero cost, and Unavailable means cost lookup failed. Fee/credit/non-product rows have no unit cost. These are internal screen columns and do not add costs to customer receipts or printed labels.
+
+### Take payment on account from Make a Sale
+
+Click **Take payment on account** in the Sale footer, or choose it from **I want to…**. You do not need to select a sale customer or add an item first.
+
+The customer list shows only accounts with an outstanding DiamondPOS balance, with each customer's name, phone, open invoice count and amount owed. Search by name, company, phone or customer number. **Refresh** reloads the balances. Customers with existing debt remain visible even if they have since been made inactive or disabled for new account sales.
+
+Click **Take payment** beside the customer. Review their invoices and balance, then record cash, card or check using the existing account-payment form. Partial payments are allowed up to the current balance. Card processing still happens on the separate terminal. Check payments require a check number. The payment follows the existing QuickBooks synchronization and recovery process and is not another sale or inventory deduction.
+
+Any sale you were building, including its customer and items, stays in place. Closing the account window returns you to it. Reopening the list refreshes balances, and customers whose balance is now zero disappear.
+
+The list includes invoices raised by DiamondPOS and balance changes received from QuickBooks through Web Connector. It does not include invoices created only in QuickBooks. Check the balance update time in the account screen if a payment was taken in the back office.
+
+### Receiving parts for waiting work orders
+
+After you post **Receive items**, DiamondPOS checks inventory items from that voucher against tickets currently in **Waiting on Parts**. If matches exist, a notice lists the ticket, customer, equipment, mechanic and matching parts. **Open work order** opens the ticket for review. **Done** dismisses the notice; **Continue to label options** opens the existing manual label choices. Nothing prints automatically.
+
+The notice shows the total received on the voucher and quantity listed on each ticket. If multiple tickets need the same part, the received total is not a separate allocation to every ticket. A ticket can still have a shortage after a partial delivery or when other required parts have not arrived. The availability message checks all parts on that ticket under the existing reservation rules. Review the stock and repair before changing its stage yourself.
+
+Posting does not automatically change work-order stages, assign mechanics or contact customers. The notice appears on the computer posting the receiving. Reopen the posted voucher and click **Review waiting work orders** to refresh current matches; tickets that have left Waiting on Parts will no longer appear.
+
+### Fit the POS to the screen
+
+Open **Settings → Display**. **Auto fit** is the default and adjusts the whole POS to its current window, including the usable space left by Windows display scaling such as 125%. Maximize the app for the most room. Resizing recalculates the scale without changing Windows settings.
+
+Auto fit uses 85–100% app zoom. It preserves the layout while keeping a lower readability limit; smaller windows can still need scrolling. Select a fixed percentage and click **Apply display size** if you prefer larger text or a consistent size. The choice is remembered on this computer only. Receipt, full-page and label print dimensions do not change.
+
+### Credit or Debit only
+
+New card sales, refunds and account payments offer only **Credit** and **Debit** in the Card type selector. Credit is initially selected; change it to Debit when appropriate. Complete the payment/refund on the separate terminal before confirming it in the POS. No terminal reference is required.
+
+Receipts and account history retain the selected type, end-of-day reports break out Credit and Debit, and QuickBooks can map each to a different payment method. Visa/Mastercard and other historical brand data remain unchanged on older transactions and recovered pending requests; those brands are no longer choices for a new payment.
+
+### Alternate lookup on receipts
+
+**Alt lookup (ALU)** is available in the sale grid column menu and is included in the default column order. Existing custom column selections are retained; right-click a heading to add Alt lookup or reset to defaults if needed. Scanning an ALU still finds the item.
+
+Open **Settings → Receipt Layout**, select the **Items** block, and use **Alt lookup (ALU)** to show or hide it under each receipt item. It is enabled by default when updating an older receipt layout. The preview uses sample ALUs. Full-page sale receipts also show an item's ALU when present. New receipts store the ALU used at checkout, so later item edits do not change it on a reprint. Receipt-linked refunds retain that original ALU. Older receipts without a snapshot use the item's current catalog ALU when available.
+
+### New estimate response notice
+
+When the Store Server receives a new website approval or decline, a **New estimate response** notice pulses in the top header. Tills check for notices every 15 seconds; website synchronization still follows its existing schedule. Responses needing staff review are included. The notice remains unread in the server database across restarts.
+
+Click the header notice to see the response list and acknowledge the responses shown. Click **Open work order** beside a response to review its ticket. Acknowledgement is shared across tills; newly arriving responses stay unread until they are also opened. If acknowledging fails, the header remains available. People who prefer reduced motion see a steady highlighted notice instead of animation. The notification does not change the existing approval/decline or stock rules. Only responses received after this update are added to the unread list.

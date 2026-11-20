@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import VendorEditor from './VendorEditor'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BootInfo, Product } from '../../../shared/types'
@@ -9,7 +10,8 @@ import {
   type PostLineChoice,
   type Receiving as Rv,
   type ReceivingInput,
-  type ReceivingSummary
+  type ReceivingSummary,
+  type ReceivingWorkOrderMatch
 } from '../../../shared/receiving'
 import { api } from '../api'
 import { dateTime, money, parseMoney, today } from '../format'
@@ -31,7 +33,7 @@ const num = (s: string) => {
 }
 
 /** Receiving: list of receivings (drafts first) and the receiving editor. */
-export default function Receiving({ boot, startNew, onIntentDone, receiptToLoad, onReceiptLoaded }: { boot: BootInfo; startNew?: boolean; onIntentDone?: () => void; receiptToLoad?: number | null; onReceiptLoaded?: () => void }) {
+export default function Receiving({ boot, startNew, onIntentDone, receiptToLoad, onReceiptLoaded, onOpenWorkOrder }: { onOpenWorkOrder:(id:number)=>void; boot: BootInfo; startNew?: boolean; onIntentDone?: () => void; receiptToLoad?: number | null; onReceiptLoaded?: () => void }) {
   const [view, setView] = useState<{ kind: 'list' } | { kind: 'edit'; id: number | null }>({ kind: 'list' })
   useEffect(() => { if (receiptToLoad) { setView({ kind: 'edit', id: receiptToLoad }); onReceiptLoaded?.() } }, [receiptToLoad])
   const [list, setList] = useState<ReceivingSummary[]>([])
@@ -52,7 +54,7 @@ export default function Receiving({ boot, startNew, onIntentDone, receiptToLoad,
     return () => clearTimeout(t)
   }, [search, status, view.kind])
 
-  if (view.kind === 'edit') return <ReceivingEditor boot={boot} id={view.id} onBack={() => setView({ kind: 'list' })} />
+  if (view.kind === 'edit') return <ReceivingEditor onOpenWorkOrder={onOpenWorkOrder} boot={boot} id={view.id} onBack={() => setView({ kind: 'list' })} />
 
   return (
     <div className="page wide">
@@ -123,7 +125,7 @@ export default function Receiving({ boot, startNew, onIntentDone, receiptToLoad,
   )
 }
 
-function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | null; onBack: () => void }) {
+function ReceivingEditor({ boot, id, onBack, onOpenWorkOrder }: { onOpenWorkOrder:(id:number)=>void; boot: BootInfo; id: number | null; onBack: () => void }) {
   const [rv, setRv] = useState<Rv | null>(null)
   const [head, setHead] = useState({
     vendor: '',
@@ -143,6 +145,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [dirty, setDirty] = useState(false)
   const [reviewing, setReviewing] = useState(false)
+  const [partsNotice,setPartsNotice]=useState<ReceivingWorkOrderMatch[]|null>(null)
   const [tags, setTags] = useState<TagLine[] | null>(null)
   const [vendors, setVendors] = useState<string[]>([])
   const [addingVendor, setAddingVendor] = useState(false)
@@ -281,7 +284,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
   }
   async function removeDraft() {
     if (!rv) return onBack()
-    if (!confirm(`Delete ${rv.number}? Nothing has been received from it.`)) return
+    if (!(await confirmAction(`Delete ${rv.number}? Nothing has been received from it.`))) return
     try {
       await api.deleteReceiving(rv.id)
       onBack()
@@ -306,7 +309,7 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
   return (
     <div className="page wide receiving">
       <div className="row between">
-        <button className="link" onClick={() => (!dirty || confirm('Leave without saving the changes?')) && onBack()}>
+        <button className="link" onClick={async () => (!dirty || (await confirmAction('Leave without saving the changes?'))) && onBack()}>
           ← Receiving
         </button>
         <span className="muted small">{rv ? `Started ${dateTime(rv.createdAt)}${rv.postedAt ? ` · received ${dateTime(rv.postedAt)}` : ''}` : 'New receiving'}</span>
@@ -546,10 +549,19 @@ function ReceivingEditor({ boot, id, onBack }: { boot: BootInfo; id: number | nu
             setReviewing(false)
             await show(done)
             setMsg({ ok: true, text: `${done.number} received: stock and costs updated.` })
-            await printReceivingTags(done)
+            if(done.waitingWorkOrders?.length)setPartsNotice(done.waitingWorkOrders)
+            else await printReceivingTags(done)
           }}
         />
       )}
+      {posted&&rv&&!!rv.waitingWorkOrders?.length&&<button onClick={async()=>{try{const fresh=await api.receiving(rv.id);setRv(fresh);setPartsNotice(fresh.waitingWorkOrders??[])}catch(e){setMsg({ok:false,text:(e as Error).message})}}}>Review waiting work orders ({rv.waitingWorkOrders.length})</button>}
+      {partsNotice&&<div className="modal-backdrop"><div className="modal receiving-parts-notice" role="dialog" aria-modal="true" aria-labelledby="receiving-parts-title" onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')setPartsNotice(null)}}>
+        <h2 id="receiving-parts-title">Received parts match waiting work orders</h2>
+        <p>These tickets are in Waiting on Parts and contain items from this receiving. Review availability before starting repairs. Quantities received are for the whole voucher, not allocated separately to each ticket.</p>
+        <div className="receiving-parts-list">{partsNotice.map(match=><section className="card" key={match.id}><div className="row between"><h3>{match.number} · {match.customerName}</h3><button onClick={()=>onOpenWorkOrder(match.id)}>Open work order</button></div><p>{match.unitLabel}{match.mechanicName&&` · Mechanic: ${match.mechanicName}`}</p><p><b>{match.allPartsAvailable?'No current parts shortage flagged — ready for review':'Parts shortage remains — check ticket stock'}</b></p><ul>{match.parts.map(part=><li key={part.productId}>{part.sku&&`${part.sku} · `}{part.name} — {part.ticketQty} on this ticket; {part.receivedQty} received on voucher</li>)}</ul></section>)}{!partsNotice.length&&<p>No matching tickets are currently waiting on parts.</p>}</div>
+        <p className="muted small">Receiving does not automatically change stages, assign a mechanic, or notify customers. Existing work-order reservations remain in place.</p>
+        <div className="row gap end"><button onClick={()=>setPartsNotice(null)}>Done</button><button disabled={!rv} onClick={()=>{setPartsNotice(null);if(rv)void printReceivingTags(rv)}}>Continue to label options</button></div>
+      </div></div>}
       {tags && <TagPrintDialog title={`Print tags for ${rv?.number ?? 'this receiving'}?`} lines={tags} onClose={() => setTags(null)} />}
     </div>
   )

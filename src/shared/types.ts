@@ -10,6 +10,8 @@ export type UpdateChannel = 'stable' | 'beta'
 
 /** Saved per-computer in %APPDATA%/DiamondPOS/pos-config.json */
 export interface AppConfig {
+  /** Per-computer UI scale; omitted means fit the current window automatically. */
+  displayZoom?: import('./display').DisplayZoom
   cashDrawer?: CashDrawerConfig
   mode: AppMode | null
   serverUrl: string
@@ -110,9 +112,13 @@ export type PaymentMethod = 'cash' | 'card' | 'check'
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: 'Cash', card: 'Card', check: 'Check' }
 
-export const CARD_BRANDS = { unknown: 'Unknown / not specified', visa: 'Visa', mastercard: 'Mastercard', discover: 'Discover', amex: 'American Express', other: 'Other' } as const
+export const CARD_TYPES = { credit: 'Credit', debit: 'Debit' } as const
+export type CardType = keyof typeof CARD_TYPES
+/** Historical brand keys remain readable for saved transactions and pending retries. */
+export const CARD_BRANDS = { ...CARD_TYPES, unknown: 'Unknown / not specified', visa: 'Visa', mastercard: 'Mastercard', discover: 'Discover', amex: 'American Express', other: 'Other' } as const
 export type CardBrand = keyof typeof CARD_BRANDS
 export function paymentLabel(payment: { method: PaymentMethod; cardBrand?: CardBrand }): string {
+  if(payment.method==='card'&&(payment.cardBrand==='credit'||payment.cardBrand==='debit'))return CARD_TYPES[payment.cardBrand]
   return payment.method === 'card' && payment.cardBrand && payment.cardBrand !== 'unknown' ? `Card · ${CARD_BRANDS[payment.cardBrand]}` : PAYMENT_LABEL[payment.method]
 }
 
@@ -161,6 +167,8 @@ export interface SaleItem {
   productId: number | null
   /** Item # of the product (for receipts) */
   sku?: string | null
+  /** Alternate lookup captured on new receipts; legacy receipts use current catalog lookup. */
+  alu?: string | null
   name: string
   serial?: string | null
   unitPriceCents: number
@@ -408,6 +416,9 @@ export type UpdateEvent =
 
 /** Functions the preload script exposes to the UI as window.pos */
 export interface PosBridge {
+  restoreFocus():Promise<void>
+  openDiagnostics():Promise<void>
+  onClosing(cb:()=>void):()=>void
   openCashDrawer(): Promise<void>
   getBootInfo(): Promise<BootInfo>
   saveConfig(changes: Partial<AppConfig>): Promise<BootInfo>

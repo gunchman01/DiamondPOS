@@ -1,3 +1,4 @@
+import { closeHttpServer } from './lifecycle/httpClose'
 /**
  * QUICKBOOKS BRIDGE
  *
@@ -11,6 +12,7 @@ import { QB_BRIDGE_PORT } from '../shared/constants'
 
 let bridge: http.Server | null = null
 let target = ''
+const requests=new Set<http.ClientRequest>()
 
 export function isBridgeRunning(): boolean {
   return bridge !== null
@@ -34,6 +36,8 @@ export function startQbBridge(serverUrl: string): Promise<void> {
           r.pipe(res)
         }
       )
+      requests.add(upstream);upstream.once('close',()=>requests.delete(upstream));upstream.setTimeout(15000,()=>upstream.destroy(Error('Store server timeout')))
+      req.once('aborted',()=>upstream.destroy())
       upstream.on('error', (e) => {
         res.statusCode = 502
         res.end(`The Diamond POS store server could not be reached: ${e.message}`)
@@ -55,5 +59,7 @@ export function startQbBridge(serverUrl: string): Promise<void> {
 export function stopQbBridge(): Promise<void> {
   const b = bridge
   bridge = null
-  return b ? new Promise((r) => b.close(() => r())) : Promise.resolve()
+  for(const request of requests)request.destroy()
+  requests.clear()
+  return b?closeHttpServer(b):Promise.resolve()
 }

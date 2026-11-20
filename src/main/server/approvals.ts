@@ -1,3 +1,4 @@
+import { backgroundRequest } from '../lifecycle/backgroundIO'
 import crypto from 'node:crypto'
 import type { DB } from './db'
 import type { WorkOrder } from '../../shared/workorders'
@@ -72,20 +73,20 @@ export function saveApprovalConfig(db: DB, b: Record<string, unknown>): Approval
   return approvalView(db)
 }
 export type Transport = (c: Config, op: string, payload?: unknown) => Promise<any>
-export const approvalRequest: Transport = async (c, op, payload) => {
+export const approvalRequest: Transport = async (c, op, payload) => backgroundRequest(async signal => {
   const url = new URL('index.php', c.url.endsWith('/') ? c.url : c.url + '/')
   url.searchParams.set('api', op)
   const r = await fetch(url, {
     method: payload === undefined ? 'GET' : 'POST',
     headers: { 'X-DiamondPOS-Key': c.key, 'Content-Type': 'application/json' },
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    signal: AbortSignal.timeout(15000),
+    signal,
     redirect: 'error'
   })
   const result = (await r.json()) as any
   if (!r.ok) throw new Error(result.error || `Approval website returned ${r.status}`)
   return result
-}
+})
 export async function testApprovalConnection(db: DB, transport: Transport = approvalRequest) {
   const c = approvalConfig(db)
   if (!c.key) throw new Error('Save an integration key first')
@@ -247,6 +248,7 @@ export function applyDecision(db: DB, event: any, by = 'Website customer') {
       event.comment,
       row.id
     )
+    if(by==='Website customer')db.prepare('INSERT OR IGNORE INTO estimate_notifications(estimate_id,work_order_id,decision,review) VALUES (?,?,?,?)').run(row.id,wo.id,event.decision,matches?0:1)
     if (matches) {
       const stage = event.decision === 'approved' ? 'approved' : 'not_fixed'
       db.prepare("UPDATE work_orders SET status=?,updated_at=datetime('now') WHERE id=?").run(stage, wo.id)

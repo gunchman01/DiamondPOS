@@ -1,3 +1,4 @@
+import { confirmAction } from '../dialogs'
 import CampaignActivity from './CampaignActivity'
 import { useEffect, useRef, useState } from 'react'
 import type { Audience, AudienceOptions, AudienceResult, AudienceRule, Campaign, CampaignSend } from '../../../shared/marketing'
@@ -155,7 +156,7 @@ export default function MailerEditor(props: {
         <button className="link" onClick={props.onClose}>
           ← All mailers
         </button>
-        {c && c.status!=='sending' && <button className="danger" disabled={busy} onClick={()=>{if(!confirm(`Delete campaign "${c.name}" and its local recipient/activity history? This cannot be undone. Customer unsubscribe preferences and emailed links are preserved.`))return;void run(async()=>{await api.mkRemove(c.id);props.onChanged();props.onClose()},'Campaign deleted')}}>Delete campaign</button>}
+        {c && c.status!=='sending' && <button className="danger" disabled={busy} onClick={async ()=>{if(!(await confirmAction(`Delete campaign "${c.name}" and its local recipient/activity history? This cannot be undone. Customer unsubscribe preferences and emailed links are preserved.`)))return;void run(async()=>{await api.mkRemove(c.id);props.onChanged();props.onClose()},'Campaign deleted')}}>Delete campaign</button>}
         {c && c.status !== 'draft' && (
           <span className={`badge ${c.status === 'sent' ? 'new' : c.status === 'sending' ? 'upd' : 'err'}`}>{c.status}</span>
         )}
@@ -363,8 +364,8 @@ export default function MailerEditor(props: {
                 <button
                   className="primary big"
                   disabled={busy || n === 0}
-                  onClick={() =>
-                    confirm(`Send "${subject}" to ${n} customer${n === 1 ? '' : 's'}? This can't be undone.`) &&
+                  onClick={async () =>
+                    (await confirmAction(`Send "${subject}" to ${n} customer${n === 1 ? '' : 's'}? This can't be undone.`)) &&
                     run(async () => {
                       const cid = await save()
                       setC(await api.mkSend(cid))

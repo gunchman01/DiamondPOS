@@ -157,6 +157,7 @@ export interface ReceiptBlock {
   widthPct: number
   /** 'items': extra details on each line */
   showSku: boolean
+  showAlu: boolean
   showUnitPrice: boolean
   showSerial: boolean
   /** 'signature': print on every sale (not just refunds / exchanges) */
@@ -269,6 +270,7 @@ export function receiptBlock(type: ReceiptBlockType, c: Partial<ReceiptBlock> = 
     text: '',
     widthPct: 60,
     showSku: false,
+    showAlu: true,
     showUnitPrice: false,
     showSerial: true,
     always: false,
@@ -449,6 +451,7 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
       text: str(b?.text, 1000),
       widthPct: num(b?.widthPct, 60, 10, 100),
       showSku: b?.showSku === true,
+      showAlu: b?.showAlu !== false,
       showUnitPrice: b?.showUnitPrice === true,
       showSerial: b?.showSerial !== false,
       always: b?.always === true
