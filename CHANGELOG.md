@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.53 - 20 Nov 2026
+- Fixed taking payment for Ready for Pickup work orders when an online estimate was unsent, pending, failed or no longer matched the current bill. You do not have to send another approval message just to collect payment.
+- Home backup status now displays your saved backup frequency and the actual next scheduled run instead of always saying 15 minutes. Last verified time and running state come from the Store Server.
+- Checkout charges the current bill and leaves online approval history unchanged. Earlier-stage and already-closed tickets still cannot be rung up as repairs.
+
 ## v0.3.52 - 20 Nov 2026
 > Update the Store Server PC first.
 - Fixed Work Order Settings showing “Work order not found” instead of the Mobile Text Alerts API-key fields.

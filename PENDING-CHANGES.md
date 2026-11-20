@@ -1,8 +1,7 @@
-# v0.3.52 source update — Greg commits this batch
+# v0.3.53 — ready-for-pickup checkout fix
 
-- Fix Work Order Settings text API route order so API key/enable/callback fields load.
-- Add default-off saved customer OK to text service updates checkbox, enforce it on the server and in the work-order send dialog, and clear it when the destination number changes.
-- Includes the v0.3.51 source updates for users who have not copied that ZIP.
-- Schema 42; version/minimum client 0.3.52. Store Server first then tills. No website upload.
+Home backup card displays saved frequency/actual next run/verified time instead of hard-coded 15 minutes. The lightweight operations endpoint reports the live scheduler state.
 
-The earlier v0.3.51 batch is already on main as 779bb5d. Pull that first with a clean working tree, then apply this ZIP and make the v0.3.52 commit yourself. Do not discard local edits or force-push. See START-HERE.md for exact commands. No direct GitHub writes/tags/deployment or live messages performed for this update.
+Remove the online-estimate gate from payment for Ready for Pickup work orders. Charge the current bill, preserve approval history and add a checkout-history note when the online estimate is not current/approved. Earlier-stage and closed repair checkout guards remain. No automatic notifications or customer approval changes.
+
+349 regression checks pass; see project notes for typecheck/build. No schema migration or website update; update the Store Server first. No GitHub writes, release tags, live payments/messages or deployment were performed. Greg applies the ZIP and commits/releases using START-HERE.md.

@@ -1,5 +1,7 @@
 export interface BackupStatus {
   intervalMinutes?: number
+  nextBackupAt?: string | null
+  schedulerRunning?: boolean
   lastVerifiedAt: string | null
   lastAttemptAt: string | null
   lastFailureAt: string | null

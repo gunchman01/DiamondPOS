@@ -1,3 +1,4 @@
+import {backupFrequency,backupOverdue} from '../../shared/backups'
 import { useEffect, useState } from 'react'
 import type { DailyReport } from '../../shared/types'
 import type { OperationsStatus } from '../../shared/operations'
@@ -32,7 +33,7 @@ export default function HomeStatus({ onQuickBooks, onReports }: { onQuickBooks: 
   }, [])
   const backup = status?.backup
   const qb = status?.quickbooks
-  const staleBackup = !!backup?.lastVerifiedAt && !!status && Date.parse(status.serverTime) - Date.parse(backup.lastVerifiedAt) > Math.max(30, (backup.intervalMinutes ?? 15) * 1.5) * 60000
+  const staleBackup = backupOverdue(backup,status?.serverTime)
   const timestamp = (value: string | null | undefined) => value ? dateTime(value) : 'Not recorded yet'
   const unavailable = !detailsAvailable
   return <section className="home-status" aria-label="Today's totals and store status">
@@ -54,11 +55,13 @@ export default function HomeStatus({ onQuickBooks, onReports }: { onQuickBooks: 
     </article>
     <article className={`home-status-card ${unavailable ? 'unknown' : backup?.error || staleBackup ? 'attention' : ''}`}>
       <h3 className="home-status-heading">Database backup</h3>
-      <div className="home-status-state">{unavailable ? 'Status unavailable' : backup?.error ? 'Last backup failed' : backup?.running ? 'Backup in progress' : staleBackup ? 'Backup overdue' : backup?.lastVerifiedAt ? 'Verified backup available' : 'Waiting for first verified backup'}</div>
+      <div className="home-status-state">{unavailable ? 'Status unavailable' : backup?.error ? 'Last backup failed' : backup?.running ? 'Backup in progress' : backup?.schedulerRunning===false ? 'Backup schedule not running' : staleBackup ? 'Backup overdue' : backup?.lastVerifiedAt ? 'Verified backup available' : 'Waiting for first verified backup'}</div>
       <div>Last verified backup <b>{timestamp(backup?.lastVerifiedAt)}</b></div>
       {backup?.error && <div className="error-text small" title={backup.error}>{backup.error}</div>}
       {backup?.lastFailureAt && backup.error && <div className="small muted">Failed: {timestamp(backup.lastFailureAt)}</div>}
-      <div className="muted small">Every 15 minutes while the server runs · stored on the server PC</div>
+      <div>Next scheduled backup <b>{backup?.running?'After the current backup finishes':backup?.nextBackupAt?timestamp(backup.nextBackupAt):backup?.schedulerRunning===false?'Not scheduled':'Not available'}</b></div>
+      <div className="muted small">{backupFrequency(backup?.intervalMinutes)} while the server runs · stored on the server PC</div>
+      {unavailable&&<div className="muted small">{status?'Showing last received backup history and schedule.':'Waiting for server backup status.'}</div>}
     </article>
     <article className={`home-status-card ${reachable === false ? 'attention' : ''}`}>
       <h3 className="home-status-heading">Store server</h3>

@@ -98,7 +98,7 @@ export default function WorkOrderTicket(props: {
     <div className="page wide ticket">
       {wo.estimate&&<section className="card form"><h3>Estimate revision {wo.estimate.revision} · {wo.estimate.state}</h3><p>Estimate amount: {money(wo.estimate.amountCents)}{wo.estimate.sentAt&&` · Sent ${dateTime(wo.estimate.sentAt)}`}</p>
         {wo.estimate.due&&<p className="error-text"><b>Needs customer call — this estimate is overdue for follow-up.</b></p>}
-        {wo.estimate.needsResend&&<p className="error-text">This ticket differs from the last sent estimate. Send a revised estimate to request approval of the current repair.</p>}
+        {wo.estimate.needsResend&&<p className="error-text">This ticket differs from the last sent estimate. Send a revised estimate for an updated online decision, or confirm the current bill with the customer in person/by phone. Ready-for-pickup payment is still available.</p>}
         {wo.estimate.state==='review'&&<p className="error-text">A decision arrived for an estimate or stage that changed. Review it with the customer; the repair was not automatically approved.</p>}
         {['pending','prepared'].includes(wo.estimate.state)&&<button disabled={busy} onClick={async ()=>{if((await confirmAction('Cancel this estimate link? A revised estimate will need a new email.')))void run(()=>api.woCancelEstimate(wo.id,props.by),'Estimate link cancelled')}}>Cancel estimate link</button>}
         {wo.estimate.decisionAt&&<p>Decision by {wo.estimate.decisionBy} · {dateTime(wo.estimate.decisionAt)} · {wo.estimate.comment}</p>}

@@ -1,6 +1,5 @@
-DiamondPOS v0.3.52 cumulative source overlay
-Baseline v0.3.49 main 25eb2c031a845c3c71e431d431a755bacb04dded
-v0.3.51 already on main as 779bb5d; this overlay adds v0.3.52.
+DiamondPOS v0.3.53 source overlay
+Baseline main c863bc0c8b3aaca5f21be6e25d321273a2386d99 (v0.3.52)
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -10,32 +9,13 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
-src/main/server/approvals.ts
-src/main/server/customers.ts
-src/main/server/held.ts
+src/main/server/backup.ts
 src/main/server/index.ts
-src/main/server/migrations.ts
-src/main/server/serviceNotifications.ts
 src/main/server/workorders.ts
-src/renderer/src/CustomerSearch.tsx
-src/renderer/src/api.ts
+src/renderer/src/HomeStatus.tsx
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/printTemplates.ts
-src/renderer/src/saleCancellation.ts
-src/renderer/src/screens/CustomerEditor.tsx
-src/renderer/src/screens/Sell.tsx
-src/renderer/src/screens/ServiceTextSettings.tsx
-src/renderer/src/screens/WoPayPicker.tsx
-src/renderer/src/screens/WorkOrderSettings.tsx
 src/renderer/src/screens/WorkOrderTicket.tsx
-src/renderer/src/styles.css
-src/shared/constants.ts
-src/shared/serviceSms.ts
-src/shared/types.ts
-src/shared/workOrderEmail.ts
-src/shared/workorders.ts
-tests/accounts-stock.ts
-tests/fee-billing-customer-search.ts
-tests/lifecycle.ts
-tests/regressions.ts
-tests/service-texts.ts
+src/shared/backups.ts
+src/shared/operations.ts
+tests/approvals.ts
+tests/backup-settings.ts

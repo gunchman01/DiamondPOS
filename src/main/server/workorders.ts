@@ -411,7 +411,7 @@ export function prepareWorkOrderSale(db: DB, woId: number, mode: WoSaleMode, tax
   if (!['fee', 'repair', 'credit'].includes(mode)) throw new WoError(400, 'Unknown work order payment type')
   const wo = loadWorkOrder(db, woId, taxRate)
   if (!wo) throw new WoError(400, 'Work order not found')
-  if(mode==='repair'&&wo.status!=='not_fixed'&&wo.estimate&&(wo.estimate.state!=='approved'||wo.estimate.needsResend))throw new WoError(409,'Send the current estimate for approval before checking out this repair. The recorded approval must match the current repair details and total.')
+  // Ready-for-pickup controls payment eligibility; online estimates are optional notification/decision records.
   const problem = woSaleProblem(wo, mode)
   if (problem) throw new WoError(400, `${wo.number}: ${problem}`)
   const settings = getWoSettings(db)
@@ -452,6 +452,7 @@ export function finishWorkOrderSale(db: DB, prep: PreparedWoSale, saleId: number
     return
   }
   if(wo.feeStatus==='billed')db.prepare('UPDATE work_orders SET fee_sale_id=?,fee_status=? WHERE id=?').run(saleId,wo.status==='not_fixed'?'billed_only':'billed',wo.id)
+  if(mode==='repair'&&wo.estimate&&(wo.estimate.state!=='approved'||wo.estimate.needsResend))addHistory(db,wo.id,`Checkout used the current bill; online estimate status was ${wo.estimate.state}${wo.estimate.needsResend?' (details changed)':''}. No website approval was recorded by this payment.`,by)
   const kept = prep.creditAvailableCents - creditCents
   const feeNote = prep.creditAvailableCents
     ? `; estimate fee ${money(creditCents)} credited${kept > 0 ? `, ${money(kept)} kept (sale was less than the fee)` : ''}`

@@ -818,3 +818,15 @@ Open **Customers → Add/Edit customer → Contact Info**. Enter the mobile numb
 Reopen the work order after saving the customer. **Text** is available in the estimate/pickup Notify dialog only when that customer's permission is saved. Email remains available independently. The server checks saved permission before sending. Replies are not monitored.
 
 For the API key, open **Work Orders → Work order settings**. The **Work-order texts — Mobile Text Alerts** section at the top contains Enable, API key, store phone and Save text settings. In v0.3.51 a routing bug could replace the form with Work order not found; update the Store Server and every till to v0.3.52 to fix it.
+
+
+### Taking payment when approval was handled outside the website
+
+A **Ready for Pickup** ticket can be rung up using its current bill even if an old online estimate is pending, failed, or differs from the current repair. Confirm the current work and total with the customer in person or by phone as appropriate; you do not have to send a new approval email/text just to collect payment. Send a revised estimate if you want a new online decision.
+
+Payment does not record a website approval or change previous approval evidence. Checkout history notes when the online estimate was not approved for the current details. Earlier-stage tickets still need to be moved to Ready for Pickup before repair checkout; closed tickets cannot be charged again. Existing paid estimate credits, deferred estimate fees, account billing and inventory handling continue normally.
+
+
+### Home backup status
+
+The bottom Home card shows the Store Server's last verified backup, actual next scheduled backup and saved frequency from Backup Settings. It refreshes every 30 seconds. During a backup, the next run is scheduled after that backup finishes. A stopped schedule or unavailable connection is labelled explicitly; historical times are not presented as a fresh server check. The card does not change how often backups run or how many are kept.

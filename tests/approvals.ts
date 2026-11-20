@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import assert from 'node:assert/strict'
 import {
   approvalConfig,
@@ -184,11 +185,13 @@ export async function testApprovals(
     assert.match(approvalView(db).error!, /identity/)
     assert.equal(approvalConfig(db).cursor, 1)
   })
-  check('changing an approved repair total requires new approval before checkout', () => {
+  check('changing an approved repair total keeps the estimate warning without blocking ready-for-pickup payment', () => {
     db.prepare("UPDATE work_orders SET status='ready_pickup' WHERE id=?").run(id)
     assert.ok(prepareWorkOrderSale(db, id, 'repair', readSettings(db).taxRate))
     db.prepare('UPDATE work_order_lines SET unit_price_cents=250 WHERE work_order_id=?').run(id)
-    assert.throws(() => prepareWorkOrderSale(db, id, 'repair', readSettings(db).taxRate), /current estimate/)
+    assert.ok(wo().estimate!.needsResend)
+    assert.ok(prepareWorkOrderSale(db, id, 'repair', readSettings(db).taxRate))
+    assert.equal(wo().estimate!.state,'approved')
   })
   db.prepare("UPDATE work_orders SET status='needs_estimate' WHERE id=?").run(id)
   await sendEstimate(db, wo(), 'Staff', async () => {}, remote)
@@ -223,5 +226,28 @@ export async function testApprovals(
     assert.ok(preview.data.html.includes('links will be added'))
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM work_order_estimates').get().n, n)
   })
+  // Real sale endpoints: online estimate history must never force staff to email/text just to take payment.
+  db.prepare('UPDATE customers SET on_account_enabled=1 WHERE id=?').run(customer)
+  for(const scenario of [{state:'pending',account:false},{state:'approved',account:false},{state:'failed',account:true}]){
+    const payId=Number(db.prepare('INSERT INTO work_orders(customer_id,unit_id) VALUES (?,?)').run(customer,unit).lastInsertRowid)
+    db.prepare("INSERT INTO work_order_lines(work_order_id,kind,description,qty,unit_price_cents,taxable) VALUES (?,'labor','Repair labor',1,1000,0)").run(payId)
+    const current=()=>loadWorkOrder(db,payId,readSettings(db).taxRate)!
+    await sendEstimate(db,current(),'Test staff',async()=>{},remote)
+    db.prepare('UPDATE work_order_estimates SET state=? WHERE work_order_id=?').run(scenario.state,payId)
+    db.prepare('UPDATE work_order_lines SET unit_price_cents=1250 WHERE work_order_id=?').run(payId)
+    await call(`/api/workorders/${payId}/status`,'POST',{status:'ready_pickup'})
+    const before=current(),request={requestId:crypto.randomUUID(),customerId:customer,tillName:'Test',items:[],payments:scenario.account?[]:[{method:'cash',amountCents:before.balanceDueCents}],onAccount:scenario.account,workOrder:{id:payId,mode:'repair'}}
+    const sale=await call('/api/sales','POST',request),again=await call('/api/sales','POST',request)
+    check(`ready pickup with ${scenario.state} estimate accepts ${scenario.account?'account':'cash'} checkout at the current total once`,()=>{
+      assert.ok(sale.status===200||sale.status===201,JSON.stringify(sale.data));assert.equal(sale.data.totalCents,1250);assert.equal(again.data.id,sale.data.id)
+      assert.equal(current().status,'closed');assert.equal(current().saleId,sale.data.id);assert.equal(current().estimate!.state,scenario.state)
+      assert.ok(current().history.some(h=>h.note.includes('No website approval was recorded by this payment.')))
+      assert.throws(()=>prepareWorkOrderSale(db,payId,'repair',readSettings(db).taxRate),/Ready for Pick Up/)
+    })
+    if(scenario.state==='pending'){
+      applyDecision(db,{id:before.estimate!.id,hash:estimateHash(before),decision:'declined',name:'Late website response',comment:'',at:new Date().toISOString()})
+      check('late online response after payment cannot reopen or change a closed work order',()=>{assert.equal(current().status,'closed');assert.equal(current().saleId,sale.data.id);assert.equal(current().estimate!.state,'review')})
+    }
+  }
   saveApprovalConfig(db, { enabled: false })
 }

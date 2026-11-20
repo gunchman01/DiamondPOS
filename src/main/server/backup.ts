@@ -73,6 +73,7 @@ export function createBackupManager(db: DB, directory: string) {
   }
   return {
     run,
+    liveStatus() { return {...backupStatus(db),running:!!inFlight,nextBackupAt,schedulerRunning:active} },
     start() { if (active || closed) return; active = true; void run().catch(() => {}) },
     async stop(cancel=false) { active = false; closed = true;if(cancel)cancellation?.abort(); if (timer) clearTimeout(timer); timer = null; nextBackupAt = null; await inFlight?.catch(() => {}) },
     save(value: unknown) { const settings = validateBackupSettings(value); writeSetting(db, 'backup_settings', settings); schedule(); return settings },

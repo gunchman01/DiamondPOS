@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.53 source update — 20 November 2026: work-order payment and Home backup status
+- Greg hit the current-estimate approval guard at checkout. Removed online-estimate state/hash as a payment eligibility condition: ready_pickup still required (or existing not_fixed deferred-fee-only case), with the same current bill/fee credits/account/stock/duplicate-sale logic. No auto-email/text or invented customer approval.
+- Checkout history notes the previous online estimate status/details mismatch when applicable; the approval row is not rewritten. Existing matching-hash/site/stage rules for website decisions remain; late decisions cannot reopen a closed ticket. UI changed-estimate warning describes optional revised online approval and in-person/phone confirmation, without saying payment is blocked.
+- Home backup card had hard-coded Every 15 minutes text. It now displays saved frequency plus next scheduled backup, running/stopped state and verified time from the same backup manager as Settings. operations/status uses a lightweight synchronous liveStatus snapshot without directory scans. No backup schedule, retention or verification behavior changed; still refreshes every 30s and labels cached history when unavailable. Overdue calculation uses actual next run with 5-minute grace, excludes running/stopped and uses only known intervals for old-server fallback.
+- Tests now cover cash checkout with pending/changed-approved estimates, account checkout with failed estimates, actual charged current total, repeated request identity, preserved approval state, closed-ticket rejection and late-decision review. 349 regression checks pass, including actual HTTP Home operations vs backup-manager timestamp/schedule comparison and saved frequency/overdue checks. Final typecheck/build pass before packaging. No schema change (42), minimum client stays 0.3.52, package v0.3.53. Update Store Server first for the server-side fix.
+- Baseline main c863bc0c8b3aaca5f21be6e25d321273a2386d99 (user committed v0.3.52). ZIP-first/user-commit workflow; no GitHub writes/tags/deployment or live payment/QB/messages here.
+
 ### Pending v0.3.52 — 20 November 2026: settings route and saved customer text permission
 - Greg reported visible text-settings heading followed by Work order not found. Confirmed static GET/PUT /api/workorders/text-settings were below dynamic /:id routes. Moved both ahead of dynamic routes and added actual HTTP GET/PUT/readback tests (earlier tests exercised the settings helper but missed routing).
 - Schema 42 adds default-off customers.ok_to_service_text; customer Contact Info exposes OK to text service updates. Separate from marketing opt-ins. Work-order reads expose permission, send dialog disables Text without it, and server independently rejects an unpermitted text even if a request claims permission. Mobile preferred, otherwise phone. Phone edits clear the UI choice and partial number updates clear stored permission unless explicitly renewed. Unrelated stale editor saves preserve current permission when unchanged.
@@ -599,6 +606,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Apply v0.3.53 on Store Server first, verify Home backup status against Settings and test current-total checkout of a Ready for Pickup repair with old/pending online approval; verify receipt, closure and existing QuickBooks sync.
 
 - Investigate Citizen CT-S310 blank slip from DiamondPOS while QuickBooks prints correctly. Receipt jobs currently inherit driver paper sizing; cause unconfirmed and physical test pending.
 

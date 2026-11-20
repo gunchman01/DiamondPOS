@@ -1,31 +1,18 @@
-# DiamondPOS v0.3.52 — text settings and customer permission
+# DiamondPOS v0.3.53 — work-order checkout and Home backup status
 
-Fixes Work Order Settings showing Work order not found instead of the Mobile Text Alerts API-key form. Adds a saved OK to text service updates checkbox under customer Contact Info. Existing customers default to off. Texts require saved permission independently of marketing email permission. No automatic sending or reply inbox.
+Fixes this checkout error on a Ready for Pickup work order:
 
-## Before copying files
+> Send the current estimate for approval before checking out this repair.
 
-The previous v0.3.51 batch was already committed directly to main as 779bb5d. This v0.3.52 update is NOT committed: Greg applies and commits it. The ZIP includes the cumulative v0.3.51 files too.
+Ready for Pickup tickets can now take payment on the current bill without another online approval message. Existing approval history stays unchanged. Earlier-stage/closed repair checkout, fee credits, inventory, on-account billing and sale idempotence rules remain. No automatic emails/texts are sent. Home backup status also uses the saved frequency and actual next scheduled run instead of the hard-coded 15-minute label.
 
-In MobaXterm:
+## Apply
 
-```bash
-cd /drives/c/dev/DiamondPOS
-git status --short
-```
+Baseline: existing v0.3.52 checkout, main c863bc0c8b3aaca5f21be6e25d321273a2386d99. This is a small source overlay, not an installer or full project.
 
-If local changes appear, preserve/review them first. Do not reset or discard files. With a clean working tree, get the existing v0.3.51 commit:
+Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync, and close installed/development POS instances. Extract DiamondPOS-update-v0.3.53.zip separately, then copy the CONTENTS of its DiamondPOS-update-v0.3.53 folder over C:\dev\DiamondPOS, merging folders and replacing matching files. Keep .git and all other files. No dependency changes, database migration or website upload.
 
-```bash
-git pull --ff-only origin main
-```
-
-Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync and close installed/development POS instances.
-
-## Apply and verify
-
-Extract DiamondPOS-update-v0.3.52.zip separately. Copy the CONTENTS of its DiamondPOS-update-v0.3.52 folder over C:\dev\DiamondPOS, merging folders and replacing matching files. Keep .git and all other files. Do not create a nested project folder. No npm dependency changes or website upload.
-
-In PowerShell in C:\dev\DiamondPOS:
+In PowerShell in your project:
 
 ```powershell
 npm run typecheck
@@ -34,30 +21,32 @@ npm run build
 npm run dev
 ```
 
-342 regression checks, typecheck and build passed during development. Follow TESTING-NOTES.md; Windows/hardware and real SMS delivery still need testing. Close the development instance before starting installed POS.
+349 regression checks, typecheck and production build passed in development. Windows interaction, actual receipt/printer and QuickBooks testing remain on your system. Close development before using installed POS.
 
 ## Commit and publish — MobaXterm
 
-Review git status for unexpected files before adding them. These are YOUR commands; no GitHub write or release tag was performed by the assistant for v0.3.52.
+Review changed files before committing:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
 git status --short
 git diff --stat
 git add -A
-git commit -m "Fix text settings and add saved customer service text permission"
+git commit -m "Fix work-order checkout and Home backup status"
 git push origin main
-git tag v0.3.52
-git push origin v0.3.52
+git tag v0.3.53
+git push origin v0.3.53
 ```
 
-If the tag already exists, inspect it instead of replacing it. Wait for GitHub Actions Release to succeed. Install v0.3.52 on STORE SERVER FIRST, then every till. Schema 42 adds default-off customer permission; minimum client is 0.3.52.
+Do not overwrite an existing tag or discard local changes. Wait for GitHub Actions Release to succeed, then install v0.3.53 on the STORE SERVER FIRST, followed by tills. The payment fix runs on the server; updating only a till will not fix it. Schema stays 42 and minimum client stays 0.3.52.
 
-## Where the controls are
+## Verify
 
-1. Work Orders → Work order settings → Work-order texts — Mobile Text Alerts (near the top). You should now see Enable, API key, store callback number and Save text settings. Blank key keeps the saved key. Set up a Mobile Text Alerts account enabled for custom messages with its sender number verified.
-2. Customers → Add/Edit customer → Contact Info → OK to text service updates (near Mobile). Check only with customer permission, then save. Mobile is used first, otherwise Phone. Changing a number clears the choice; confirm permission for the new number before checking again. This is separate from OK to e-mail for marketing and does not override provider STOP opt-outs.
-3. Reopen the work order after editing its customer. Estimate/pickup Notify dialog offers Email/Text/both; Text is disabled without saved customer permission. The server checks current permission again before sending. Replies are not monitored; estimate decisions use the website link, other questions use the store callback.
-4. Test first with your own authorized number/email. No real messages were sent during development. Accepted is not confirmed delivery. Check Unknown results with the provider before deliberately sending again.
+1. Open the affected work order and confirm it is Ready for Pickup.
+2. Review its current items, fees, estimate credits and balance with the customer.
+3. Choose Ring up / Pay at till, confirm the current amount and take payment normally (or use the enabled account option).
+4. Confirm the receipt total, ticket closure and normal inventory behavior. The old estimate history must not become an invented website approval; checkout history notes its state if not current/approved.
+5. On Home, compare last verified time, next scheduled run and frequency with Settings → Backups. Change the frequency, return Home and check after its next refresh (up to 30 seconds). Back Up Now should update the last verified time after completion. No schedule/retention changes are made by this fix.
+6. A closed ticket must not charge again. A late website decision must not reopen it. Existing Not Fixed deferred-fee checkout remains fee-only.
 
-Do not change your working approval website files or AOD configuration for this update.
+No Git commit/push/tag, actual payment, QuickBooks export, customer message or deployment was performed by the assistant for this update.

@@ -26,7 +26,7 @@ import express, { NextFunction, Request, Response } from 'express'
 import type { Server } from 'http'
 import path from 'path'
 import crypto from 'crypto'
-import { startBackupScheduler, registerBackupRoutes } from './backup'
+import { startBackupScheduler, registerBackupRoutes, getBackupManager } from './backup'
 import { operationsStatus } from './operations'
 import { openDatabase, getSchemaVersion, DB } from './db'
 import {
@@ -208,7 +208,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
     next()
   })
 
-  app.get('/api/operations/status', (_req, res) => res.json(operationsStatus(db)))
+  app.get('/api/operations/status', (_req, res) => res.json({...operationsStatus(db),backup:getBackupManager(db,path.join(path.dirname(opts.dbFile),'backups')).liveStatus()}))
 
   // ----- Settings ----------------------------------------------------------
   app.get('/api/settings', (_req, res) => res.json(readSettings(db)))

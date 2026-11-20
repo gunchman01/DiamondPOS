@@ -3,11 +3,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { openDatabase } from '../src/main/server/db'
 import { createApp } from '../src/main/server'
-import { createBackupManager, backupSettings, createVerifiedBackup } from '../src/main/server/backup'
-import { validateBackupSettings } from '../src/shared/backups'
+import { createBackupManager, backupSettings, createVerifiedBackup, getBackupManager } from '../src/main/server/backup'
+import { validateBackupSettings,backupFrequency,backupOverdue } from '../src/shared/backups'
 import { backupStatus } from '../src/main/server/operations'
 type Check = (name: string, fn: () => void) => void
 export async function testBackupSettings(check: Check, dir: string) {
+  check('Home backup labels use saved intervals and never invent a 15-minute fallback',()=>{assert.equal(backupFrequency(240),'Every 4 hours');assert.equal(backupFrequency(1440),'Every 24 hours');assert.equal(backupFrequency(30),'Every 30 minutes');assert.equal(backupFrequency(60),'Every hour');assert.equal(backupFrequency(undefined),'Schedule not available')})
+  check('Home overdue status respects the actual next run, long intervals, in-progress and stopped schedulers',()=>{const time='2026-11-20T12:00:00Z',base:any={lastVerifiedAt:'2026-11-20T08:00:00Z',intervalMinutes:1440,schedulerRunning:true,running:false,nextBackupAt:'2026-11-21T08:00:00Z'};assert.equal(backupOverdue(base,time),false);assert.equal(backupOverdue({...base,nextBackupAt:'2026-11-20T11:50:00Z'},time),true);assert.equal(backupOverdue({...base,nextBackupAt:null,schedulerRunning:false},time),false);assert.equal(backupOverdue({...base,nextBackupAt:'2026-11-20T11:50:00Z',running:true},time),false)})
   const folder=path.join(dir,'backup-settings'), file=path.join(folder,'store.db'), directory=path.join(folder,'backups')
   const db=openDatabase(file)
   const manager=createBackupManager(db,directory)
@@ -86,7 +88,11 @@ export async function testBackupSettings(check: Check, dir: string) {
     const good=await fetch(baseUrl+'/api/backups/settings',{method:'PUT',headers,body:JSON.stringify({intervalMinutes:30,keepCount:2})})
     const payload=await good.json()
     check('backup settings API returns the saved server settings and directory',()=>{assert.equal(good.status,200);assert.equal(payload.settings.intervalMinutes,30);assert.equal(payload.directory,directory)})
+    const live=getBackupManager(db,directory);live.start();await live.run()
+    const opResponse=await fetch(baseUrl+'/api/operations/status',{headers}),op=await opResponse.json()
+    const full=await live.overview()
+    check('Home operations endpoint matches backup settings verified time and live next-run schedule',()=>{assert.equal(opResponse.status,200);assert.equal(op.backup.intervalMinutes,30);assert.equal(op.backup.lastVerifiedAt,full.status.lastVerifiedAt);assert.equal(op.backup.nextBackupAt,full.nextBackupAt);assert.equal(op.backup.schedulerRunning,true);assert.equal(op.backup.running,false)})
     const run=await fetch(baseUrl+'/api/backups/run',{method:'POST',headers,body:'{}'});const result=await run.json()
     check('Back Up Now API verifies a snapshot and returns updated storage status',()=>{assert.equal(run.status,200);assert.equal(result.managedCount,2);assert.ok(result.status.lastVerifiedAt);assert.equal(result.status.error,null)})
-  }finally{await new Promise<void>(r=>server.close(()=>r()));db.close()}
+  }finally{await getBackupManager(db,directory).stop();await new Promise<void>(r=>server.close(()=>r()));db.close()}
 }

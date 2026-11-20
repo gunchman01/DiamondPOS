@@ -21,3 +21,17 @@ export interface BackupOverview {
   cleanupError: string | null
   lastFile: string | null
 }
+
+/** Unknown/older servers should never be presented as an invented 15-minute schedule. */
+export function backupFrequency(intervalMinutes?:number):string {
+ if(!intervalMinutes||!Number.isFinite(intervalMinutes)||intervalMinutes<=0)return 'Schedule not available'
+ if(intervalMinutes===60)return 'Every hour'
+ if(intervalMinutes%60===0)return `Every ${intervalMinutes/60} hours`
+ return `Every ${intervalMinutes} minutes`
+}
+export function backupOverdue(status:BackupStatus|undefined,serverTime:string|undefined):boolean{
+ if(!status||status.running||status.schedulerRunning===false||!serverTime)return false
+ const now=Date.parse(serverTime)
+ if(status.nextBackupAt)return now-Date.parse(status.nextBackupAt)>5*60000
+ return !!status.lastVerifiedAt&&!!status.intervalMinutes&&now-Date.parse(status.lastVerifiedAt)>Math.max(30,status.intervalMinutes*1.5)*60000
+}
