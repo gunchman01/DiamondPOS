@@ -121,7 +121,8 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
 
 /** Letter-size work order (estimate / repair ticket) */
 export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Customer | null, logoUrl: string | null): string {
-  const rows = wo.lines
+  const billLines=(wo.status==='not_fixed'&&wo.feeStatus==='billed')||wo.feeStatus==='billed_only'?wo.lines.filter(l=>l.kind==='fee'):wo.lines
+  const rows = billLines
     .map(
       (l) =>
         `<tr><td>${esc(l.description)}${l.sku ? ` <span class="muted">(${esc(l.sku)})</span>` : ''}</td><td>${l.kind === 'labor' ? 'Labor' : l.kind === 'part' ? 'Part' : l.kind === 'shop' ? 'Shop supplies' : 'Other'}</td>

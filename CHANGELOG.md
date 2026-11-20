@@ -14,6 +14,18 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.51 - 20 Nov 2026
+> Update the Store Server PC first.
+- Send estimate approvals and ready-for-pickup notices by Email, Text, or both. Configure Mobile Text Alerts in Work Order Settings; replies are not monitored. Customers approve or decline through the estimate link.
+- Each channel shows its own send result, with protection against duplicate requests. An uncertain result requires checking the provider before resending.
+- Add an unpaid estimate fee to the work-order bill, change its amount or waive it. A declined repair can charge only that fee; upfront fee credits still work as before.
+- Customer suggestions appear while typing at least two characters in Make a Sale.
+- Includes the held-sale cancellation fix from v0.3.50.
+
+## v0.3.50 - 20 Nov 2026
+- Fixed Cancel sale after recalling a held receipt: confirmation now cancels the saved hold and releases its reserved stock, instead of leaving it in Held Receipts.
+- The sale screen clears only after server confirmation. Retrying a lost reply cannot return inventory twice. Completed sales still require the existing void process.
+
 ## v0.3.49 - 20 Nov 2026
 > Update the Store Server PC first.
 - Redesigned Make a Sale with top scanning/customer search, a full-width item grid, bottom payments, Cancel sale and Take payment on account. Removed Quick Picks.

@@ -36,6 +36,6 @@ export function smsParts(wo:WorkOrder,storeName:string,config:Pick<SmsConfig,'ca
  const plain=(s:string)=>s.replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"')
  const money=(n:number)=>'$'+(n/100).toFixed(2)
  const values={first_name:wo.customerName.split(' ')[0]||'there',customer:wo.customerName,wo_number:wo.number,unit:unitLabel(wo.unit),serial:wo.unit.serial,status:plain(stage(wo.status).label),total:money(wo.totals.totalCents),balance_due:money(wo.balanceDueCents),diagnosis:wo.diagnosis.trim(),work_done:wo.workDone.trim(),store:storeName}
- return {header:storeName.trim(),body:fillTemplate(config.templates[wo.status],values),partsNotice:partsOrderingNotice(wo.status,wo.lines)?'Required parts must be ordered and could take a week to arrive.':'',footer:[config.callbackNumber?'Questions? Call '+config.callbackNumber+'.':'','Reply STOP to opt out.'].filter(Boolean).join('\n')}
+ return {header:storeName.trim(),body:fillTemplate(config.templates[wo.status],values),partsNotice:partsOrderingNotice(wo.status,wo.lines)?'Required parts must be ordered and could take a week to arrive.':'',footer:['Replies are not monitored.',config.callbackNumber?'Questions? Call '+config.callbackNumber+'.':'','Reply STOP to opt out.'].filter(Boolean).join('\n')}
 }
 export function smsContent(draft:Pick<SmsDraft,'header'|'partsNotice'|'footer'>,body:string){return [draft.header,body.trim(),draft.partsNotice,draft.footer].filter(Boolean).join('\n\n')}

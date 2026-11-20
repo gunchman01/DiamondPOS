@@ -313,7 +313,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Customers ---------------------------------------------------------
   app.get('/api/customers', (req, res) => {
-    res.json(searchCustomers(db, String(req.query.search ?? ''), req.query.includeInactive === '1'))
+    res.json(searchCustomers(db, String(req.query.search ?? ''), req.query.includeInactive === '1',req.query.startsWith==='1'))
   })
 
   // Delete items / customers (ones with history are made inactive instead)

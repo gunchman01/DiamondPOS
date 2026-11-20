@@ -1,3 +1,5 @@
+import {testServiceTexts} from './service-texts'
+import { testFeeBillingAndCustomerSearch } from './fee-billing-customer-search'
 import { testCardTypes } from './card-types'
 import { testReceivingAlerts } from './receiving-alerts'
 import { displayScale,normaliseDisplayZoom } from '../src/shared/display'
@@ -54,6 +56,8 @@ const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`P
 async function main() {
   testCardTypes(check,dir)
   await testReceivingAlerts(check,dir)
+  await testServiceTexts(check,dir)
+  await testFeeBillingAndCustomerSearch(check,dir)
   check('auto fit uses available window size rather than physical monitor pixels and avoids excessive shrinking',()=>{
     assert.equal(displayScale(1536,800),.94);assert.equal(displayScale(1920,1080),1)
     assert.equal(displayScale(1024,600),.85);assert.equal(displayScale(8000,4000),1)
@@ -149,7 +153,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 40)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 41)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })

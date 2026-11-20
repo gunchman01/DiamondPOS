@@ -728,7 +728,7 @@ If no default has been saved or that printer is missing, choose an installed pri
 
 Click **Cancel sale** at the bottom of the Sale screen and confirm. This clears all current items and returns, the customer, selected tax settings and any chosen sale date/time, so you can start again. The last completed receipt remains available to reprint.
 
-If you recalled a held receipt, cancelling this checkout leaves the saved hold in **Held Receipts**, with its inventory reservation. Delete the saved hold from Held Receipts if you also want to release it. If you loaded a work order for payment, cancelling removes it from this checkout while keeping the work order and its reserved parts.
+If you recalled a held receipt, **Cancel sale** also cancels that saved hold and releases its reserved inventory. The confirmation explicitly says this. The screen clears only after the Store Server confirms cancellation. If the request fails, the current sale remains so you can retry. Retrying a successful cancellation does not return stock twice. If you loaded a work order for payment, cancelling removes it from this checkout while keeping the work order and its reserved parts.
 
 You cannot cancel a checkout or hold while its save result is still being confirmed. Use its **Check / retry original** action first. To reverse a completed sale, use the existing **Void** process from its saved receipt.
 
@@ -790,3 +790,22 @@ Open **Settings → Receipt Layout**, select the **Items** block, and use **Alt 
 When the Store Server receives a new website approval or decline, a **New estimate response** notice pulses in the top header. Tills check for notices every 15 seconds; website synchronization still follows its existing schedule. Responses needing staff review are included. The notice remains unread in the server database across restarts.
 
 Click the header notice to see the response list and acknowledge the responses shown. Click **Open work order** beside a response to review its ticket. Acknowledgement is shared across tills; newly arriving responses stay unread until they are also opened. If acknowledging fails, the header remains available. People who prefer reduced motion see a steady highlighted notice instead of animation. The notification does not change the existing approval/decline or stock rules. Only responses received after this update are added to the unread list.
+
+
+## Sending work-order notices by email or text
+
+In Work Order Settings, enable **Work-order texts — Mobile Text Alerts**, enter the provider API key and the store phone number, and save. An account enabled for custom messages and a verified sender number is needed. Blank API key keeps the saved key. Keys are stored in the server database and backups; do not share them. Contacts sent by number may be added to the provider account: keep service recipients separate from marketing audiences.
+
+On an estimate or Ready for Pickup ticket, open **Send estimate for decision** or **Notify customer**. Check **Email**, **Text**, or both. Text uses the customer's mobile number, falling back to their phone. Verify the displayed number and confirm the customer agreed to receive service texts. Review the previews and send. These notices are manual; changing a stage does not automatically send anything.
+
+Both estimate messages contain the same revision's approval link. Customers approve or decline on that webpage. Replies to email and text are not monitored in DiamondPOS. Messages tell customers to use the link for decisions and call the store for questions. Mobile Text Alerts processes STOP requests; there is no conversation inbox in the POS.
+
+The result banner and ticket history show each channel separately. **Accepted** means the mail server/provider accepted the request, not confirmed delivery or reading. **Failed** means that channel failed. **Unknown** means the service might have accepted it before the connection failed: check the mail service or Mobile Text Alerts before deliberately sending again. Repeating the same request does not automatically send another message. If either channel accepted or may have accepted an estimate, its decision link stays usable and the follow-up timer starts. If every channel definitely failed, the timer does not start.
+
+## Adding an unpaid estimate fee to the repair bill
+
+On an open ticket with an unpaid fee, choose **Add estimate fee to bill** and confirm. This is an additional bill charge, with no credit for an upfront payment. Collecting the fee upfront retains the existing credit toward repair. Edit the estimate-fee line to change its amount, or remove it to waive the fee. If the repair is declined, ring up the ticket to collect only the deferred estimate fee; unused repair lines are excluded. It can be charged to the customer's enabled account using the normal checkout process.
+
+## Finding a customer while making a sale
+
+Type at least two characters in the customer field to see matching active customer names/company names, email/customer-number prefixes or phone prefixes. Use the arrow keys and Enter or click a result to select it. **Find** opens the full customer picker. Escape closes suggestions.

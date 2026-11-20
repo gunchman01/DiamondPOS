@@ -695,7 +695,10 @@ export const migrations: Migration[] = [
  {version:40,name:'persistent unread estimate responses',up:`
  CREATE TABLE estimate_notifications(estimate_id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),decision TEXT NOT NULL,review INTEGER NOT NULL DEFAULT 0,received_at TEXT NOT NULL DEFAULT (datetime('now')),seen_at TEXT);
  `}
-
+,
+ {version:41,name:'manual work order notification results',up:`
+ CREATE TABLE work_order_notifications(request_id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),request_json TEXT NOT NULL,result_json TEXT,created_at TEXT NOT NULL DEFAULT (datetime('now')));
+ `}
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

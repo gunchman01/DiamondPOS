@@ -8,7 +8,7 @@ import { api } from '../api'
 import { printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
-const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
+const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other', fee:'Estimate fee' } as const
 const FLOW: WoStatus[] = ['needs_estimate', 'waiting_customer', 'approved', 'waiting_parts', 'on_bench', 'ready_review', 'ready_pickup', 'closed']
 
 /** One repair ticket. */
@@ -28,7 +28,12 @@ export default function WorkOrderTicket(props: {
   const [notes, setNotes] = useState({ problem: '', diagnosis: '', workDone: '', internalNotes: '' })
   const [picking, setPicking] = useState(false)
   const [miscOpen, setMiscOpen] = useState(false)
-  const [preview, setPreview] = useState<{ subject: string; html: string; estimate?: boolean } | null>(null)
+  const [preview, setPreview] = useState<{ subject: string; html: string; textPreview?:string; estimate?: boolean } | null>(null)
+  const [emailSelected,setEmailSelected]=useState(true)
+  const [textSelected,setTextSelected]=useState(false)
+  const [textPermission,setTextPermission]=useState(false)
+  const [notificationId,setNotificationId]=useState(()=>crypto.randomUUID())
+  useEffect(()=>{if(preview){setEmailSelected(!!wo?.customerEmail);setTextSelected(false);setTextPermission(false);setNotificationId(crypto.randomUUID())}},[preview])
   const [callNote,setCallNote]=useState('')
   const [callDays,setCallDays]=useState(3)
   const [msg, setMsg] = useState('')
@@ -149,7 +154,7 @@ export default function WorkOrderTicket(props: {
                 })
               }
             >
-              ✉ Email customer: {st.label}
+              ✉ {wo.status==='ready_pickup'||wo.status==='waiting_customer'?'Notify':'Email'} customer: {st.label}
             </button>
           )}
           {wo.lastEmailedAt && (
@@ -180,14 +185,14 @@ export default function WorkOrderTicket(props: {
             {stage(s).label}
           </span>
         ))}
-        {wo.status === 'not_fixed' && (
+        {wo.status === 'not_fixed' && wo.feeStatus!=='billed' && (
           <span className="flow-step current" style={stageStyle(wo.status, colors)}>
             {st.label}
           </span>
         )}
       </div>
       <div className="row gap stage-buttons">
-        {wo.status === 'ready_pickup' && (
+        {(wo.status === 'ready_pickup'||(wo.status==='not_fixed'&&wo.feeStatus==='billed')) && (
           <button className="primary big-ish pay-btn" disabled={busy} onClick={() => props.onPayAtTill(wo.id, 'repair')}>
             💳 Ring up at till · {money(wo.balanceDueCents)} due
           </button>
@@ -197,7 +202,7 @@ export default function WorkOrderTicket(props: {
             Buying new instead → credit {money(wo.feeCents)} at till
           </button>
         )}
-        {wo.status === 'not_fixed' && (
+        {wo.status === 'not_fixed' && wo.feeStatus!=='billed' && (
           <button
             className="big-ish"
             disabled={busy}
@@ -234,7 +239,7 @@ export default function WorkOrderTicket(props: {
       </div>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
-      <FeeBar wo={wo} onCollect={() => props.onPayAtTill(wo.id, 'fee')} />
+      <FeeBar wo={wo} busy={busy} onCollect={() => props.onPayAtTill(wo.id, 'fee')} onBill={()=>void run(async()=>{if(!await confirmAction(`Add the unpaid ${money(wo.feeCents)} estimate fee as a separate charge on this bill? It will be added to the repair total and will not be credited back.`))return;if(notesDirty)await api.woUpdate(wo.id,notes);return api.woBillEstimateFee(wo.id,props.by)},'Estimate fee added to bill')}/>
       {wo.status === 'needs_estimate' && (
         <div className="info-bar">Inventory parts are taken from stock as soon as they are added to this ticket. Removing them or declining the repair returns them to stock.</div>
       )}
@@ -412,35 +417,40 @@ export default function WorkOrderTicket(props: {
       {preview && (
         <div className="modal-backdrop">
           <div className="modal email-modal">
-            <h2>Email {wo.customerName}</h2>
+            <h2>Notify {wo.customerName}</h2>
+            <div className="row gap"><label><input type="checkbox" checked={emailSelected} disabled={busy} onChange={e=>{setEmailSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Email</label>{(preview.estimate||wo.status==='ready_pickup')&&<label><input type="checkbox" checked={textSelected} disabled={busy} onChange={e=>{setTextSelected(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Text</label>}</div>
+            <p className="small">Replies to texts and emails are not monitored. Use the estimate link to approve or decline; call the store for questions.</p>
+            {textSelected&&<><p>Text to: <b>{wo.customerPhone||'(no phone number)'}</b>. {preview.estimate?'Includes the estimate total and the same approval link as the email.':'Includes the unit, work-order number and balance due.'}</p><label><input type="checkbox" checked={textPermission} disabled={busy} onChange={e=>{setTextPermission(e.target.checked);setNotificationId(crypto.randomUUID())}}/>Customer agreed to receive service texts at this number.</label></>}
             <div className="small">
               To: <b>{wo.customerEmail ?? '(no email address)'}</b>
               <br />
               Subject: <b>{preview.subject}</b>
             </div>
-            <div className="email-preview">
+            {textSelected&&<pre style={{whiteSpace:'pre-wrap',maxHeight:220,overflow:'auto'}}>{preview.textPreview}</pre>}
+            {emailSelected&&<div className="email-preview">
               <div
                 className="email-body"
                 dangerouslySetInnerHTML={{
                   __html: preview.html.slice(preview.html.indexOf('<body'), preview.html.lastIndexOf('</body>')).replace(/^<body[^>]*>/, '')
                 }}
               />
-            </div>
+            </div>}
             {error && <div className="error-text">{error}</div>}
             <div className="row gap end">
               <button onClick={() => setPreview(null)}>Cancel</button>
               <button
                 className="primary"
-                disabled={busy || !wo.customerEmail}
+                disabled={busy || (!emailSelected&&!textSelected) || (emailSelected&&!wo.customerEmail) || (textSelected&&(!wo.customerPhone||!textPermission))}
                 onClick={() =>
                   run(async () => {
-                    const w = await api.woEmail(wo.id, props.by,preview.estimate)
+                    const result = await api.woNotify(wo.id,{requestId:notificationId,by:props.by,estimate:!!preview.estimate,email:emailSelected,text:textSelected,permission:textPermission})
                     setPreview(null)
-                    return w
-                  }, `Email sent to ${wo.customerEmail}`)
+                    setMsg(Object.entries(result.results).map(([channel,r])=>`${channel}: ${r.status}. ${r.detail}`).join(' '))
+                    return result.workOrder
+                  })
                 }
               >
-                {preview.estimate?'Send estimate & start follow-up timer':'Send email'}
+                {preview.estimate?'Send estimate & start follow-up timer':'Send notification'}
               </button>
             </div>
           </div>
@@ -562,7 +572,7 @@ function MiscLine(props: { onSave: (description: string, cents: number) => void;
 }
 
 /** Estimate fee status for the ticket header */
-function FeeBar({ wo, onCollect }: { wo: WorkOrder; onCollect: () => void }) {
+function FeeBar({ wo, onCollect,onBill,busy }: { wo: WorkOrder; onCollect: () => void;onBill:()=>void;busy:boolean }) {
   const fee = money(wo.feeCents)
   switch (wo.feeStatus) {
     case 'none':
@@ -576,11 +586,15 @@ function FeeBar({ wo, onCollect }: { wo: WorkOrder; onCollect: () => void }) {
             <b>Estimate fee {fee} not paid yet.</b> It's credited toward the repair or a new purchase, or kept if the customer
             declines.
           </span>
-          <button className="primary" onClick={onCollect}>
+          <button className="primary" disabled={busy} onClick={onCollect}>
             Collect {fee} at till
           </button>
+          <button disabled={busy} onClick={onBill}>Add estimate fee to bill</button>
         </div>
       )
+    case 'billed_only':
+    case 'billed':
+      return <div className="fee-bar">Estimate fee {fee} is included as a separate bill item{wo.feeSaleId?` on receipt #${wo.feeSaleId}`:''}. It is not collected separately or credited. {wo.status==='not_fixed'&&'Only the estimate fee is charged when ringing up this declined repair.'}</div>
     case 'paid':
       return (
         <div className="fee-bar paid">

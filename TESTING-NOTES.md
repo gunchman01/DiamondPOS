@@ -1,27 +1,27 @@
-# DiamondPOS v0.3.49 — store test notes
+# DiamondPOS v0.3.51 — store acceptance tests
 
-Validated locally: typecheck, production build and 318 regression checks. The actual Windows 125% layout and physical store devices still need testing. No installer has been built here; GitHub Actions builds Windows after you push the tag.
+Fix: after recalling a held receipt, Cancel sale now cancels the saved hold and releases its reserved stock. It previously only cleared the screen. Schema 41 adds notification audit records; no website changes.
 
-## Test at the store
+Validation: 338 regression checks, typecheck and production build passed. Real Windows interaction remains for your store check.
 
-1. Back up first; update Store Server, then all tills to v0.3.49. Confirm no unresolved checkout/account-payment recovery or QuickBooks sync before closing.
-2. Maximize the POS on the 1920×1080 / 125% screen. Review Settings → Display Auto fit and manual sizes. Check customer search, scanning/F2, qty +/- and negative returns, tax/date overrides, payment methods, holds and Cancel sale.
-3. Right-click columns: add Alt lookup and cost columns if custom choices were already saved. Settings → Receipt Layout → Items → Alt lookup checkbox; test preview/print and reprint after changing the item's ALU.
-4. Credit and Debit checkout/refunds, account charge, Take payment on account search/full/partial payment, and end-of-day/QB method mappings. Existing historical Visa etc remain intact. Test with the existing QuickBooks test company.
-5. Add/remove a mechanic, assign a ticket, group four units (1 of 4), and move an approved repair with all parts available to On the Bench.
-6. Receive a partial delivery for Waiting on Parts tickets, check the popup, open a ticket and verify the remaining shortage. Review the posted receiving again. No ticket stage is automatically changed; no label automatically prints.
-7. Submit a test estimate approval/decline on your working website. After the normal sync and up to 15 seconds for header polling, confirm the new-response header notice. Restart before acknowledging to test persistence; open it and navigate to the work order. Acknowledgement is store-wide.
-8. Test item/receiving/work-order labels, chooser defaults/cancel, receipt and full-page print, then normal app close and restart. If typing freezes again, use Help → Restore keyboard focus and collect Help → Open diagnostic logs.
+1. Note an item's on-hand stock, put a sale containing it on hold, and confirm the normal reservation.
+2. Recall that hold. Click Cancel sale and decline the confirmation: the ticket and reservation must remain.
+3. Click Cancel sale and confirm. The screen should clear, the hold should disappear from Held Receipts, and inventory should return to its pre-hold amount.
+4. Repeat with several quantities/items. Cancel from Held Receipts remains supported.
+5. If connectivity fails, the sale stays on screen. Retry cancellation; a lost response must not release stock twice.
+6. Ring up another held receipt normally: inventory must remain deducted once. A completed hold cannot be cancelled with the held-delete endpoint; use the saved receipt's existing void process if appropriate.
 
-## Known limits
+Apply the Store Server update first, then tills, because the server now handles cancellation retries idempotently. No QuickBooks transaction is created for cancelling an unpaid hold. Payment/hold recovery still blocks cancellation of uncertain saves. The separate Citizen blank-receipt issue remains unconfirmed; test with the actual printer.
 
-- Citizen CT-S310 blank feed/cut: not reproduced or confirmed fixed. Retest with the existing working Citizen Windows driver; collect its test-page result and exact driver/paper settings if still blank. This update adds printer choice, not a confirmed hardware fix.
-- Browser screenshot/interaction preview was blocked by the execution environment's Chromium socket restrictions. New layout, dialogs and Auto fit need the physical Windows check above.
-- Work-order SMS sending is not included. Provider connection and estimate-link/pickup-text delivery remain future work.
-- No website PHP files or private keys/databases need replacement for this POS update. Keep the working AOD configuration. The separate mobile website stylesheet fix is not part of this ZIP.
-- Database upgrades from schema 34 to 40 include a reserved SMS audit table (no active texting feature), mechanics, visit groups, Credit/Debit classification, receipt ALU snapshots and unread estimate notices.
-- Earlier converted On the Bench tickets stay Approved until manually moved back. Old receipts without an ALU snapshot use current item lookup data. Historical responses are not backfilled into unread notifications.
 
-## Recovery
+## New work-order/customer checks
 
-Keep the verified pre-update backup. Do not simply install an old POS on a newly changed database if results look wrong; stop, record any test activity, and plan the rollback/restore so nothing is accidentally discarded. Do not take payment again after an uncertain save or printer failure: use the original recovery/receipt checks.
+- Type gr in the Sale customer search: matching active first/last/company prefixes should appear. Select by mouse and by arrow keys/Enter; confirm customer tax handling remains correct.
+- Unpaid estimate fee: Add estimate fee to bill, edit its amount, and verify it is charged once. Remove it to waive. Decline another repair and verify checkout/closed-ticket totals/printing charge only the fee, excluding unused repair lines. Verify an upfront paid fee still gets its repair credit.
+- Configure Mobile Text Alerts with your own key/callback and verified custom-message sender. Save with a blank key and verify it keeps the key. No actual texts were sent in development.
+- With a self-address/self-number test customer: send an estimate by email only, text only and both. Both channels must share one decision link; use the link to approve/decline, and verify website response/notice behavior. Text-only must not claim an email was sent.
+- Ready for Pickup: select each channel, review previews and customer number, confirm service-text permission and send manually. Verify mandatory unmonitored-reply instructions and callback number.
+- Check per-channel result/history. Accepted is provider handoff, not confirmed delivery. For Unknown or interrupted sends, check the provider before deliberately sending again. Repeating the same request must not send a duplicate.
+- Test STOP/provider suppression on the self-number using provider instructions. Replies do not create a POS inbox; service contacts must not be placed in marketing sends.
+
+Install the Store Server first, then all tills (minimum 0.3.51). Hardware/Windows/real delivery acceptance remains pending.

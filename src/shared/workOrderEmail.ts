@@ -46,7 +46,7 @@ export function partsOrderingNotice(status: WoStatus, lines: WoLine[]): string {
   return `The following required ${missing.length === 1 ? 'part is' : 'parts are'} not currently in stock in the quantity needed and will have to be ordered: ${missing.join('; ')}. ${missing.length === 1 ? 'It' : 'They'} could take a week to arrive.`
 }
 
-const kindLabel = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other' } as const
+const kindLabel = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other', fee:'Estimate fee' } as const
 
 export function woEmailHtml(c: WoEmailContent): string {
   const paras = c.body
@@ -84,7 +84,7 @@ ${c.bill.feeCreditCents ? `<tr><td colspan="3" align="right" style="padding:6px 
 <tr><td style="background:#9b0c23;color:#ffffff;padding:14px 20px;font-size:20px;font-weight:bold">${esc(c.storeName)}</td></tr>
 <tr><td style="padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151">
 Work order <b>${esc(c.woNumber)}</b> · ${esc(c.unit)}${c.serial ? ` · S/N ${esc(c.serial)}` : ''}<br>Status: <b>${esc(c.statusLabel)}</b></td></tr>
-<tr><td style="padding:18px 20px 6px;font-size:15px;line-height:1.5">${paras}${notice}${approval}${bill}</td></tr>
+<tr><td style="padding:18px 20px 6px;font-size:15px;line-height:1.5">${paras}${notice}${approval}${bill}<p>Replies to this email are not monitored. Use the estimate link to approve or decline, or call the store with questions.</p></td></tr>
 <tr><td style="padding:12px 20px 18px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb">${esc(c.storeName)}<br>${esc(c.storeAddress).replace(/\n/g, '<br>')}</td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -104,5 +104,5 @@ export function woEmailText(c: WoEmailContent): string {
         ''
       ].join('\n')
     : ''
-  return `Work order ${c.woNumber} - ${c.unit}${c.serial ? ` - S/N ${c.serial}` : ''}\nStatus: ${c.statusLabel}\n\n${c.body}${c.approvalLink ? '\n\nReview this estimate and approve or decline: '+c.approvalLink : c.estimatePreview ? '\n\nApproval links will be added when sent.' : ''}${c.partsNotice ? '\n\nParts availability\n' + c.partsNotice : ''}\n${bill}\n---\n${c.storeName}\n${c.storeAddress}`
+  return `Work order ${c.woNumber} - ${c.unit}${c.serial ? ` - S/N ${c.serial}` : ''}\nStatus: ${c.statusLabel}\n\n${c.body}\n\nReplies to this email are not monitored. Use the estimate link to approve or decline, or call the store with questions.${c.approvalLink ? '\n\nReview this estimate and approve or decline: '+c.approvalLink : c.estimatePreview ? '\n\nApproval links will be added when sent.' : ''}${c.partsNotice ? '\n\nParts availability\n' + c.partsNotice : ''}\n${bill}\n---\n${c.storeName}\n${c.storeAddress}`
 }

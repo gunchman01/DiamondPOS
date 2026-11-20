@@ -252,11 +252,14 @@ export function registerHeldRoutes(app: express.Express, db: DB) {
     '/api/held/:id',
     wrap((req, res) => {
       db.transaction(() => {
-        const r = db
-          .prepare("UPDATE held_sales SET status = 'deleted', updated_at = datetime('now') WHERE id = ? AND status = 'held'")
-          .run(Number(req.params.id))
-        if (r.changes === 0) throw new HeldError(404, 'That held receipt was not found')
-        releaseHeldStock(db, Number(req.params.id))
+        const id=Number(req.params.id)
+        const existing=db.prepare('SELECT status FROM held_sales WHERE id=?').get(id) as {status:string}|undefined
+        if(!existing)throw new HeldError(404,'That held receipt was not found')
+        // A lost cancellation reply can be retried without returning inventory twice.
+        if(existing.status==='deleted')return
+        if(existing.status!=='held')throw new HeldError(409,'This held receipt was already completed. Review its saved sale; cancelling cannot void it.')
+        db.prepare("UPDATE held_sales SET status='deleted',updated_at=datetime('now') WHERE id=? AND status='held'").run(id)
+        releaseHeldStock(db,id)
       })()
       res.json({ ok: true })
     })

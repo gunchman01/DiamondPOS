@@ -151,10 +151,10 @@ export const api = {
   importProducts: (items: ImportItem[], opts: { dryRun: boolean; updateExisting: boolean }) =>
     request<ImportSummary>('POST', '/api/products/import', { items, ...opts }, undefined, undefined, 120000),
 
-  listCustomers: (search = '', includeInactive = false) =>
+  listCustomers: (search = '', includeInactive = false, startsWith=false) =>
     request<Customer[]>(
       'GET',
-      `/api/customers?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}`
+      `/api/customers?search=${encodeURIComponent(search)}${includeInactive ? '&includeInactive=1' : ''}${startsWith?'&startsWith=1':''}`
     ),
   getCustomer: (id: number) => request<CustomerDetail>('GET', `/api/customers/${id}`),
   createCustomer: (c: CustomerInput) => request<Customer>('POST', '/api/customers', c),
@@ -195,6 +195,7 @@ export const api = {
     request<WorkOrder>('POST', '/api/workorders', b),
   woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}`, b),
+  woBillEstimateFee:(id:number,by:string)=>request<WorkOrder>('POST',`/api/workorders/${id}/bill-estimate-fee`,{by}),
   woStatus: (id: number, status: WoStatus, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/status`, { status, by }),
   woAddLine: (id: number, l: Partial<WoLineInput>) => request<WorkOrder>('POST', `/api/workorders/${id}/lines`, l),
   woUpdateLine: (id: number, lineId: number, l: Partial<WoLineInput>) =>
@@ -206,7 +207,10 @@ export const api = {
   syncApprovals: () => request<ApprovalConfig>('POST','/api/workorders/approval/sync'),
   woFollowUp: (id:number,note:string,days:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/follow-up`,{note,days,by}),
   woCancelEstimate: (id:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/cancel-estimate`,{by}),
-  woEmailPreview: (id: number, estimate=false) => request<{ subject: string; html: string; text: string }>('GET', `/api/workorders/${id}/email-preview${estimate?'?estimate=1':''}`),
+  woTextSettings: () => request<{enabled:boolean;hasKey:boolean;callbackNumber:string}>('GET','/api/workorders/text-settings'),
+  woSaveTextSettings: (s:{enabled:boolean;apiKey:string;callbackNumber:string;clearKey?:boolean}) => request<{enabled:boolean;hasKey:boolean;callbackNumber:string}>('PUT','/api/workorders/text-settings',s),
+  woNotify: (id:number,body:{requestId:string;by:string;estimate:boolean;email:boolean;text:boolean;permission:boolean}) => request<{workOrder:WorkOrder;results:Record<string,{status:string;detail:string}>}>('POST',`/api/workorders/${id}/notify`,body),
+  woEmailPreview: (id: number, estimate=false) => request<{ subject: string; html: string; text: string; textPreview:string }>('GET', `/api/workorders/${id}/email-preview${estimate?'?estimate=1':''}`),
   woEmail: (id: number, by: string, estimate=false) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by, estimate }),
   woPickupNotFixed: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/pickup-not-fixed`, { by }),
 

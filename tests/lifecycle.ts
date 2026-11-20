@@ -65,6 +65,13 @@ export async function testLifecycle(check:Check,dir:string){
  blockedCancellation=false
  assert.equal(await cancelSaleDraft(cancelOptions),true)
  check('confirming cancellation clears the draft exactly once when no checkout or hold is pending',()=>assert.equal(cancelledDrafts,1))
+ let heldClears=0,remoteCalls=0
+ await assert.rejects(cancelSaleDraft({blocked:()=>false,confirm:async()=>true,beforeClear:async()=>{remoteCalls++;throw Error('Reply lost')},clear:()=>heldClears++}),/Reply lost/)
+ check('a failed or uncertain held cancellation keeps the sale draft until the server confirms it',()=>{assert.equal(heldClears,0);assert.equal(remoteCalls,1)})
+ await cancelSaleDraft({blocked:()=>false,confirm:async()=>false,beforeClear:async()=>{remoteCalls++},clear:()=>heldClears++})
+ assert.equal(remoteCalls,1)
+ await cancelSaleDraft({blocked:()=>false,confirm:async()=>true,beforeClear:async()=>{remoteCalls++},clear:()=>heldClears++})
+ check('confirmed held cancellation waits for server acknowledgement before clearing the sale',()=>{assert.equal(remoteCalls,2);assert.equal(heldClears,1)})
  let stopped=0,quit=0,exit=0
  const controller=createQuitController({stop:async()=>{stopped++},quit:()=>{quit++},exit:()=>{exit++},log:()=>{},deadlineMs:100})
  const first=controller.begin(),again=controller.begin();await first

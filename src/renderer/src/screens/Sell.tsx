@@ -1,3 +1,4 @@
+import CustomerSearch from '../CustomerSearch'
 import AccountBalancePicker from './AccountBalancePicker'
 import type { ItemCostSummary } from '../../../shared/receiving'
 import { cancelSaleDraft } from '../saleCancellation'
@@ -137,6 +138,7 @@ export default function Sell({
   const scanRef = useRef<HTMLInputElement>(null)
   const draftGeneration=useRef(0)
   const [cancelling,setCancelling]=useState(false)
+  const [cancelWaiting,setCancelWaiting]=useState(false)
 
   const load = () => {
     api.getSettings()
@@ -783,7 +785,8 @@ export default function Sell({
     try{
       await cancelSaleDraft({
         blocked:()=>checkoutBusy.current||holdBusy.current||!!localStorage.getItem(pendingKey)||!!localStorage.getItem(holdKey),
-        confirm:()=>confirmAction('Cancel the entire current sale? All items, returns, customer and sale-specific settings will be cleared.'+(held?' The saved held receipt will stay in Held Receipts with its inventory reservation.':'')+(wo?' The work order and its reserved parts will stay intact.':'')),
+        confirm:()=>confirmAction('Cancel the entire current sale? All items, returns, customer and sale-specific settings will be cleared.'+(held?` Held receipt ${heldNumber(held.id)} will also be cancelled and its reserved stock returned to inventory.`:'')+(wo?' The work order and its reserved parts will stay intact.':'')),
+        beforeClear:async()=>{if(held){setCancelWaiting(true);try{await api.deleteHeld(held.id)}finally{setCancelWaiting(false)}}},
         clear:()=>{
           draftGeneration.current++
           setCart([]);setReturns([]);setReceipts({});setSelectedId(null)
@@ -794,8 +797,9 @@ export default function Sell({
           setKioskOpen(false);setEditingCustomer(false);setPickingWo(false);setReturning(false)
           setHolding(false);setRecalling(false);setViewAccount(false)
           setCheckoutError('');setHoldError('')
+          if(held)refreshHeldCount()
           if(wo)onWorkOrderDone?.()
-          setMessage({kind:'info',text:held?'Current sale cancelled. Saved held receipt is still available in Held Receipts.':'Sale cancelled. Ready for a new sale.'})
+          setMessage({kind:'info',text:held?'Held receipt cancelled and reserved stock released. Ready for a new sale.':'Sale cancelled. Ready for a new sale.'})
           focusScan()
         }
       })
@@ -832,6 +836,7 @@ export default function Sell({
 
   return (
     <div className="register qb-sale" onPointerDown={e=>{for(const menu of e.currentTarget.querySelectorAll<HTMLDetailsElement>('details[open]'))if(!menu.contains(e.target as Node))menu.open=false}} onKeyDown={e=>{if(e.key==='Escape')for(const menu of e.currentTarget.querySelectorAll<HTMLDetailsElement>('details[open]'))menu.open=false}}>
+      {cancelWaiting&&<div className="modal-backdrop"><div className="modal" role="status"><h2>Cancelling held receipt…</h2><p>Waiting for the Store Server to confirm cancellation and release reserved stock.</p></div></div>}
       {viewAccount&&accountCustomer&&<CustomerAccountDialog key={accountCustomer.id} customer={accountCustomer} onClose={()=>{setViewAccount(false);setAccountCustomer(null);focusScan()}}/>}
       {accountPicker&&<AccountBalancePicker onCancel={()=>{setAccountPicker(false);focusScan()}} onPick={chosen=>{setAccountPicker(false);setAccountCustomer(chosen);setViewAccount(true)}}/>}
       {pendingHold&&<div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true"><h2>Confirm held inventory</h2><p>Check the original hold before starting another. Retrying does not reserve inventory twice.</p>{holdError&&<p className="error-text">{holdError}</p>}<button onClick={()=>void holdSale('').catch(()=>{})}>Check / retry original hold</button></div></div>}
@@ -932,7 +937,7 @@ export default function Sell({
             {wo?<span className="wo-chip">{wo.order.number}</span>:<button onClick={()=>setPickingCustomer(true)}>Change</button>}
             {customer.taxExempt&&!canExempt&&<button onClick={()=>setEditingCustomer(true)}>Update Tax ID</button>}
             <button className="danger" title={wo?'Take the work order off this sale':'Remove customer'} onClick={async()=>{if(wo){if(!await confirmAction(`Take ${wo.order.number} off this sale?`))return;setWo(null);onWorkOrderDone?.()}setCustomer(null);setCustomerQuery('');setExempt(false)}}>✕</button>
-          </>:<form className="sale-customer-search" onSubmit={e=>{e.preventDefault();setPickingCustomer(true)}}><input aria-label="Customer name or phone" placeholder="Enter customer name or phone" value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)}/><button type="submit" title="Find or add customer (F5)">Find ▾</button></form>}
+          </>:<CustomerSearch value={customerQuery} onChange={setCustomerQuery} onPick={chosen=>{attachCustomer(chosen,'Customer');focusScan()}} onFind={()=>setPickingCustomer(true)}/>}
         </div>
       </div>
       {/* ---------- Receipt (current sale) ---------- */}

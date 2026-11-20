@@ -71,6 +71,24 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.51 check-in — 20 November 2026
+- Greg authorized checking in the cumulative batch on main. Main baseline 25eb2c031a845c3c71e431d431a755bacb04dded was unchanged. Include v0.3.50 cancellation plus all pending notification/fee/search work, preserving existing main files.
+- Prepared version/minimum client 0.3.51 for schema 41; Store Server first, then all tills. This check-in does not tag/publish an installer or send messages. START-HERE.md contains pull/test and separate later-release commands. Real Windows/provider delivery still pending.
+
+### Pending batch — 20 November 2026: work-order notifications, deferred estimate fees and live customer suggestions
+- Manual Notify dialog offers Email, Text, or both for estimates and Ready for Pickup; other stages retain email. Text requires staff confirmation of customer service-text permission and uses mobile first, otherwise phone. Both channels use the same new estimate revision/link. Mandatory reply-not-monitored instructions appear in emails/texts, with website decisions and store callback; no reply inbox/webhooks or automatic messages.
+- Settings → Work Orders includes Mobile Text Alerts enable/API key/store callback. Secret omitted from settings views; blank retains it. Uses verified official v3/send API with one E.164 subscriber, no group/all-subscriber sends, 20s deadline/cancellation and no redirects. HTTP acceptance is not delivery. Provider handles STOP; provider account/verified custom-message sender still required and actual outbound verification is pending. No live texts/email sent here.
+- Schema 41 persists request identity/result before/after network sends. Repeated requests return saved outcomes without duplicate paid sends; unfinished requests block automatic resending. Per-channel failures/uncertain results go to ticket history and the result banner; no secret/provider response bodies exposed. Preserve decision links when another channel accepts or might have accepted; all definite failures do not start follow-up. Server first on eventual release; update all tills together and raise minimum client version for fee statuses/new notification flow. Check-in candidate is version 0.3.51, minimum client 0.3.51; no release tag created.
+- Add estimate fee to bill converts unpaid fee into one separate fee line, idempotently. No upfront-payment credit for deferred charges; original paid fee credit unchanged. Declined repairs bill only the diagnostic fee, including closed totals/printed page, not unused parts/labor. Editing/removing fee updates or waives its fee record. Supports existing on-account checkout.
+- Sale customer search suggests active first/last/company/name/email/customer-number prefixes after two characters with 150ms debounce, phone prefixes and stale-response protection. Existing full picker remains available. Corrected an unrelated vendor API query typo caught by typecheck.
+- Validation: 338 regression checks pass including provider mocks, duplicate/uncertain sends, text-only approval timer, rejected text, email failure with successful text preserving approval, deferred fees and customer prefixes. Final typecheck and production build pass. Windows interaction/real provider delivery still require store testing. User authorized check-in on main after validation; no release tag, ZIP or deployment.
+
+
+### v0.3.50 — 20 November 2026: cancel recalled hold completely
+- User reported v0.3.49 Cancel sale left a recalled receipt in Held Receipts. Changed confirmation and cancellation flow: await DELETE held before clearing the draft, refresh held count, release reserved inventory and prevent pointer/keyboard actions during server confirmation. Errors preserve the draft/link for retry.
+- DELETE held is idempotent for status deleted, returns 409 for a completed hold, 404 for nonexistent. Entire status/stock change stays in one DB transaction. No new database migration; work orders and completed receipts unaffected.
+- Added tests for cancelled hold absence, already-completed refusal, one-time stock release and async confirmation/failure ordering. 322 regressions, typecheck/build pass. Small source overlay against main 25eb2c031a845c3c71e431d431a755bacb04dded, package version 0.3.50; min client remains 0.3.49. Greg publishes/updates, no remote writes performed here.
+
 ### Release candidate v0.3.49 — 20 November 2026
 - Removed Quick Picks from Sale, item setup/list filter/columns and import/export templates; retained legacy DB/model fields for compatibility. Sale loads settings without the Quick Pick request.
 - ALU is a default sale column and configurable Items-block receipt option (on by default). Schema 39 snapshots lookup values, including original values on linked returns; legacy rows fall back to current catalog. Full-page sales print lookup too.
@@ -578,7 +596,7 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 
 - Investigate Citizen CT-S310 blank slip from DiamondPOS while QuickBooks prints correctly. Receipt jobs currently inherit driver paper sizing; cause unconfirmed and physical test pending.
 
-- Finish the pending manual work-order texting integration after provider choice. Include the existing approval webpage link in estimate texts and ready-for-pickup messages only. No automatic sends or two-way inbox.
+- Configure Mobile Text Alerts on the eventual new release and run a self-number estimate/pickup test. Verify both-channel partial failure results, STOP handling and no duplicate resend; no live messages have been sent here.
 - Store test pending bench/mechanic changes in the next cumulative update; update Store Server first for schema changes.
 
 - Verify Customer Equipment on Windows with a real repair intake unit. Proposed next feature: limited store-Wi-Fi mechanic phone access and unit/work-order photos, including backup/restore of photo data. Not yet implemented.

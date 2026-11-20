@@ -144,7 +144,8 @@ export async function sendEstimate(
   wo: WorkOrder,
   by: string,
   send: (link: string) => Promise<void>,
-  transport: Transport = approvalRequest
+  transport: Transport = approvalRequest,
+  deliveryLabel: string | (()=>string) = 'emailed'
 ) {
   if (!['needs_estimate', 'waiting_customer'].includes(wo.status))
     throw new Error('Send estimates from Needs Estimate or Waiting on Customer')
@@ -177,6 +178,7 @@ export async function sendEstimate(
     const link = new URL('index.php', c.url.endsWith('/') ? c.url : c.url + '/')
     link.searchParams.set('token', token)
     await send(link.href)
+    const deliveredBy=typeof deliveryLabel==='function'?deliveryLabel():deliveryLabel
     db.transaction(() => {
       db.prepare(
         "UPDATE work_order_estimates SET state='superseded' WHERE work_order_id=? AND id<>? AND state IN ('pending','prepared')"
@@ -185,8 +187,8 @@ export async function sendEstimate(
       const current = loadWorkOrder(db, wo.id, readSettings(db).taxRate)!
       if (['needs_estimate', 'waiting_customer'].includes(current.status))
         db.prepare(
-          "UPDATE work_orders SET status='waiting_customer',last_emailed_at=datetime('now'),last_emailed_status='waiting_customer',updated_at=datetime('now') WHERE id=?"
-        ).run(wo.id)
+          "UPDATE work_orders SET status='waiting_customer',last_emailed_at=CASE WHEN ? THEN datetime('now') ELSE last_emailed_at END,last_emailed_status=CASE WHEN ? THEN 'waiting_customer' ELSE last_emailed_status END,updated_at=datetime('now') WHERE id=?"
+        ).run(deliveredBy.includes('email')?1:0,deliveredBy.includes('email')?1:0,wo.id)
       else
         db.prepare(
           "UPDATE work_order_estimates SET state='review',comment='Ticket stage changed while estimate email was sending' WHERE id=?"
@@ -194,7 +196,7 @@ export async function sendEstimate(
       addHistory(
         db,
         wo.id,
-        `Estimate revision ${revision} emailed: $${(s.totalCents / 100).toFixed(2)}. Waiting for customer decision.`,
+        `Estimate revision ${revision} ${deliveredBy}: $${(s.totalCents / 100).toFixed(2)}. Waiting for customer decision.`,
         by,
         'waiting_customer'
       )

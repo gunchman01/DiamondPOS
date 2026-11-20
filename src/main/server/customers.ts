@@ -172,7 +172,20 @@ export function updateCustomer(db: DB, id: number, c: CustomerInput): void {
 }
 
 /** Search by name, company, phone numbers, email or Customer ID */
-export function searchCustomers(db: DB, search: string, includeInactive: boolean): Customer[] {
+export function searchCustomers(db: DB, search: string, includeInactive: boolean, prefix=false): Customer[] {
+  if(prefix){
+    const q=search.trim().slice(0,200)
+    if(q.length<2)return []
+    const fields=['first_name','last_name',"(COALESCE(first_name,'') || ' ' || COALESCE(last_name,''))",'company','email','customer_no']
+    const clauses=fields.map(field=>`substr(lower(COALESCE(${field},'')),1,length(?))=lower(?)`)
+    const params:string[]=fields.flatMap(()=>[q,q])
+    const digits=q.replace(/\D/g,'')
+    if(digits.length>=2)for(const field of ['phone','mobile','alt_phone']){
+      const normalized=`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${field},''),' ',''),'-',''),'(',''),')',''),'+','')`
+      clauses.push(`substr(${normalized},1,length(?))=?`);params.push(digits,digits)
+    }
+    return (db.prepare(`SELECT * FROM customers WHERE ${includeInactive?'':'active=1 AND '}(${clauses.join(' OR ')}) ORDER BY COALESCE(CASE WHEN track_as_company=1 THEN company END,last_name,company,first_name) COLLATE NOCASE LIMIT 500`).all(...params) as Row[]).map(toCustomer)
+  }
   const where: string[] = []
   const params: string[] = []
   if (!includeInactive) where.push('active = 1')

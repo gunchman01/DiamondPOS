@@ -1,3 +1,4 @@
+import ServiceTextSettings from './ServiceTextSettings'
 import ApprovalSettings from './ApprovalSettings'
 import { useEffect, useState } from 'react'
 import {
@@ -93,6 +94,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         </button>
       </div>
       <h2>Work order settings</h2>
+      <ServiceTextSettings />
       <ApprovalSettings/>
       <div className="card form"><h3>Mechanics</h3><p className="muted">Removing a mechanic hides them from new assignments. Existing tickets and history keep their name. Adding the same name restores them.</p>
       <div className="row gap"><input aria-label="Mechanic name" maxLength={80} value={mechanicName} onChange={e=>setMechanicName(e.target.value)} placeholder="Mechanic name"/><button disabled={mechanicBusy||!mechanicName.trim()} onClick={async()=>{setMechanicBusy(true);try{await api.woAddMechanic(mechanicName);await reloadMechanics();setMechanicName('')}catch(e){setError((e as Error).message)}finally{setMechanicBusy(false)}}}>Add mechanic</button></div>

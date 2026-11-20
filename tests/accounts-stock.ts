@@ -134,12 +134,23 @@ export async function testAccountsStock(check: Check, dir: string) {
     check('voiding a sale originally held restores the sold quantity once', () =>
       assert.equal(db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand, 100)
     )
+    const completedCancel=await call(`/api/held/${held.data.id}`,'DELETE')
+    check('cancelling an already completed hold cannot reverse its receipt or inventory',()=>{
+      assert.equal(completedCancel.status,409)
+      assert.equal(db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand,100)
+    })
     const deleted = await call('/api/held', 'POST', { ...holdBody, requestId: crypto.randomUUID() })
     await call(`/api/held/${deleted.data.id}`, 'DELETE')
     const deletedAgain = await call(`/api/held/${deleted.data.id}`, 'DELETE')
     check('deleting a held receipt restores inventory exactly once', () => {
-      assert.equal(deletedAgain.status, 404)
+      assert.equal(deletedAgain.status, 200)
       assert.equal(db.prepare('SELECT on_hand FROM products WHERE id=1').get().on_hand, 100)
+    })
+    const visibleHolds=await call('/api/held'),cancelledLookup=await call(`/api/held/${deleted.data.id}`)
+    check('cancelled held receipts disappear from recall and remain cancelled on repeated requests',()=>{
+      assert.ok(!visibleHolds.data.some((row:any)=>row.id===deleted.data.id))
+      assert.equal(cancelledLookup.status,404)
+      assert.equal(db.prepare('SELECT status FROM held_sales WHERE id=?').get(deleted.data.id).status,'deleted')
     })
     const onlyHold = Number(
       db.prepare("INSERT INTO products(name,type,price_cents,on_hand) VALUES ('Hold only','inventory',100,5)").run().lastInsertRowid

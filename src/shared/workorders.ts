@@ -115,7 +115,7 @@ export const OPEN_STATUSES: WoStatus[] = STAGES.filter((s) => s.status !== 'clos
 
 // ---------------- Work orders ----------------
 
-export type WoLineKind = 'part' | 'labor' | 'shop' | 'misc'
+export type WoLineKind = 'part' | 'labor' | 'shop' | 'misc' | 'fee'
 
 export interface WoLine {
   id: number
@@ -144,7 +144,7 @@ export interface WoHistory {
 }
 
 /** none = no fee; unpaid; paid = held as a credit; applied = credited on a sale; kept = customer declined */
-export type FeeStatus = 'none' | 'unpaid' | 'paid' | 'applied' | 'kept'
+export type FeeStatus = 'none' | 'unpaid' | 'paid' | 'applied' | 'kept' | 'billed' | 'billed_only'
 
 export interface WorkOrder {
   estimate?: EstimateInfo | null
@@ -235,7 +235,7 @@ export function woTotals(lines: Pick<WoLine, 'kind' | 'qty' | 'unitPriceCents' |
     laborCents: sum('labor'),
     laborHours: lines.filter((l) => l.kind === 'labor').reduce((s, l) => s + l.qty, 0),
     shopCents: sum('shop'),
-    miscCents: sum('misc'),
+    miscCents: sum('misc') + sum('fee'),
     subtotalCents: priced.subtotalCents,
     totalCents: priced.totalCents,
     taxCents: priced.taxCents,
@@ -367,7 +367,7 @@ export interface WoSaleLine {
 /** Is this action possible for the ticket right now? (explains why not) */
 export function woSaleProblem(wo: Pick<WorkOrder, 'status' | 'feeStatus' | 'feeCents'>, mode: WoSaleMode): string | null {
   if (mode === 'fee') return wo.feeStatus === 'unpaid' ? null : 'The estimate fee is not waiting to be paid'
-  if (mode === 'repair') return wo.status === 'ready_pickup' ? null : 'Only tickets that are Ready for Pick Up can be rung up'
+  if (mode === 'repair') return wo.status === 'ready_pickup' || (wo.status==='not_fixed'&&wo.feeStatus==='billed') ? null : 'Only tickets that are Ready for Pick Up can be rung up'
   if (wo.feeStatus !== 'paid') return 'There is no paid estimate fee to credit'
   return wo.status === 'closed' ? 'This work order is closed' : null
 }
@@ -378,7 +378,7 @@ export function woSaleProblem(wo: Pick<WorkOrder, 'status' | 'feeStatus' | 'feeC
  * Labor with part hours becomes one line priced at hours x rate.
  */
 export function workOrderSaleLines(
-  wo: Pick<WorkOrder, 'number' | 'lines' | 'feeCents'> & { partDepartments?: Record<number, string | null> },
+  wo: Pick<WorkOrder, 'number' | 'lines' | 'feeCents'> & Partial<Pick<WorkOrder,'status'|'feeStatus'>> & { partDepartments?: Record<number, string | null> },
   mode: WoSaleMode,
   fee: Pick<EstimateFeeSettings, 'description' | 'taxable'>
 ): WoSaleLine[] {
@@ -394,13 +394,14 @@ export function workOrderSaleLines(
       }
     ]
   if (mode === 'credit') return []
-  return wo.lines.map((l) => {
+  const billLines=(wo.status==='not_fixed'&&wo.feeStatus==='billed')||wo.feeStatus==='billed_only'?wo.lines.filter(l=>l.kind==='fee'):wo.lines
+  return billLines.map((l) => {
     const whole = Number.isInteger(l.qty)
     const label = l.kind === 'labor' ? `${l.description} (${l.qty} hr)` : l.description
     return {
       description: `${label} - ${wo.number}`,
       productId: l.kind === 'part' ? l.productId : null,
-      department: l.kind === 'part' ? (wo.partDepartments?.[l.id] ?? null) : WO_DEPARTMENTS[l.kind as 'labor' | 'shop' | 'misc'],
+      department: l.kind === 'part' ? (wo.partDepartments?.[l.id] ?? null) : WO_DEPARTMENTS[l.kind as 'labor' | 'shop' | 'misc' | 'fee'],
       unitPriceCents: whole ? l.unitPriceCents : Math.round(l.unitPriceCents * l.qty),
       qty: whole ? l.qty : 1,
       taxable: l.taxable

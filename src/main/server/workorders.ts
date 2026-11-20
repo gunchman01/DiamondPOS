@@ -1,3 +1,5 @@
+import { serviceText,textSettings,textSettingsView,saveTextSettings,sendServiceText,type ChannelResult } from './serviceNotifications'
+import { smsPhone,smsLength } from '../../shared/serviceSms'
 import { groupInfo,relatedOrders,linkOrders,unlinkOrder } from './workOrderGroups'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
 import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
@@ -37,7 +39,7 @@ import {
   workOrderSaleLines
 } from '../../shared/workorders'
 import { fillTemplate, partsOrderingNotice, woEmailHtml, woEmailText } from '../../shared/workOrderEmail'
-import { sendEmail } from './marketing/mailer'
+import { getSmtp,smtpProblems,sendEmail } from './marketing/mailer'
 
 class WoError extends Error {
   constructor(public status: number, message: string) {
@@ -347,7 +349,8 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
     const st = taxExemptState(customer, today())
     const exempt = customer.taxExempt && !!customer.taxExemptId && st.kind !== 'expired'
     const lines = woLines(db, id).map(toLine)
-    const totals = woTotals(lines, taxRate, exempt)
+    const billLines=(r.status==='not_fixed'&&r.fee_status==='billed')||r.fee_status==='billed_only'?lines.filter(l=>l.kind==='fee'):lines
+    const totals = woTotals(billLines, taxRate, exempt)
     const history = (
       db.prepare('SELECT * FROM work_order_history WHERE work_order_id = ? ORDER BY id DESC').all(id) as {
         at: string
@@ -407,7 +410,7 @@ export function prepareWorkOrderSale(db: DB, woId: number, mode: WoSaleMode, tax
   if (!['fee', 'repair', 'credit'].includes(mode)) throw new WoError(400, 'Unknown work order payment type')
   const wo = loadWorkOrder(db, woId, taxRate)
   if (!wo) throw new WoError(400, 'Work order not found')
-  if(mode==='repair'&&wo.estimate&&(wo.estimate.state!=='approved'||wo.estimate.needsResend))throw new WoError(409,'Send the current estimate for approval before checking out this repair. The recorded approval must match the current repair details and total.')
+  if(mode==='repair'&&wo.status!=='not_fixed'&&wo.estimate&&(wo.estimate.state!=='approved'||wo.estimate.needsResend))throw new WoError(409,'Send the current estimate for approval before checking out this repair. The recorded approval must match the current repair details and total.')
   const problem = woSaleProblem(wo, mode)
   if (problem) throw new WoError(400, `${wo.number}: ${problem}`)
   const settings = getWoSettings(db)
@@ -447,6 +450,7 @@ export function finishWorkOrderSale(db: DB, prep: PreparedWoSale, saleId: number
     addHistory(db, wo.id, `Estimate fee ${money(wo.feeCents)} paid (receipt #${saleId})`, by)
     return
   }
+  if(wo.feeStatus==='billed')db.prepare('UPDATE work_orders SET fee_sale_id=?,fee_status=? WHERE id=?').run(saleId,wo.status==='not_fixed'?'billed_only':'billed',wo.id)
   const kept = prep.creditAvailableCents - creditCents
   const feeNote = prep.creditAvailableCents
     ? `; estimate fee ${money(creditCents)} credited${kept > 0 ? `, ${money(kept)} kept (sale was less than the fee)` : ''}`
@@ -462,7 +466,7 @@ export function finishWorkOrderSale(db: DB, prep: PreparedWoSale, saleId: number
     db,
     wo.id,
     mode === 'repair'
-      ? `Paid and picked up (receipt #${saleId})${feeNote}`
+      ? `Billed and picked up (receipt #${saleId})${feeNote}${wo.feeStatus==='billed'?'; estimate fee included in bill':''}`
       : `Customer bought new instead (receipt #${saleId})${feeNote}`,
     by,
     'closed'
@@ -647,12 +651,12 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         serial: r.serial as string,
         createdAt: iso(r.created_at)!,
         updatedAt: iso(r.updated_at)!,
-        totalCents: woTotals(lines, rate, exempt).totalCents,
+        totalCents: woTotals((r.status==='not_fixed'&&r.fee_status==='billed')||r.fee_status==='billed_only'?lines.filter(l=>l.kind==='fee'):lines, rate, exempt).totalCents,
         estimate: loadWorkOrder(db,r.id,rate)?.estimate,
         shortParts: lines.filter((l) => l.short).length,
         feeCents: r.fee_cents,
         feeStatus: r.fee_status,
-        balanceDueCents: Math.max(0, woTotals(lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
+        balanceDueCents: Math.max(0, woTotals((r.status==='not_fixed'&&r.fee_status==='billed')||r.fee_status==='billed_only'?lines.filter(l=>l.kind==='fee'):lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
       }
     })
     res.json(status === 'needs_call' ? list.filter(w=>w.estimate?.due).slice(0,500) : list)
@@ -738,6 +742,19 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       res.json(need(wo.id))
     })
   )
+
+  app.post('/api/workorders/:id/bill-estimate-fee',wrap((req,res)=>{
+    const wo=need(Number(req.params.id))
+    if(wo.status==='closed')throw new WoError(409,'This work order is closed')
+    if(wo.feeStatus==='billed')return res.json(wo)
+    if(wo.feeStatus!=='unpaid'||wo.feeCents<=0)throw new WoError(409,'Only an unpaid estimate fee can be added to the bill')
+    db.transaction(()=>{
+      db.prepare("INSERT INTO work_order_lines(work_order_id,kind,description,qty,unit_price_cents,taxable) VALUES (?,'fee','Estimate / diagnostic fee',1,?,?)").run(wo.id,wo.feeCents,getWoSettings(db).estimateFee.taxable?1:0)
+      db.prepare("UPDATE work_orders SET fee_status='billed',updated_at=datetime('now') WHERE id=?").run(wo.id)
+      hist(wo.id,`Unpaid estimate fee $${(wo.feeCents/100).toFixed(2)} added to the bill; not collected separately and no fee credit applies.`,by(req))
+    })()
+    res.json(need(wo.id))
+  }))
 
   // Move to another stage (stock follows the stage)
   app.post(
@@ -831,6 +848,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       const qty = b.qty === undefined ? line.qty : Number(b.qty)
       const price = b.unitPriceCents === undefined ? line.unitPriceCents : Number(b.unitPriceCents)
       if (!Number.isFinite(qty) || qty <= 0) throw new WoError(400, 'Quantity must be above 0')
+      if(line.kind==='fee'&&qty!==1)throw new WoError(400,'The estimate fee must have quantity 1; edit its price instead')
       if (line.kind === 'part' && !Number.isInteger(qty)) throw new WoError(400, 'Part quantity must be a whole number')
       if (!Number.isInteger(price) || price < 0) throw new WoError(400, 'Price must be a positive amount')
       const description = b.description === undefined ? line.description : String(b.description).trim().slice(0, 200) || line.description
@@ -843,6 +861,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
           taxable ? 1 : 0,
           line.id
         )
+        if(line.kind==='fee')db.prepare('UPDATE work_orders SET fee_cents=? WHERE id=?').run(price,wo.id)
         reconcileStock(db, wo.id)
         touch(db, wo.id)
       })()
@@ -861,6 +880,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         // give back anything this line took from stock
         if (line.stockTaken && line.productId)
           db.prepare('UPDATE products SET on_hand = on_hand + ? WHERE id = ?').run(Math.round(line.stockTaken), line.productId)
+        if(line.kind==='fee'){db.prepare("UPDATE work_orders SET fee_status='none',fee_cents=0 WHERE id=?").run(wo.id);hist(wo.id,'Estimate fee removed from bill (waived)',by(req))}
         db.prepare('DELETE FROM work_order_lines WHERE id = ?').run(line.id)
         touch(db, wo.id)
       })()
@@ -874,6 +894,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     wrap((req, res) => {
       const wo = need(Number(req.params.id))
       if (wo.status !== 'not_fixed') throw new WoError(409, 'Only NOT FIXED tickets can be picked up this way')
+      if(wo.feeStatus==='billed')throw new WoError(409,'Ring up the estimate fee bill, or remove that fee line to waive it, before closing this ticket')
       db.transaction(() => {
         if (wo.feeStatus === 'paid') db.prepare("UPDATE work_orders SET fee_status = 'kept' WHERE id = ?").run(wo.id)
         db.prepare("UPDATE work_orders SET status = 'closed', updated_at = datetime('now') WHERE id = ?").run(wo.id)
@@ -909,6 +930,40 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     if(approvalConfig(db).enabled)await approvalRequest(approvalConfig(db),'cancel',{id:wo.estimate.id})
     db.prepare("UPDATE work_order_estimates SET state='superseded' WHERE id=? AND state IN ('pending','prepared')").run(wo.estimate.id)
     hist(wo.id,'Estimate link cancelled by staff',by(req));res.json(need(wo.id))
+  }))
+
+  app.get('/api/workorders/text-settings',wrap((_req,res)=>res.json(textSettingsView(db))))
+  app.put('/api/workorders/text-settings',wrap((req,res)=>res.json(saveTextSettings(db,req.body))))
+  app.post('/api/workorders/:id/notify',wrap(async(req,res)=>{
+    const wo=need(Number(req.params.id)),b=req.body||{},id=String(b.requestId||'')
+    if(!/^[a-zA-Z0-9-]{16,80}$/.test(id))throw new WoError(400,'Invalid notification request')
+    const estimate=b.estimate===true||wo.status==='waiting_customer',email=b.email===true,text=b.text===true
+    if(!email&&!text)throw new WoError(400,'Select Email, Text, or both')
+    const payload=JSON.stringify({id:wo.id,estimate,email,text,permission:b.permission===true})
+    const previous=db.prepare('SELECT * FROM work_order_notifications WHERE request_id=?').get(id) as any
+    if(previous){if(previous.work_order_id!==wo.id||previous.request_json!==payload)throw new WoError(409,'Request already used with different choices');if(!previous.result_json)throw new WoError(409,'This notification is sending or its result is uncertain. Check ticket history and provider before sending again.');return res.json({...JSON.parse(previous.result_json),workOrder:need(wo.id)})}
+    if(text&&!estimate&&wo.status!=='ready_pickup')throw new WoError(400,'Texts are only available for estimates and ready-for-pickup notices')
+    if(estimate&&!['needs_estimate','waiting_customer'].includes(wo.status))throw new WoError(400,'Send estimates from Needs Estimate or Waiting on Customer')
+    if(email&&!wo.customerEmail)throw new WoError(400,'Add a customer email address first')
+    const config=textSettings(db)
+    let phone=''
+    if(text){if(!config.enabled||!config.apiKey||!config.callbackNumber)throw new WoError(400,'Configure and enable Mobile Text Alerts in Work Order Settings first');if(b.permission!==true)throw new WoError(400,'Confirm the customer agreed to receive service texts');phone=smsPhone(wo.customerPhone)}
+    db.transaction(()=>{db.prepare('INSERT INTO work_order_notifications(request_id,work_order_id,request_json) VALUES (?,?,?)').run(id,wo.id,payload);hist(wo.id,`Sending notification (${[email?'email':'',text?'text':''].filter(Boolean).join(' and ')}). Request ${id}. If no result follows, check provider before resending.`,by(req))})()
+    const results:Record<string,ChannelResult>={}
+    const deliver=async(link?:string)=>{
+      if(email&&smtpProblems(getSmtp(db)).length){results.email={status:'failed',detail:'Email settings are incomplete. Configure Email settings before sending.'}}
+      else if(email){try{const mail=buildEmail(estimate?{...wo,status:'waiting_customer'}:wo,link);await sendEmail(db,readSettings(db),{to:wo.customerEmail!,...mail});results.email={status:'accepted',detail:'Accepted by email server; delivery is not confirmed.'}}catch{results.email={status:'unknown',detail:'Email result uncertain. Check the mail service before resending.'}}}
+      if(text){const message=serviceText(wo,readSettings(db).storeName,config,estimate,link);results.text=smsLength(message).tooLong?{status:'failed',detail:'Text is too long; shorten ticket details before sending.'}:await sendServiceText(config,phone,message,id)}
+      // Preserve the approval link when a channel may have accepted it; do not invalidate a link already sent through the other channel.
+      if(!Object.values(results).some(r=>r.status!=='failed'))throw Error('No selected channel accepted the notification')
+    }
+    try{
+      if(estimate)await sendEstimate(db,wo,by(req),link=>deliver(link),approvalRequest,()=>{const accepted=Object.entries(results).filter(([,r])=>r.status==='accepted').map(([channel])=>channel);return accepted.length?'sent via '+accepted.join(' and '):'delivery uncertain; check provider before resending'})
+      else {await deliver();if(results.email?.status==='accepted')db.prepare("UPDATE work_orders SET last_emailed_at=datetime('now'),last_emailed_status=? WHERE id=?").run(wo.status,wo.id)}
+    }catch(e){results.error={status:'failed',detail:(e as Error).message}}
+    for(const [channel,result] of Object.entries(results))hist(wo.id,`${channel} notification: ${result.status}. ${result.detail}`,by(req))
+    db.prepare('UPDATE work_order_notifications SET result_json=? WHERE request_id=?').run(JSON.stringify({results}),id)
+    res.json({workOrder:need(wo.id),results})
   }))
 
   // ----- Email the customer the current stage -----
@@ -955,7 +1010,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
 
   app.get(
     '/api/workorders/:id/email-preview',
-    wrap((req, res) => {const wo=need(Number(req.params.id));res.json(buildEmail(req.query.estimate==='1'?{...wo,status:'waiting_customer'}:wo))})
+    wrap((req, res) => {const wo=need(Number(req.params.id));res.json({...buildEmail(req.query.estimate==='1'?{...wo,status:'waiting_customer'}:wo),textPreview:serviceText(wo,readSettings(db).storeName,textSettings(db),req.query.estimate==='1'||wo.status==='waiting_customer')})})
   )
 
   app.post(

@@ -16,7 +16,7 @@ export default function WoPayPicker(props: { onPick: (id: number, mode: WoSaleMo
         .then((l) =>
           setList(
             l.filter(
-              (w) => w.status === 'ready_pickup' || w.feeStatus === 'unpaid' || (w.status === 'not_fixed' && w.feeStatus === 'paid')
+              (w) => w.status === 'ready_pickup' || (w.status==='not_fixed'&&w.feeStatus==='billed') || w.feeStatus === 'unpaid' || (w.status === 'not_fixed' && w.feeStatus === 'paid')
             )
           )
         )
@@ -60,7 +60,7 @@ export default function WoPayPicker(props: { onPick: (id: number, mode: WoSaleMo
                     {w.feeStatus === 'unpaid' && (
                       <button onClick={() => props.onPick(w.id, 'fee')}>Collect {money(w.feeCents)} estimate fee</button>
                     )}
-                    {w.status === 'ready_pickup' && (
+                    {(w.status === 'ready_pickup'||(w.status==='not_fixed'&&w.feeStatus==='billed')) && (
                       <button className="primary" onClick={() => props.onPick(w.id, 'repair')}>
                         Ring up repair · {money(w.balanceDueCents)} due
                       </button>
