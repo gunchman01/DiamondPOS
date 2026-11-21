@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.54 source update — 20 November 2026: generic QuickBooks income mapping
+- Greg requested removal of vendor-name rows under Income account for each department, leaving POS General. Replaced the UI department table rows with one All sales / POS General / default income selection.
+- Individual paid-sale and account-invoice summaries use qbItemName('') and defaultIncomeAccount for every merchandise/service/fee line. Legacy daily summaries aggregate all departments into taxable/non-taxable POS General lines. POS product departments and line descriptions remain; no deletion of catalog/vendors or existing QB transactions/items/exports. Historical saved departmentAccounts retained for compatibility but ignored by new summary generation. Dedicated tax-rounding item still uses default income to preserve reconciliation.
+- Added tests for multiple brand/service departments, stale override accounts, cash/account export lines, XML general-item references, unchanged local catalog departments and daily taxable/non-taxable totals. Version 0.3.54; schema 42 and minimum client 0.3.52 unchanged. Server first for export logic, then tills for simplified screen. No actual QB calls or remote writes/tags/deployment.
+- Baseline main fa5137d4955d56b6739f05ef21f895e0a8d99b87 (Greg committed v0.3.53). Source ZIP/user-commit workflow. Validation: 352 regression checks, typecheck and production build pass. Actual Windows/QuickBooks tests remain pending.
+
 ### v0.3.53 source update — 20 November 2026: work-order payment and Home backup status
 - Greg hit the current-estimate approval guard at checkout. Removed online-estimate state/hash as a payment eligibility condition: ready_pickup still required (or existing not_fixed deferred-fee-only case), with the same current bill/fee credits/account/stock/duplicate-sale logic. No auto-email/text or invented customer approval.
 - Checkout history notes the previous online estimate status/details mismatch when applicable; the approval row is not rewritten. Existing matching-hash/site/stage rules for website decisions remain; late decisions cannot reopen a closed ticket. UI changed-estimate warning describes optional revised online approval and in-person/phone confirmation, without saying payment is blocked.
@@ -606,6 +612,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Apply v0.3.54 server first, confirm only POS General is visible and the default income account is selected, then check one new paid sale and one account invoice in the QuickBooks test company. Do not delete historical QB items to apply this change.
 
 - Apply v0.3.53 on Store Server first, verify Home backup status against Settings and test current-total checkout of a Ready for Pickup repair with old/pending online approval; verify receipt, closure and existing QuickBooks sync.
 

@@ -830,3 +830,10 @@ Payment does not record a website approval or change previous approval evidence.
 ### Home backup status
 
 The bottom Home card shows the Store Server's last verified backup, actual next scheduled backup and saved frequency from Backup Settings. It refreshes every 30 seconds. During a backup, the next run is scheduled after that backup finishes. A stopped schedule or unavailable connection is labelled explicitly; historical times are not presented as a fresh server check. The card does not change how often backups run or how many are kept.
+
+
+### QuickBooks income mapping (v0.3.54)
+
+The QuickBooks connection has one **Income account** row: **POS General**. Select the QuickBooks income account to use for new sales and work-order charges. Vendor/department mapping rows are no longer shown, and old department overrides are ignored for new exports. POS departments and vendor records remain available for local inventory/reporting.
+
+Existing transactions already sent to QuickBooks are not rewritten or deleted. Taxable/non-taxable treatment and the separate tax-rounding reconciliation remain. Update the Store Server first so exports use the new mapping; update tills to see the simplified screen. No chart-of-accounts item or income account is deleted by this update.

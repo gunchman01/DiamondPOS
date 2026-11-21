@@ -2,7 +2,7 @@ import type { CardBrand } from '../../../shared/types'
 /**
  * Daily summary for QuickBooks: one Sales Receipt per day per payment method.
  *
- * Each receipt has, per department, a TAXABLE line (net of tax) and a
+ * Each receipt has a POS General TAXABLE line (net of tax) and a
  * NON-TAXABLE line (non-taxable items + all items on tax-exempt sales).
  * QuickBooks then adds sales tax = its tax item rate × taxable lines. Because
  * our tax was worked out per sale, it can differ by a few cents; that
@@ -126,27 +126,27 @@ export function dailySummaries(
       if (s.tax_exempt) exemptCount++
       const its = itemsBySale.get(s.id) ?? []
       const taxed = its.filter((it) => it.taxable && !s.tax_exempt)
-      for (const it of its) if (!(it.taxable && !s.tax_exempt)) add(nonTaxable, it.dept ?? '', it.amount)
+      for (const it of its) if (!(it.taxable && !s.tax_exempt)) add(nonTaxable, '', it.amount)
       if (s.tax_mode === 'added') {
         // Line amounts are already before tax
-        for (const it of taxed) add(taxableNet, it.dept ?? '', it.amount)
+        for (const it of taxed) add(taxableNet, '', it.amount)
       } else {
         // Older tax-inclusive sale: take this sale's tax out of its taxable lines
         const share = allocate(s.tax_cents, taxed.map((it) => it.amount))
-        taxed.forEach((it, i) => add(taxableNet, it.dept ?? '', it.amount - share[i]))
+        taxed.forEach((it, i) => add(taxableNet, '', it.amount - share[i]))
       }
     }
     const taxableNetTotal = [...taxableNet.values()].reduce((a, b) => a + b, 0)
     const qbTax = Math.round(taxableNetTotal * (qbTaxRate ?? storeTaxRate))
 
-    const account = (d: string) => cfg.departmentAccounts[d] || cfg.defaultIncomeAccount
+    const account = (_d: string) => cfg.defaultIncomeAccount
     const lines: QbSummaryLine[] = []
     const allDepts = [...new Set([...taxableNet.keys(), ...nonTaxable.keys()])].sort((a, b) => a.localeCompare(b))
     for (const d of allDepts) {
       const t = taxableNet.get(d) ?? 0
       const n = nonTaxable.get(d) ?? 0
-      if (t) lines.push({ department: d, itemName: qbItemName(d), account: account(d), taxable: true, amountCents: t })
-      if (n) lines.push({ department: d, itemName: qbItemName(d), account: account(d), taxable: false, amountCents: n })
+      if (t) lines.push({ department: d, itemName: qbItemName(''), account: account(d), taxable: true, amountCents: t })
+      if (n) lines.push({ department: d, itemName: qbItemName(''), account: account(d), taxable: false, amountCents: n })
     }
     const rounding = tax - qbTax
     if (rounding !== 0)
@@ -207,8 +207,8 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
     const lines: QbSummaryLine[] = items.map((it) => {
       const taxable = !!it.taxable && !s.tax_exempt
       const net = it.amount - (taxable ? taxShares[taxIndex++] : 0)
-      return { department: it.department, itemName: qbItemName(it.department),
-        account: cfg.departmentAccounts[it.department] || cfg.defaultIncomeAccount, taxable,
+      return { department: '', itemName: qbItemName(''),
+        account: cfg.defaultIncomeAccount, taxable,
         amountCents: net, description: `${it.name} (qty ${it.qty})${it.serial ? ` S/N ${it.serial}` : ''}` }
     })
     const qbTax = Math.round(lines.filter((l) => l.taxable).reduce((sum, l) => sum + l.amountCents, 0) * (qbTaxRate ?? storeTaxRate))

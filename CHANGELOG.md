@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.54 - 20 Nov 2026
+- Simplified QuickBooks income setup to one POS General row. Vendor/department income rows are removed.
+- Future sales and work-order exports use the selected default income account. Existing QuickBooks transactions stay unchanged; sales tax reconciliation remains in place.
+
 ## v0.3.53 - 20 Nov 2026
 - Fixed taking payment for Ready for Pickup work orders when an online estimate was unsent, pending, failed or no longer matched the current bill. You do not have to send another approval message just to collect payment.
 - Home backup status now displays your saved backup frequency and the actual next scheduled run instead of always saying 15 minutes. Last verified time and running state come from the Store Server.

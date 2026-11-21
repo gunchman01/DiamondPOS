@@ -286,11 +286,12 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           </label>
         </div>
 
-        <h4>Income account for each department</h4>
+        <h4>Income account</h4>
+        <p className="muted small">All sales and work-order charges use POS General and the income account selected below.</p>
         <table className="table qb-table">
           <thead>
             <tr>
-              <th>Diamond POS department</th>
+              <th>Sales mapping</th>
               <th>QuickBooks item (created for you)</th>
               <th>Income account</th>
             </tr>
@@ -298,7 +299,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           <tbody>
             <tr>
               <td>
-                <b>Default</b> <span className="muted small">(any department not set below, and tax rounding)</span>
+                <b>All sales</b> <span className="muted small">(including work orders and tax rounding)</span>
               </td>
               <td className="muted">POS General</td>
               <td>
@@ -309,22 +310,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                 />
               </td>
             </tr>
-            {st.departments
-              .filter((d) => d)
-              .map((d) => (
-                <tr key={d}>
-                  <td>{d}</td>
-                  <td className="muted">{`POS ${d}`.slice(0, 31)}</td>
-                  <td>
-                    <Select
-                      value={draft.departmentAccounts[d] ?? ''}
-                      placeholder="— use default —"
-                      onChange={(v) => set({ departmentAccounts: { ...draft.departmentAccounts, [d]: v } })}
-                      options={income.map((a) => a.name)}
-                    />
-                  </td>
-                </tr>
-              ))}
+
           </tbody>
         </table>
 

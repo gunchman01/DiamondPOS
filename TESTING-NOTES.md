@@ -1,14 +1,11 @@
-# v0.3.53 work-order checkout checks
+# v0.3.54 — QuickBooks generic income checks
 
-349 regression checks pass, including real local sale API calls for cash/account payment, changed/pending/failed online estimates, correct current totals, idempotent replay, preserved approval state, closed-ticket rejection and late-response review. Typecheck and production build are checked before packaging. No real payments, QB exports or messages sent.
+Validation: 352 regression checks, typecheck and production build passed.
 
-Apply the server first; updating only a till cannot remove a server-side checkout block. Ready for Pickup is still required for ordinary repair checkout. No schema change (42).
+Automated tests cover new paid/account summary lines from multiple brand/service departments, old saved account overrides, POS General XML references, unchanged local product departments and legacy taxable/non-taxable summary totals. Existing regression coverage includes work-order invoices, returns, voids and duplicate-protected QB sync. Actual QuickBooks Desktop/Windows testing remains on your system; no live messages or QB calls performed here.
 
-- Test the affected ticket: review current charges/fee credit and ring up using cash/card/check or enabled account as appropriate. Confirm current total, receipt and closed status.
-- Pending/failed/changed old estimates must not require sending a message before payment; history must retain the actual online state.
-- Repeated checkout must not double-charge or re-deduct inventory. Already closed and earlier-stage repairs remain blocked.
-- Test paid estimate credits and the existing declined-repair deferred-fee-only checkout.
-- Verify normal QuickBooks sync on your test company, and actual Windows/printer behavior at the store.
-
-
-Home backup status: select Every 4 hours or Every 24 hours in Backup Settings, then compare frequency/last verified/next run on Home (refresh up to 30s). Back Up Now must update the last verified time only on success, preserve it on failure, and show in-progress/next-schedule appropriately. No constant 15-minute fallback or false overdue warning for long intervals; unavailable data is labelled as historical. Endpoint tests compare operations data with the real manager state. No physical Store Server backup/restore performed here.
+1. After server/till update, open QuickBooks: Income account has one POS General row and no vendor/department list.
+2. Select/verify default income account and save. Keep the company tax/deposit settings already working.
+3. Test a paid sale and an on-account invoice with multiple departments; confirm QB item references use POS General with correct customer/amount/tax.
+4. Check a work-order charge and historical receipt/void workflow. Previously synced transactions must remain as they were; do not delete old QB items.
+5. Confirm POS inventory/vendor/department reports still retain their data. No schema, dependency or website changes.

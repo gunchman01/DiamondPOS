@@ -1,18 +1,16 @@
-# DiamondPOS v0.3.53 — work-order checkout and Home backup status
+# DiamondPOS v0.3.54 — POS General QuickBooks mapping
 
-Fixes this checkout error on a Ready for Pickup work order:
+QuickBooks connection now shows only one income mapping: POS General. Pick the income account there for all new sales and work-order charges. New cash/card/check sales and on-account invoice lines use that mapping, ignoring old vendor/department overrides. Catalog departments and historical QuickBooks transactions are preserved. Tax-rounding reconciliation remains.
 
-> Send the current estimate for approval before checking out this repair.
-
-Ready for Pickup tickets can now take payment on the current bill without another online approval message. Existing approval history stays unchanged. Earlier-stage/closed repair checkout, fee credits, inventory, on-account billing and sale idempotence rules remain. No automatic emails/texts are sent. Home backup status also uses the saved frequency and actual next scheduled run instead of the hard-coded 15-minute label.
+Validation: 352 regression checks, typecheck and production build passed.
 
 ## Apply
 
-Baseline: existing v0.3.52 checkout, main c863bc0c8b3aaca5f21be6e25d321273a2386d99. This is a small source overlay, not an installer or full project.
+Small source overlay for your existing v0.3.53 project (main fa5137d4955d56b6739f05ef21f895e0a8d99b87), not an installer or full repository.
 
-Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync, and close installed/development POS instances. Extract DiamondPOS-update-v0.3.53.zip separately, then copy the CONTENTS of its DiamondPOS-update-v0.3.53 folder over C:\dev\DiamondPOS, merging folders and replacing matching files. Keep .git and all other files. No dependency changes, database migration or website upload.
+Back up the Store Server, resolve pending checkout recovery and let any active QuickBooks sync finish. Close installed/development POS instances. Extract DiamondPOS-update-v0.3.54.zip separately. Copy the CONTENTS of its DiamondPOS-update-v0.3.54 folder over C:\dev\DiamondPOS, merging folders and replacing matching files. Keep .git and all other files.
 
-In PowerShell in your project:
+In PowerShell in C:\dev\DiamondPOS:
 
 ```powershell
 npm run typecheck
@@ -21,32 +19,30 @@ npm run build
 npm run dev
 ```
 
-349 regression checks, typecheck and production build passed in development. Windows interaction, actual receipt/printer and QuickBooks testing remain on your system. Close development before using installed POS.
+No dependency, schema or website changes. Windows interaction and actual QuickBooks export remain to test on your system. Close the development app before using the installed POS.
 
-## Commit and publish — MobaXterm
+## Commit and release — MobaXterm
 
-Review changed files before committing:
+Review changes for unexpected files first. No commit/push/tag was performed by the assistant for this update.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
 git status --short
 git diff --stat
 git add -A
-git commit -m "Fix work-order checkout and Home backup status"
+git commit -m "Simplify QuickBooks income mapping to POS General"
 git push origin main
-git tag v0.3.53
-git push origin v0.3.53
+git tag v0.3.54
+git push origin v0.3.54
 ```
 
-Do not overwrite an existing tag or discard local changes. Wait for GitHub Actions Release to succeed, then install v0.3.53 on the STORE SERVER FIRST, followed by tills. The payment fix runs on the server; updating only a till will not fix it. Schema stays 42 and minimum client stays 0.3.52.
+Do not overwrite an existing tag or discard local edits. Wait for GitHub Actions Release to succeed, then update STORE SERVER FIRST (export logic), followed by tills (screen). Schema remains 42 and minimum client 0.3.52.
 
-## Verify
+## Check after updating
 
-1. Open the affected work order and confirm it is Ready for Pickup.
-2. Review its current items, fees, estimate credits and balance with the customer.
-3. Choose Ring up / Pay at till, confirm the current amount and take payment normally (or use the enabled account option).
-4. Confirm the receipt total, ticket closure and normal inventory behavior. The old estimate history must not become an invented website approval; checkout history notes its state if not current/approved.
-5. On Home, compare last verified time, next scheduled run and frequency with Settings → Backups. Change the frequency, return Home and check after its next refresh (up to 30 seconds). Back Up Now should update the last verified time after completion. No schedule/retention changes are made by this fix.
-6. A closed ticket must not charge again. A late website decision must not reopen it. Existing Not Fixed deferred-fee checkout remains fee-only.
+- Open QuickBooks connection. Income account should show one All sales / POS General row, without vendor names. Keep/select the intended default income account and save.
+- Send a new test sale with items from different departments and a work-order/account invoice through the normal connector. Confirm POS General item references, customer, amount and tax match. Old vendor overrides must not divert new lines.
+- Do not delete historical vendor-named QB items or already synced transactions to apply this update. Nothing previously synced is rewritten.
+- POS General is a QuickBooks item name; the income dropdown still lists your company's income accounts, so choose the appropriate account there.
 
-No Git commit/push/tag, actual payment, QuickBooks export, customer message or deployment was performed by the assistant for this update.
+No live QuickBooks/payment/customer-message operations or deployment were performed during development.

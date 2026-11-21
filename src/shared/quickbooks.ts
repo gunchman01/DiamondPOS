@@ -20,9 +20,9 @@ export interface QbConfig {
   /** QuickBooks sales tax codes for taxable / non-taxable lines */
   taxableCode: string
   nonTaxableCode: string
-  /** Income account per DiamondPOS department ('' key = items with no department) */
+  /** Legacy department overrides retained for saved-settings compatibility; new exports use defaultIncomeAccount only. */
   departmentAccounts: Record<string, string>
-  /** Used for any department without its own account */
+  /** Income account for all new POS General sales/work-order lines. */
   defaultIncomeAccount: string
   /** Where each payment type is deposited, and the QuickBooks payment method name */
   methods: Record<QbMethod, { depositAccount: string; paymentMethod: string }>
