@@ -844,3 +844,10 @@ Existing transactions already sent to QuickBooks are not rewritten or deleted. T
 Select the installed Star TSP100 in Settings → Printing. For the standard 80mm roll keep DiamondPOS at 80mm; the Star Windows driver's 72mm × Receipt names its printable area. The app measures receipt content and sends Windows an explicit width/length for each thermal job. Test receipts use this same path.
 
 If a Windows test page works but DiamondPOS feeds/cuts blank, test the updated app using Print test receipt. If it remains blank, report the app version, exact Star Windows printer/driver name and diagnostic log from Help. A successful spool callback only means the job was accepted; visually check text, width, total and cutting. Reprint an existing receipt rather than creating another sale. Label and full-page printing retain their existing settings.
+
+
+### Receipt measurement error and test status (v0.3.56)
+
+Version 0.3.55 could stop with Script failed to execute before sending a receipt to Windows. Update the computer doing the printing to v0.3.56. The print window now allows the app's measurement code to run in its sandbox.
+
+Settings → Printing shows test progress/errors at the top and beside Print test receipt. Select a printer and click Print when prompted. Waiting or a rendering error does not mean Windows received the job. “Test job accepted by Windows” means the driver accepted it; check the actual paper before confirming printing works. Test controls stay disabled until the job finishes or reports an error.

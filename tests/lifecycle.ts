@@ -64,6 +64,10 @@ export async function testLifecycle(check:Check,dir:string){
  emptyReceipt=false;receiptHeight=12000;await assert.rejects(receiptManager.print({html:'Oversize',printer:'Star TSP100',receiptWidthMm:80}),/too long/)
  await assert.rejects(receiptManager.print({html:'Conflict',printer:'Star TSP100',receiptWidthMm:80,letter:true}),/conflicting/)
  check('oversize and conflicting thermal jobs are rejected rather than silently clipped',()=>assert.equal(receiptPrints,2))
+ let failedRenderPrints=0
+ const failedRenderManager=createPrintManager(()=>{let closed=false;return{isDestroyed:()=>closed,destroy:()=>{closed=true},loadURL:async()=>{},webContents:{executeJavaScript:async()=>{throw Error('Script failed to execute')},insertCSS:async()=>'',print:(_options:any,cb:any)=>{failedRenderPrints++;cb(true,'')}}}},()=>{},()=>{})
+ await assert.rejects(failedRenderManager.print({html:'Receipt',printer:'Star TSP100',receiptWidthMm:80}),/Receipt rendering failed before the job reached Windows: Script failed to execute/)
+ check('rendering failure identifies the pre-spool stage and never sends a blank job to Windows',()=>assert.equal(failedRenderPrints,0))
  let cancelledDrafts=0,askedToCancel=0,blockedCancellation=true
  const cancelOptions={blocked:()=>blockedCancellation,confirm:async()=>{askedToCancel++;return true},clear:()=>{cancelledDrafts++}}
  assert.equal(await cancelSaleDraft(cancelOptions),false)

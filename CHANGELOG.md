@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.56 - 23 Nov 2026
+- Fixed receipt printing stopping with “Script failed to execute” before reaching Windows. The isolated print window now allows the receipt measurement step to run.
+- Test-print progress and errors appear near the test receipt button as well as at the top of Printing settings. Buttons show when a test is running.
+
 ## v0.3.55 - 23 Nov 2026
 - Updated thermal receipt printing to wait for receipt rendering and send an explicit page width and measured length to Windows. This addresses a possible cause of blank feed-and-cut receipts on the Star TSP100.
 - Empty or oversized receipt rendering now shows an error before printing. Test receipts and saved-sale receipts use the same sizing path.

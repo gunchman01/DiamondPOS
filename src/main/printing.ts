@@ -20,8 +20,9 @@ export function createPrintManager(createWindow:()=>PrintWindow,onFinished:()=>v
     const options:Electron.WebContentsPrintOptions={silent:true,landscape:job.landscape===true,printBackground:true,margins:{marginType:'none'},copies:Math.max(1,Math.min(10,Math.round(job.copies??1)))}
     if(job.receiptWidthMm){
      if(!win.webContents.executeJavaScript||!win.webContents.insertCSS)throw Error('Receipt rendering is unavailable')
-     // Trusted, fixed script only. Page-authored JavaScript remains disabled in the print window.
-     const measured=await win.webContents.executeJavaScript(`(async()=>{await document.fonts.ready;await Promise.all(Array.from(document.images).map(i=>i.decode().catch(()=>{})));const b=document.body,r=b.getBoundingClientRect(),s=getComputedStyle(b);return {heightPx:Math.max(r.height,b.scrollHeight,b.offsetHeight)+parseFloat(s.marginTop||'0')+parseFloat(s.marginBottom||'0'),hasText:!!b.innerText.trim()}})()`)
+     // Trusted, fixed measurement script. The dedicated print window is sandboxed with no Node integration.
+     let measured:any
+     try{measured=await win.webContents.executeJavaScript(`(async()=>{await document.fonts.ready;await Promise.all(Array.from(document.images).map(i=>i.decode().catch(()=>{})));const b=document.body,r=b.getBoundingClientRect(),s=getComputedStyle(b);return {heightPx:Math.max(r.height,b.scrollHeight,b.offsetHeight)+parseFloat(s.marginTop||'0')+parseFloat(s.marginBottom||'0'),hasText:!!b.innerText.trim()}})()`)}catch(e){throw Error('Receipt rendering failed before the job reached Windows: '+(e as Error).message)}
      if(done||win.isDestroyed())return
      if(!measured?.hasText||!Number.isFinite(measured.heightPx)||measured.heightPx<=0)throw Error('Receipt rendered empty; check Receipt Layout before printing')
      const heightMm=Math.max(25,Math.ceil(measured.heightPx*25.4/96)+3)

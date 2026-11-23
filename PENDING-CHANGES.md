@@ -1,5 +1,5 @@
-# v0.3.55 — thermal receipt rendering/page-size update
+# v0.3.56 direct GitHub update
 
-Await actual receipt rendering, explicitly size each thermal spool page to 58/80mm width and measured length, remove invalid CSS mixed width/auto size, reject empty/oversize content before printing. Test/actual receipts share the path. Labels/full pages keep their existing sizing.
+Fix hidden print-window JavaScript setting preventing receipt measurement, keep sandbox/no Node/context isolation, and show print progress/results beside the test receipt button and top of settings.
 
-356 regression checks, typecheck and build pass. Hardware outcome remains unverified. Windows test page on shop Star TSP100 works; DiamondPOS was feeding/cutting blank. Correct Windows size is 72mm x Receipt for standard 80mm roll. No Windows driver or physical settings changed here. ZIP for Greg to commit, no remote writes/tag/deployment. See START-HERE.md.
+Greg authorized direct updates while at shop. Source ready for main commit; installer release still requires a new v0.3.56 tag and successful Release workflow.357 regressions/typecheck/build checked; actual hardware output remains unverified. No schema/dependency change or actual payment/message.

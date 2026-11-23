@@ -1,5 +1,5 @@
-DiamondPOS v0.3.55 source overlay
-Baseline main e59a7ed317a06eb303c55824f093d4a78b4d832a (v0.3.54)
+DiamondPOS v0.3.56 direct check-in
+Baseline main f60b86308147e038c717451b46e2d9933605e73e
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -12,7 +12,5 @@ package.json
 src/main/index.ts
 src/main/printing.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/printing.ts
-src/renderer/src/receipt.ts
-src/shared/printing.ts
+src/renderer/src/screens/PrintSettings.tsx
 tests/lifecycle.ts

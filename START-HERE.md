@@ -1,43 +1,36 @@
-# DiamondPOS v0.3.55 — Star thermal receipt update
+# DiamondPOS v0.3.56 — receipt script correction
 
-Windows prints correctly on your Star TSP100, but DiamondPOS sends blank feed-and-cut receipts. This update changes the app's rendering/page-size handling. It has not yet been confirmed on your physical printer.
+The v0.3.55 receipt-measurement step failed because JavaScript was disabled in the hidden print window. v0.3.56 enables the fixed measurement script in a sandbox with Node integration off and context isolation on. Test status/errors now appear at the top of Printing settings and beside the receipt test button.
 
-The app now waits for fonts/images/layout, checks content is nonempty, and passes Windows an explicit width and measured receipt length. Both Print test receipt and saved-sale receipts use it. Labels and Letter jobs keep their existing sizing.
+357 regressions pass; typecheck and build are checked before check-in. Actual Windows/Star output still needs the shop test. No database or dependency change.
 
-## Apply and test at the shop
+Greg authorized direct GitHub check-in for this fix while at the shop. Baseline main f60b86308147e038c717451b46e2d9933605e73e. No local laptop checkout is needed to create the release tag through GitHub's website.
 
-Small source overlay for v0.3.54 main e59a7ed317a06eb303c55824f093d4a78b4d832a. Back up the Store Server, resolve pending checkout recovery, finish QuickBooks sync and close all installed/development POS instances. Extract DiamondPOS-update-v0.3.55.zip separately. Copy the CONTENTS of DiamondPOS-update-v0.3.55 over C:\dev\DiamondPOS, merging folders/replacing files. Keep .git and all other files. No dependency/schema/website changes.
+## Publish from the shop browser
 
-In PowerShell in C:\dev\DiamondPOS:
+After the v0.3.56 commit appears on main, open:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.56&target=main
 
-```powershell
-npm run typecheck
-npm test
-npm run build
-npm run dev
-```
+Create tag v0.3.56 on main, title v0.3.56, and publish. Wait for the Release workflow to build/upload the Windows installer. An empty release without installer/update files is not ready for POS Updates. Do not move or overwrite the old v0.3.55 tag.
 
-356 regression checks, typecheck and build passed in development. Physical Star output and native Windows rendering still need your test.
+Back up the server and close/resolve any in-progress checkout before updating. Update the Store Server first, then each till, particularly the computer connected to the Star. Printing is local; the old till must itself be updated.
 
-Open Settings → Printing. Select the installed Star TSP100, keep DiamondPOS receipt width 80mm for an 80mm roll, and leave the working Star Windows size at 72mm x Receipt. Click Print test receipt. Confirm text, full total, width and cut position. Reprint a long saved receipt afterward; do not create a duplicate sale just to print. Close development before using installed POS.
+## Test
 
-If the app reports an empty/rendering error or still prints blank, stop repeating jobs and report the exact error plus Help → Open diagnostic logs. Receipt-page width/height are logged without customer content. This patch is not a driver reinstall and does not automatically reprint previous jobs.
+- Confirm running app version0.3.56.
+- Keep Star Windows paper at72mm x Receipt and DiamondPOS at80mm for the standard80mm roll.
+- Open Settings → Printing → Print test receipt, choose Star and click Print.
+- Read the status directly beside the button. Rendering errors mean no job was sent to Windows. Windows acceptance still requires checking actual paper output.
+- Reprint a saved receipt if test prints correctly; do not repeat a payment to test printing.
 
-## Commit and release — MobaXterm
+## Sync your laptop later
 
-After reviewing/testing:
+With a clean working tree, in MobaXterm:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
 git status --short
-git diff --stat
-git add -A
-git commit -m "Size thermal receipts from rendered content before printing"
-git push origin main
-git tag v0.3.55
-git push origin v0.3.55
+git pull --ff-only origin main
 ```
 
-Do not replace an existing tag or discard local edits. Wait for GitHub Actions Release to finish. Install server first then tills. This printing fix must be installed on the computer sending the print job; changing only the server will not fix an older till's local print code. Schema42/minimum client0.3.52 unchanged.
-
-No GitHub writes, tags, installer deployment, actual hardware prints/payments or messages performed by the assistant for this update.
+If local edits exist, preserve/review them rather than resetting. Do not duplicate the assistant's direct commit. For future source-only updates, use the usual ZIP-first/user-commit workflow unless direct updates are requested.

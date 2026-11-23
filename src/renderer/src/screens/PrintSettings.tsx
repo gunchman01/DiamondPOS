@@ -10,6 +10,7 @@ import type { LabelTemplate } from '../../../shared/printDesigns'
 export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onChange: (b: BootInfo) => void }) {
   const [s, setS] = useState<PS>(() => printSettings(boot.config.printing))
   const [printers, setPrinters] = useState<PrinterInfo[] | null>(null)
+  const [testing,setTesting]=useState<'receipt'|'fullPage'|'label'|null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [dirty, setDirty] = useState(false)
 
@@ -39,13 +40,15 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
     }
   }
   async function test(kind: 'receipt' | 'fullPage' | 'label') {
-    setMsg(null)
+    if(testing)return
+    setTesting(kind)
+    setMsg({ok:true,text:'Preparing test print — choose the printer, then click Print. Waiting for completion…'})
     try {
       await testPrint(kind, s)
-      setMsg({ ok: true, text: 'Test page sent' })
+      setMsg({ ok: true, text: 'Test job accepted by Windows. Please check the paper output.' })
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message })
-    }
+    } finally {setTesting(null)}
   }
 
   const def = printers?.find((p) => p.isDefault)
@@ -63,6 +66,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
 
   return (
     <div className="print-settings">
+      {msg && <div role={msg.ok?'status':'alert'} className={msg.ok ? 'ok-text' : 'error-text'}>{msg.text}</div>}
       <CashDrawerSettings boot={boot} onChange={onChange} />
       <p className="muted">
         Set the default printer for each type of printing here. Labels and work-order pages still ask before printing, with the saved printer selected. These settings are for <b>this computer</b> ({boot.config.tillName}), because each till has its own printers.
@@ -94,7 +98,8 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
           Ask which printer every time (receipt printer or a full page on any printer)
         </label>
         <div>
-          <button onClick={() => test('receipt')}>Print test receipt</button>
+          <button disabled={testing!==null} onClick={() => test('receipt')}>{testing==='receipt'?'Printing test receipt…':'Print test receipt'}</button>
+          {msg&&<span role={msg.ok?'status':'alert'} className={msg.ok?'ok-text':'error-text'}>{msg.text}</span>}
         </div>
       </div>
 
@@ -124,7 +129,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
           </span>
         </label>
         <div>
-          <button onClick={() => test('fullPage')}>Print test page</button>
+          <button disabled={testing!==null} onClick={() => test('fullPage')}>Print test page</button>
         </div>
       </div>
 
@@ -185,7 +190,7 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
           tags) or an item's window (🏷 Tags).
         </p>
         <div>
-          <button onClick={() => test('label')}>Print test tag (sample item with a price)</button>
+          <button disabled={testing!==null} onClick={() => test('label')}>Print test tag (sample item with a price)</button>
         </div>
       </div>
 
