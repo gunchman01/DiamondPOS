@@ -1,31 +1,28 @@
-# DiamondPOS v0.3.56 — receipt script correction
+# DiamondPOS v0.3.57 — Windows receipt dialog test
 
-The v0.3.55 receipt-measurement step failed because JavaScript was disabled in the hidden print window. v0.3.56 enables the fixed measurement script in a sandbox with Node integration off and context isolation on. Test status/errors now appear at the top of Printing settings and beside the receipt test button.
+v0.3.56 logs confirm receipt content was measured and Windows accepted it, but Star paper still comes out blank. This update adds a native driver path for testing, not a confirmed hardware fix.
 
-357 regressions pass; typecheck and build are checked before check-in. Actual Windows/Star output still needs the shop test. No database or dependency change.
+Source is committed directly to main at Greg's request while he is at the shop. No laptop source access is needed for release creation.
 
-Greg authorized direct GitHub check-in for this fix while at the shop. Baseline main f60b86308147e038c717451b46e2d9933605e73e. No local laptop checkout is needed to create the release tag through GitHub's website.
+## Publish and test
 
-## Publish from the shop browser
+After the v0.3.57 commit appears on main, create tag/release v0.3.57 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.57&target=main
 
-After the v0.3.56 commit appears on main, open:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.56&target=main
+Wait for the Release workflow to finish and upload installer/update files. Do not move existing tags. Update server first, then the actual printing computer. Schema42/min client0.3.52 unchanged; no database/dependency migration.
 
-Create tag v0.3.56 on main, title v0.3.56, and publish. Wait for the Release workflow to build/upload the Windows installer. An empty release without installer/update files is not ready for POS Updates. Do not move or overwrite the old v0.3.55 tag.
+1. Confirm running version0.3.57.
+2. Settings → Printing → Test receipt using Windows dialog.
+3. Select the Star in the app's printer chooser and click Print.
+4. A visible receipt window and native Windows print dialog should appear. Verify text is visible in the receipt window. Select Star TSP100, its existing72mm x Receipt paper setting, and print.
+5. If it prints correctly, enable Use Windows print dialog for receipts (driver compatibility) and Save printing settings on this computer. This is off by default; the dedicated test button uses it without changing your saved preferences.
+6. If blank persists, report whether the on-screen receipt has text and the exact Windows driver name/version. Check queue/paper before repeating a timed-out job. Do not create another payment just to test printing.
 
-Back up the server and close/resolve any in-progress checkout before updating. Update the Store Server first, then each till, particularly the computer connected to the Star. Printing is local; the old till must itself be updated.
+359 regression checks, typecheck and build checked before commit. No physical Star test, deployment or live payment/message performed by the assistant. Receipt native mode omits app custom paper size; labels/full pages retain their paths.
 
-## Test
+## Sync laptop later
 
-- Confirm running app version0.3.56.
-- Keep Star Windows paper at72mm x Receipt and DiamondPOS at80mm for the standard80mm roll.
-- Open Settings → Printing → Print test receipt, choose Star and click Print.
-- Read the status directly beside the button. Rendering errors mean no job was sent to Windows. Windows acceptance still requires checking actual paper output.
-- Reprint a saved receipt if test prints correctly; do not repeat a payment to test printing.
-
-## Sync your laptop later
-
-With a clean working tree, in MobaXterm:
+With a clean working tree:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -33,4 +30,4 @@ git status --short
 git pull --ff-only origin main
 ```
 
-If local edits exist, preserve/review them rather than resetting. Do not duplicate the assistant's direct commit. For future source-only updates, use the usual ZIP-first/user-commit workflow unless direct updates are requested.
+Preserve local edits if listed. No need to duplicate the direct commit. Future source-only work follows the regular ZIP/user-commit workflow unless direct updates are requested.

@@ -17,6 +17,7 @@ export interface LabelLayout {
 export interface PrintSettings {
   receiptPrinter: string
   receiptWidthMm: 80 | 58
+  receiptWindowsDialog?: boolean
   /** Legacy setting retained for compatibility; automatic printing is disabled. */
   autoPrint: boolean
   /** Ask which printer (receipt or full page) every time a receipt prints */
@@ -42,6 +43,7 @@ export interface PrintSettings {
 export const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   receiptPrinter: '',
   receiptWidthMm: 80,
+  receiptWindowsDialog: false,
   autoPrint: false,
   askPrinter: true,
   receiptCopies: 1,
@@ -100,6 +102,8 @@ export interface PrintJob {
   copies?: number
   /** Thermal receipt: measure content and explicitly size the spool page. */
   receiptWidthMm?: 80 | 58
+  /** Let the user print a receipt through native Windows driver preferences. */
+  windowsDialog?: boolean
   /** Paper size in millimetres (labels); omitted = the printer's own paper (receipts) or Letter (full page) */
   pageMm?: { width: number; height: number }
   /** Letter-size page (full-page printer) */

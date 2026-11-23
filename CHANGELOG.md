@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.57 - 23 Nov 2026
+- Added Test receipt using Windows dialog and an optional saved Windows-dialog receipt mode for drivers that accept silent jobs but print blank.
+- This mode shows the receipt and uses Windows printer preferences without forcing a custom paper size. Normal receipt, label and full-page defaults remain available.
+
 ## v0.3.56 - 23 Nov 2026
 - Fixed receipt printing stopping with “Script failed to execute” before reaching Windows. The isolated print window now allows the receipt measurement step to run.
 - Test-print progress and errors appear near the test receipt button as well as at the top of Printing settings. Buttons show when a test is running.

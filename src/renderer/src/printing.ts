@@ -50,7 +50,7 @@ export async function printSaleAs(sale: Sale, format: SaleFormat, printer: strin
   }
   const s = await currentPrintSettings()
   const designs = await printDesigns()
-  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo), printer, copies, receiptWidthMm:s.receiptWidthMm })
+  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo), printer, copies, receiptWidthMm:s.receiptWidthMm,windowsDialog:!!s.receiptWindowsDialog })
 }
 
 /** Print a sale on its usual printer without asking. Returns where it went (for messages). */
@@ -157,13 +157,14 @@ export function sampleSale(serial: boolean): Sale {
   }
 }
 
-export async function testPrint(kind: 'receipt' | 'fullPage' | 'label', s: PrintSettings): Promise<void> {
+export async function testPrint(kind: 'receipt' | 'fullPage' | 'label', s: PrintSettings,windowsDialog=!!s.receiptWindowsDialog): Promise<void> {
   const { store, logo } = await storeAndLogo()
   if (kind === 'receipt')
     return printWithChoice({
       html: receiptHtml(sampleSale(false), store, s.receiptWidthMm, (await printDesigns()).receipt, logo),
       printer: s.receiptPrinter,
-      receiptWidthMm:s.receiptWidthMm
+      receiptWidthMm:s.receiptWidthMm,
+      windowsDialog
     }, 'Print test receipt')
   if (kind === 'fullPage')
     return printWithChoice({ html: fullPageSaleHtml(sampleSale(true), store, null, logo, null), printer: s.fullPagePrinter, letter: true }, 'Print test page')

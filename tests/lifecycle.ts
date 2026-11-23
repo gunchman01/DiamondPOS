@@ -68,6 +68,12 @@ export async function testLifecycle(check:Check,dir:string){
  const failedRenderManager=createPrintManager(()=>{let closed=false;return{isDestroyed:()=>closed,destroy:()=>{closed=true},loadURL:async()=>{},webContents:{executeJavaScript:async()=>{throw Error('Script failed to execute')},insertCSS:async()=>'',print:(_options:any,cb:any)=>{failedRenderPrints++;cb(true,'')}}}},()=>{},()=>{})
  await assert.rejects(failedRenderManager.print({html:'Receipt',printer:'Star TSP100',receiptWidthMm:80}),/Receipt rendering failed before the job reached Windows: Script failed to execute/)
  check('rendering failure identifies the pre-spool stage and never sends a blank job to Windows',()=>assert.equal(failedRenderPrints,0))
+ let nativeOptions:any=null,nativeJob:any=null,nativeMeasurementCalls=0
+ const nativeManager=createPrintManager((job)=>{nativeJob=job;let closed=false;return{isDestroyed:()=>closed,destroy:()=>{closed=true},loadURL:async()=>{},webContents:{executeJavaScript:async()=>{nativeMeasurementCalls++;throw Error('Native mode should not override driver paper')},print:(options:any,cb:any)=>{nativeOptions=options;cb(true,'')}}}},()=>{},()=>{})
+ await nativeManager.print({html:'Receipt fixture',printer:'Star TSP100',receiptWidthMm:80,windowsDialog:true})
+ check('Windows receipt dialog uses native driver paper without custom dimensions or measurement and receives the selected Star queue',()=>{assert.equal(nativeOptions.silent,false);assert.equal(nativeOptions.deviceName,'Star TSP100');assert.equal(nativeOptions.pageSize,undefined);assert.equal(nativeMeasurementCalls,0);assert.equal(nativeJob.windowsDialog,true)})
+ await assert.rejects(nativeManager.print({html:'Wrong format',printer:'Star TSP100',windowsDialog:true,letter:true}),/requires a receipt job/)
+ check('Windows driver compatibility mode is restricted to receipt jobs',()=>assert.equal(nativeOptions.silent,false))
  let cancelledDrafts=0,askedToCancel=0,blockedCancellation=true
  const cancelOptions={blocked:()=>blockedCancellation,confirm:async()=>{askedToCancel++;return true},clear:()=>{cancelledDrafts++}}
  assert.equal(await cancelSaleDraft(cancelOptions),false)

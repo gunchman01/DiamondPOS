@@ -39,12 +39,12 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
       setMsg({ ok: false, text: (e as Error).message })
     }
   }
-  async function test(kind: 'receipt' | 'fullPage' | 'label') {
+  async function test(kind: 'receipt' | 'fullPage' | 'label',windowsDialog=!!s.receiptWindowsDialog) {
     if(testing)return
     setTesting(kind)
     setMsg({ok:true,text:'Preparing test print — choose the printer, then click Print. Waiting for completion…'})
     try {
-      await testPrint(kind, s)
+      await testPrint(kind, s,windowsDialog)
       setMsg({ ok: true, text: 'Test job accepted by Windows. Please check the paper output.' })
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message })
@@ -97,8 +97,11 @@ export default function PrintSettings({ boot, onChange }: { boot: BootInfo; onCh
           <input type="checkbox" checked={s.askPrinter} onChange={(e) => set({ askPrinter: e.target.checked })} />
           Ask which printer every time (receipt printer or a full page on any printer)
         </label>
+        <label className="check"><input type="checkbox" checked={!!s.receiptWindowsDialog} onChange={e=>set({receiptWindowsDialog:e.target.checked})}/>Use Windows print dialog for receipts (driver compatibility)</label>
+        <p className="small muted">Use the Windows-dialog test if silent receipts are blank. In Windows select Star TSP100 and its 72mm × Receipt paper for an 80mm roll. If it works, enable this option and save.</p>
         <div>
           <button disabled={testing!==null} onClick={() => test('receipt')}>{testing==='receipt'?'Printing test receipt…':'Print test receipt'}</button>
+          <button disabled={testing!==null} onClick={()=>test('receipt',true)}>Test receipt using Windows dialog</button>
           {msg&&<span role={msg.ok?'status':'alert'} className={msg.ok?'ok-text':'error-text'}>{msg.text}</span>}
         </div>
       </div>

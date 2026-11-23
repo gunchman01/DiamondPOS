@@ -1,6 +1,6 @@
 import type { PrintJob } from '../shared/printing'
 interface PrintWindow {loadURL:(url:string)=>Promise<unknown>;destroy:()=>void;isDestroyed:()=>boolean;webContents:{executeJavaScript?:(code:string)=>Promise<any>;insertCSS?:(css:string)=>Promise<string>;print:(options:Electron.WebContentsPrintOptions,cb:(ok:boolean,reason:string)=>void)=>void}}
-export function createPrintManager(createWindow:()=>PrintWindow,onFinished:()=>void,log:(event:string)=>void,timeoutMs=30000){
+export function createPrintManager(createWindow:(job?:PrintJob)=>PrintWindow,onFinished:()=>void,log:(event:string)=>void,timeoutMs=30000){
  let stopping=false
  const active=new Set<()=>void>()
  return {stop(){stopping=true;for(const cancel of [...active])cancel()},async print(job:PrintJob):Promise<void>{
@@ -8,17 +8,19 @@ export function createPrintManager(createWindow:()=>PrintWindow,onFinished:()=>v
   if(job.receiptWidthMm!==undefined&&![58,80].includes(job.receiptWidthMm))throw Error('Receipt width must be 58 or 80 mm')
   if(job.receiptWidthMm&&(job.label||job.letter||job.pageMm))throw Error('Receipt job has conflicting page settings')
   if(job.label&&!job.printer?.trim())throw Error('Choose a label printer before printing labels')
-  const win=createWindow();log('print-started')
+  if(job.windowsDialog&&!job.receiptWidthMm)throw Error('Windows receipt dialog requires a receipt job')
+  const win=createWindow(job);log('print-started')
   try{await new Promise<void>((resolve,reject)=>{
    let done=false
    const finish=(error?:Error)=>{if(done)return;done=true;clearTimeout(timer);active.delete(cancel);error?reject(error):resolve()}
    const cancel=()=>finish(Error('Print interrupted because the application is closing'))
-   const timer=setTimeout(()=>{log('print-timeout');finish(Error('Printer did not respond within 30 seconds. Check the printer before retrying; this does not mean the sale failed.'))},timeoutMs)
+   const deadline=job.windowsDialog?Math.max(timeoutMs,180000):timeoutMs
+   const timer=setTimeout(()=>{log('print-timeout');finish(Error(job.windowsDialog?'Windows print dialog timed out. Check the queue before retrying.':'Printer did not respond within 30 seconds. Check the printer before retrying; this does not mean the sale failed.'))},deadline)
    active.add(cancel)
    void win.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent(String(job.html))).then(async()=>{
     if(done||win.isDestroyed())return
-    const options:Electron.WebContentsPrintOptions={silent:true,landscape:job.landscape===true,printBackground:true,margins:{marginType:'none'},copies:Math.max(1,Math.min(10,Math.round(job.copies??1)))}
-    if(job.receiptWidthMm){
+    const options:Electron.WebContentsPrintOptions={silent:job.windowsDialog!==true,landscape:job.landscape===true,printBackground:true,margins:{marginType:'none'},copies:Math.max(1,Math.min(10,Math.round(job.copies??1)))}
+    if(job.receiptWidthMm&&!job.windowsDialog){
      if(!win.webContents.executeJavaScript||!win.webContents.insertCSS)throw Error('Receipt rendering is unavailable')
      // Trusted, fixed measurement script. The dedicated print window is sandboxed with no Node integration.
      let measured:any
@@ -32,6 +34,7 @@ export function createPrintManager(createWindow:()=>PrintWindow,onFinished:()=>v
      options.pageSize={width:job.receiptWidthMm*1000,height:heightMm*1000};options.scaleFactor=100
      log(`receipt-page-${job.receiptWidthMm}x${heightMm}mm`)
     }
+    if(job.windowsDialog)log('receipt-windows-dialog-driver-paper')
     if(job.printer)options.deviceName=job.printer
     if(job.pageMm)options.pageSize={width:Math.round(job.pageMm.width*1000),height:Math.round(job.pageMm.height*1000)}
     else if(job.letter)options.pageSize='Letter'

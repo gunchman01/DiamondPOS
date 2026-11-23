@@ -851,3 +851,12 @@ If a Windows test page works but DiamondPOS feeds/cuts blank, test the updated a
 Version 0.3.55 could stop with Script failed to execute before sending a receipt to Windows. Update the computer doing the printing to v0.3.56. The print window now allows the app's measurement code to run in its sandbox.
 
 Settings → Printing shows test progress/errors at the top and beside Print test receipt. Select a printer and click Print when prompted. Waiting or a rendering error does not mean Windows received the job. “Test job accepted by Windows” means the driver accepted it; check the actual paper before confirming printing works. Test controls stay disabled until the job finishes or reports an error.
+
+
+### Testing through the Windows print dialog (v0.3.57)
+
+If Windows test pages print correctly but silent POS receipts come out blank, open Settings → Printing and click **Test receipt using Windows dialog**. Select the Star in the app chooser, then use the native Windows dialog. A visible receipt window opens for this job; check that its content is visible. Select Star TSP100 and the driver's **72mm × Receipt** paper for an80mm roll. DiamondPOS remains at80mm.
+
+This test uses the printer's driver settings without forcing the app's measured paper dimensions. If it works, check **Use Windows print dialog for receipts (driver compatibility)** and save settings on that PC. Saved-sale receipts and normal test receipts then use this mode. Leave it unchecked to retain automatic measured sizing. Labels/full-page jobs keep their previous behavior.
+
+The native dialog has up to three minutes to finish. Cancel sends no intentional job; if a timeout/interruption occurs after clicking Print, check the Windows queue and paper before retrying. Windows acceptance is not physical output confirmation. Report whether the receipt was visible and whether the paper printed if the problem persists.
