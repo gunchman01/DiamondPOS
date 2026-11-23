@@ -116,6 +116,7 @@ export type ReceiptBlockType =
   | 'title'
   | 'saleInfo'
   | 'customer'
+  | 'customerAddress'
   | 'items'
   | 'totals'
   | 'taxExempt'
@@ -133,6 +134,7 @@ export const RECEIPT_BLOCKS: { type: ReceiptBlockType; label: string; help: stri
   { type: 'title', label: 'REFUND / EXCHANGE title', help: 'Only prints on refunds and exchanges' },
   { type: 'saleInfo', label: 'Receipt #, date and till', help: '' },
   { type: 'customer', label: 'Customer', help: 'Only when a customer is on the sale' },
+  { type:'customerAddress',label:'Customer address',help:'Billing address; optionally only for serial-numbered purchases' },
   { type: 'items', label: 'Items', help: 'Everything sold or returned' },
   { type: 'totals', label: 'Total and tax', help: '' },
   { type: 'taxExempt', label: 'Tax exempt / Farm Tax ID', help: 'Only on tax-exempt sales' },
@@ -147,6 +149,7 @@ export const RECEIPT_BLOCKS: { type: ReceiptBlockType; label: string; help: stri
 export interface ReceiptBlock {
   id: string
   type: ReceiptBlockType
+  onlySerialized?: boolean
   on: boolean
   align: 'left' | 'center' | 'right'
   fontPt: number
@@ -174,6 +177,7 @@ export type ReceiptField =
   | 'dateTime'
   | 'till'
   | 'customer'
+  | 'customerAddress'
   | 'footer'
   | 'text'
   | 'signature'
@@ -186,6 +190,7 @@ export const RECEIPT_FIELDS: { field: ReceiptField; label: string }[] = [
   { field: 'dateTime', label: 'Date and time' },
   { field: 'till', label: 'Till name' },
   { field: 'customer', label: 'Customer' },
+  { field:'customerAddress',label:'Customer address' },
   { field: 'title', label: 'REFUND / EXCHANGE title' },
   { field: 'footer', label: 'Receipt footer (Settings → Store)' },
   { field: 'signature', label: 'Signature line' },
@@ -197,6 +202,7 @@ export interface ReceiptElement {
   id: string
   kind: 'text' | 'logo' | 'barcode' | 'line'
   field: ReceiptField
+  onlySerialized?: boolean
   text: string
   x: number
   w: number
@@ -216,6 +222,8 @@ export interface ReceiptZone {
 
 export interface ReceiptLayout {
   version: 2
+  /** Once upgraded, removing the address is an intentional designer choice. */
+  customerAddressConfigured?: boolean
   /** Top of the receipt: elements dragged into place */
   header: ReceiptZone
   /** Middle: items, totals and payments, which grow with the sale */
@@ -227,7 +235,7 @@ export interface ReceiptLayout {
 }
 
 /** Middle blocks (they flow, because their length changes with every sale) */
-export const MIDDLE_BLOCKS: ReceiptBlockType[] = ['items', 'totals', 'taxExempt', 'payments', 'divider', 'text']
+export const MIDDLE_BLOCKS: ReceiptBlockType[] = ['customerAddress','items', 'totals', 'taxExempt', 'payments', 'divider', 'text']
 
 export interface PrintDesigns {
   labels: LabelTemplate[]
@@ -264,6 +272,7 @@ export function receiptBlock(type: ReceiptBlockType, c: Partial<ReceiptBlock> = 
     id: newId('b'),
     type,
     on: true,
+    onlySerialized:false,
     align: ['items', 'totals', 'payments', 'taxExempt', 'signature'].includes(type) ? 'left' : 'center',
     fontPt: big ? 12 : 9,
     bold: big,
@@ -292,6 +301,7 @@ export function receiptElement(kind: ReceiptElement['kind'], c: Partial<ReceiptE
     bold: false,
     align: 'center',
     onlyRefund: true,
+    onlySerialized:false,
     ...c
   }
 }
@@ -341,6 +351,7 @@ export const DEFAULT_NO_PRICE_TAG_ID = 'tag-noprice'
 
 function defaultMiddle(): ReceiptBlock[] {
   return [
+    receiptBlock('customerAddress',{id:'b-customer-address-default',align:'left',onlySerialized:false}),
     receiptBlock('divider'),
     receiptBlock('items'),
     receiptBlock('divider'),
@@ -383,6 +394,7 @@ export function defaultDesigns(): PrintDesigns {
     ],
     receipt: {
       version: 2,
+      customerAddressConfigured:true,
       font: 'mono',
       ...defaultReceiptZones(),
       blocks: defaultMiddle()
@@ -454,7 +466,8 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
       showAlu: b?.showAlu !== false,
       showUnitPrice: b?.showUnitPrice === true,
       showSerial: b?.showSerial !== false,
-      always: b?.always === true
+      always: b?.always === true,
+      onlySerialized:b?.onlySerialized===true
     }
   }
   const zones = defaultReceiptZones()
@@ -479,14 +492,15 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
           fontPt: num(e?.fontPt, 9, 5, 40),
           bold: e?.bold === true,
           align: pick(e?.align, ALIGN, 'center'),
-          onlyRefund: e?.onlyRefund !== false
+          onlyRefund: e?.onlyRefund !== false,
+          onlySerialized:e?.onlySerialized===true
         }
       })
     }
   }
   let receipt: ReceiptLayout
   if (r.version === 2 || r.header || r.footer) {
-    const blocks = Array.isArray(r.blocks) ? r.blocks.slice(0, 40).map(cleanBlock) : defaultMiddle()
+    const blocks = Array.isArray(r.blocks) ? r.blocks.slice(0, 41).map(cleanBlock) : defaultMiddle()
     receipt = {
       version: 2,
       font: pick(r.font, ['mono', 'sans'] as const, 'mono'),
@@ -499,6 +513,8 @@ export function normaliseDesigns(input: unknown): PrintDesigns {
     const old = Array.isArray(r.blocks) ? r.blocks.map(cleanBlock).filter((b) => MIDDLE_BLOCKS.includes(b.type)) : []
     receipt = { version: 2, font: pick(r.font, ['mono', 'sans'] as const, 'mono'), ...zones, blocks: old.length ? old : defaultMiddle() }
   }
+  if(r.customerAddressConfigured!==true&&!receipt.blocks.some(b=>b.type==='customerAddress')&&![...receipt.header.elements,...receipt.footer.elements].some(e=>e.field==='customerAddress'))receipt.blocks.unshift(receiptBlock('customerAddress',{id:'b-customer-address-default',align:'left',onlySerialized:false}))
+  receipt.customerAddressConfigured=true
   const finalLabels = labels.length ? labels : d.labels
   // Older saved designs have no work order label yet: add the standard one
   if (!finalLabels.some((t) => t.kind === 'workorder')) finalLabels.push(defaultWoLabel())

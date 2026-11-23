@@ -867,3 +867,14 @@ The native dialog has up to three minutes to finish. Cancel sends no intentional
 Windows-dialog receipt mode fits its content and margins within72mm for the standard80mm Star roll (50mm printable width for58mm roll). It uses bold Arial, larger regular text, fixed amount columns and wrapping of long item descriptions. Your saved receipt template is retained; these thermal adjustments apply when using Windows-dialog receipt mode, including its dedicated test button.
 
 Keep Windows at72mm × Receipt and DiamondPOS at80mm for the standard roll. Test with the Windows-dialog button; if fit/darkness look correct, enable/save Use Windows print dialog for receipts and reprint a saved sale. This does not change the printer's hardware darkness settings.
+
+
+### Customer address on receipts (v0.3.59)
+
+The billing address prints by default on receipts when a customer with an address is selected. It appears below the header/customer name and above the items. This applies to ordinary purchases and serial-numbered units. Walk-ins and customers without an address omit it; enter addresses under Customers → Contact Info.
+
+In Settings → Receipt Designer, select **Customer address** in the middle blocks to move it, change its text size/alignment or turn it off. It is also available as a text field in the header/footer. An optional **Only when buying a serial-numbered unit** checkbox is off by default. The middle block grows with a multiline address; for a free-placed header/footer field, resize the box if necessary. Preview with the sample customer and save the design.
+
+Existing layouts receive the address once on upgrade. After saving, an intentional removal or disabled block is respected. New receipts capture the address when the sale is saved, so changing the customer later does not alter it on reprint. Older receipts have no captured address and use the customer's current record. Full-page sales receipts also use the captured address when available.
+
+Update the Store Server first and then every till to v0.3.59 for the new receipt data and designer choice. Continue the accepted Windows-dialog receipt mode for the shop's Star printer; this update does not alter its width/font settings.

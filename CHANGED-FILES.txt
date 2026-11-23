@@ -1,5 +1,5 @@
-DiamondPOS v0.3.58 direct check-in
-Baseline main d41bba1f04a77411d3bc7d95df8c74e6faacc99f
+DiamondPOS v0.3.59 direct check-in
+Baseline main3e21448858dd6b05ff793850b43866968822fe91
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,6 +9,14 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
+src/main/server/index.ts
+src/main/server/migrations.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/printing.ts
+src/renderer/src/printTemplates.ts
 src/renderer/src/receipt.ts
+src/renderer/src/screens/ReceiptDesigner.tsx
+src/shared/constants.ts
+src/shared/printDesigns.ts
+src/shared/types.ts
+tests/receipt-address.ts
+tests/regressions.ts

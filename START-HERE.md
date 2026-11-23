@@ -1,25 +1,27 @@
-# DiamondPOS v0.3.58 — Star receipt width and text
+# DiamondPOS v0.3.59 — customer address on every customer receipt
 
-The native Windows path printed real content, but right-hand amounts were clipped and ordinary text faint. This update makes Windows-dialog receipts fit within72mm on80mm roll, wraps long descriptions and uses bold Arial with larger ordinary text. It does not change your printer darkness settings or saved receipt design.
+Customer billing address is ON by default for all selected-customer receipts (ordinary and serialized purchases), and omitted for walk-ins/no address. Existing layouts receive a growing address block once; designer can hide/move/style it or optionally restrict it to serialized purchases.
 
-## At the shop
+New receipts capture the billing address at checkout; later customer edits do not change it. Legacy receipts use current customer data. Full-page receipts also use captured addresses.367 regressions, typecheck and build pass; Windows visual/physical address print needs the shop test.
 
-After the source commit appears on main, create/publish v0.3.58 targeting main:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.58&target=main
+## Publish from the shop
 
-Wait for Release workflow/installer upload. Back up/resolve checkout recovery before updating. Update server first, then the actual print computer. No DB/dependency change; schema42/min client0.3.52 unchanged.
+After direct commit appears on main, create/publish v0.3.59 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.59&target=main
 
-1. Confirm app0.3.58.
-2. Keep Windows Star72mm x Receipt and app80mm for the80mm roll.
-3. Settings → Printing → Test receipt using Windows dialog; select Star and print.
-4. Check that right-hand amounts fit and item/date/payment text is darker.
-5. If correct, enable Use Windows print dialog for receipts and Save printing settings. Then reprint one existing receipt (do not create a new payment).
+Wait for Release workflow/installer files. Back up the Store Server, resolve pending checkout recovery and finish QuickBooks sync before installing. Update STORE SERVER FIRST, then EVERY till. Schema43 stores receipt addresses and minimum client is0.3.59; older tills must update. No dependency or website changes.
 
-Normal silent printing remains unresolved; continue using Windows-dialog mode for this test.359 regressions/typecheck/build checked before check-in; physical fit/darkness remains to be confirmed by Greg. No live hardware print/payment/customer message performed here.
+## Check
+
+- Select a customer with billing address, make an ordinary or serialized test purchase in the test system, print/reprint: address should appear by default under customer header and before items. Do not create a real payment just to test a printer.
+- Walk-in/customer with no recorded address: no address block prints.
+- Settings → Receipt Designer: Customer address is selected in the middle by default. Move/hide/style and save if desired. It can also be placed as a header/footer field. Leave Only when buying a serial-numbered unit unchecked for every customer receipt.
+- Existing old receipts use the current customer address; new ones retain the address from sale time, even after customer edits. Previously printed receipts cannot recover unknown historical addresses.
+- Keep the Windows-dialog Star mode accepted at the shop. This update does not change thermal fit/fonts.
 
 ## Sync laptop later
 
-With clean working tree:
+With a clean working tree:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -27,4 +29,4 @@ git status --short
 git pull --ff-only origin main
 ```
 
-Preserve local edits if listed; do not duplicate the direct GitHub commit. Do not overwrite old version tags.
+Preserve local edits; do not duplicate the direct commit or move earlier version tags. No actual customer payment/message, hardware print or installation performed by the assistant.

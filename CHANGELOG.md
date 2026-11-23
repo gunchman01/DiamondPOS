@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.59 - 23 Nov 2026
+> Update the Store Server PC first.
+- Customer billing address prints by default when a customer with an address is selected, including serialized-unit purchases. Walk-in receipts omit it.
+- Customer address is selectable and movable in Receipt Designer; it can be hidden or limited to serialized purchases if needed.
+- New receipts save the address at checkout so later customer edits do not change it. Older receipts use the current customer address because they have no saved address snapshot.
+
 ## v0.3.58 - 23 Nov 2026
 - Adjusted Windows-dialog receipt layout to fit the Star driver's printable area, with narrower margins and wrapped long item descriptions.
 - Windows-dialog receipts use bold Arial and larger ordinary text to improve faint thermal output. This applies to test receipts and saved-sale receipts using that mode.

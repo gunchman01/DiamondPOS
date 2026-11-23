@@ -6,6 +6,7 @@ import { taxName, voidBanner, accountBanner } from './printTemplates'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
+export function receiptAddress(sale:Sale,onlySerialized=false):string{return onlySerialized&&!sale.items.some(i=>i.qty>0&&!!i.serial?.trim())?'':sale.customerAddress||''}
 const PAY_LABEL = { cash: 'Cash', card: 'Card', check: 'Check' } as const
 
 /** What a free-placed element (top / bottom of the receipt) shows, as HTML. Also used by the Receipt Layout designer. */
@@ -35,6 +36,8 @@ export function receiptElementInner(e: ReceiptElement, sale: Sale, settings: Sto
       return dateTime(sale.createdAt)
     case 'till':
       return esc(sale.tillName)
+    case 'customerAddress':
+      return receiptAddress(sale,e.onlySerialized).split('\n').map(esc).join('<br>')
     case 'customer':
       return sale.customerName ? `Customer: ${esc(sale.customerName)}` : ''
     case 'footer':
@@ -98,6 +101,9 @@ export function receiptHtml(
         return `<div style="${style(b)}">Receipt #${sale.id}<br>${dateTime(sale.createdAt)}<br>${esc(sale.tillName)}${
           origs.length ? `<br>Original receipt: ${origs.map((o) => '#' + o).join(', ')}` : ''
         }${sale.noReceiptReturn ? '<br>Return without receipt' : ''}</div>`
+      case 'customerAddress': {
+        const address=receiptAddress(sale,b.onlySerialized);return address?`<div style="${style(b)}">${esc(address).replace(/\n/g,'<br>')}</div>`:''
+      }
       case 'customer':
         return sale.customerName ? `<div style="${style(b)}">Customer: ${esc(sale.customerName)}</div>` : ''
       case 'items': {

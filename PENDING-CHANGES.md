@@ -1,3 +1,3 @@
-# v0.3.58 direct update
+# v0.3.59 direct update
 
-Windows-dialog thermal layout fits72mm printable page on80mm roll (50mm on58mm), wraps long descriptions, and uses bold Arial/larger ordinary text. Test and actual native receipts share this layout.359 regressions/typecheck/build before commit. Greg must confirm physical fit/legibility. No saved template, driver-density, schema or dependency changes. Direct source commit authorized at shop; new release tag remains a browser step.
+Default-on customer billing address for every customer receipt; designer field/growing block remains optional/customizable. Schema43 snapshots new sale addresses, legacy NULL uses current customer record. Full-page also uses snapshot.367 regressions/typecheck/build pass; actual shop print awaits confirmation. Update server first and all tills (minimum0.3.59). Direct GitHub authorized; release tag via web UI. No real messages/payments/deployment.

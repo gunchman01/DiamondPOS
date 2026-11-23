@@ -72,7 +72,7 @@ import { registerDeleteRoutes } from './deleting'
 import { registerReceivingRoutes } from './receiving'
 import { ReturnError, finishReturns, prepareReturns, registerReturnRoutes, type PreparedReturns } from './returns'
 import { MIN_CLIENT_VERSION } from '../../shared/constants'
-import { customerDisplayName, taxExemptState } from '../../shared/types'
+import { customerMailingAddress,customerDisplayName, taxExemptState } from '../../shared/types'
 import { MAX_PRICE_CENTS, priceSale } from '../../shared/pricing'
 import { CARD_BRANDS, type CardBrand } from '../../shared/types'
 import type {
@@ -802,6 +802,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
         taxInfo.name
       )
     const saleId = Number(info.lastInsertRowid)
+    db.prepare('UPDATE sales SET customer_address_snapshot=? WHERE id=?').run(customerMailingAddress(customer),saleId)
     db.prepare("UPDATE sales SET recorded_at=datetime('now'), date_overridden=?, created_at=COALESCE(?,created_at) WHERE id=?").run(saleAt ? 1 : 0, saleAt ? saleAt.slice(0,-1).replace('T',' ') : null, saleId)
     if(req.onAccount){db.prepare('UPDATE sales SET on_account=1 WHERE id=?').run(saleId);createAccountInvoice(db,saleId,customerId!)}
     const addItem = db.prepare(
@@ -861,6 +862,7 @@ export function getSale(db: DB, id: number): Sale | null {
         tax_mode: 'added' | 'inclusive' | null
         tax_rate: number | null
         tax_rate_name: string | null
+        customer_address_snapshot: string | null
       } & Pick<
         SaleListRow,
         'cid' | 'first_name' | 'last_name' | 'company' | 'track_as_company'
@@ -908,6 +910,7 @@ export function getSale(db: DB, id: number): Sale | null {
     changeCents: s.change_cents,
     customerId: s.cid ?? null,
     customerName: rowCustomerName(s),
+    customerAddress:s.customer_address_snapshot??customerMailingAddress(s.cid?getCustomer(db,s.cid):null),
     taxExempt: s.tax_exempt === 1,
     taxExemptId: s.tax_exempt_id,
     taxExemptCents: s.tax_exempt_cents,

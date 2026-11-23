@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.59 direct check-in — 23 November 2026: customer address on receipts
+- Greg accepted current Windows-dialog Star output as close enough to use (slight right-edge issue remains; do not claim perfect alignment or silent path resolved). Requested customer address selection in Receipt Designer, then clarified default ON for ALL customer receipts, not only serialized sales.
+- Added customerAddress to designer text fields and growing middle blocks. Default/new layouts include a left-aligned address block before item lines, omitted when no address. Existing layouts gain it once using customerAddressConfigured marker; explicit saved removal/disabled state thereafter respected. Header/footer field creation reserves18mm; normal move/resize controls retained. Optional serialized-only checkbox defaults false and only tests positive serial purchases; returns alone don't satisfy it.
+- Schema43 adds nullable sales.customer_address_snapshot. New sales capture billing street/street2/city/region/postcode transactionally, including empty string if absent. getSale uses snapshot; legacy NULL uses current customer record without backfilling invented historical addresses. Full-page sales use this same captured address; work-order ticket customer blocks keep their existing live contact behavior. HTML escapes address text. No new mandatory address-entry validation.
+- 367 regressions, typecheck and build pass: real serialized checkout capture/retry/reprint, changed customer address preservation, field/block escaping, optional serial filters, saved design preferences/default upgrade/removal, walk-in omission, full-page snapshot and legacy fallback. Actual Windows designer/address receipt print still needs Greg's shop check.
+- Version/minimum client0.3.59, schema43: update Store Server first then every till. Baseline main3e21448858dd6b05ff793850b43866968822fe91. Direct GitHub update authorized while at shop; release tag remains GitHub UI step. No real hardware print/payment/message or deployment here.
+
 ### v0.3.58 direct check-in — 23 November 2026: native receipt width and thermal text
 - Greg confirmed v0.3.57 Windows-dialog receipt actually printed on Star TSP100, but right edge cut off and all non-bold text faint. Native path now confirmed to produce paper content; normal silent path remains unresolved. No photo available/required.
 - Native driverMode receiptHtml uses body68mm +2mm horizontal margins for total72mm within Star's72mm Receipt page on80mm roll.58mm mode body46+4=50mm. Fixed table layout with27mm right amount column and anywhere wrapping of long item names prevents table min-content widening. Native mode uses Arial/sans bold700 throughout, block text at least10pt and solid black text/color-adjust. Applied consistently to native test and saved-sale receipt HTML; normal mode/designer/default saved template unchanged.
@@ -636,6 +643,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.59 server first/all tills; verify default address on ordinary/serialized customer receipts, designer placement and one old receipt. New receipts retain captured address; old ones reflect current customer data.
 
 - Shop test v0.3.58 Test receipt using Windows dialog with Star72mm x Receipt: confirm right-hand prices/totals fit and non-heading text is now dark. If successful enable/save receiptWindowsDialog and reprint an existing sale. Silent path remains unconfirmed.
 

@@ -55,13 +55,12 @@ function header(store: StoreSettings, logoUrl: string | null, title: string, rig
   </div>`
 }
 
-function customerBlock(c: Customer | null, fallbackName: string | null) {
-  if (!c) return `<div class="box"><h3>Customer</h3>${fallbackName ? esc(fallbackName) : '<span class="muted">Walk-in customer</span>'}</div>`
+function customerBlock(c: Customer | null, fallbackName: string | null,addressSnapshot?:string|null) {
+  if (!c) return `<div class="box"><h3>Customer</h3>${fallbackName ? esc(fallbackName) : '<span class="muted">Walk-in customer</span>'}${addressSnapshot?'<br>'+esc(addressSnapshot).replace(/\n/g,'<br>'):''}</div>`
   const name = c.trackAsCompany && c.company ? c.company : [c.firstName, c.lastName].filter(Boolean).join(' ')
   const lines = [
     c.company && !c.trackAsCompany ? c.company : '',
-    [c.street, c.street2].filter(Boolean).join(', '),
-    [c.city, c.region, c.postcode].filter(Boolean).join(' '),
+    ...(addressSnapshot!=null?addressSnapshot.split('\n'):[[c.street,c.street2].filter(Boolean).join(', '),[c.city,c.region,c.postcode].filter(Boolean).join(' ')]),
     [c.phone || c.mobile, c.email].filter(Boolean).join(' · ')
   ].filter(Boolean)
   return `<div class="box"><h3>Customer</h3><b>${esc(name)}</b>${lines.map((l) => `<br>${esc(l)}`).join('')}${
@@ -97,7 +96,7 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
     ${voidBanner(sale)}${accountBanner(sale)}${header(store, logoUrl, title, `<div><b>Receipt #${sale.id}</b></div><div>${dateTime(sale.createdAt)}</div><div class="muted">${esc(sale.tillName)}</div>${
       woNumber ? `<div><b>${esc(woNumber)}</b></div>` : ''
     }`)}
-    <div class="boxes">${customerBlock(customer, sale.customerName)}${
+    <div class="boxes">${customerBlock(customer, sale.customerName,sale.customerAddress)}${
       sale.taxExempt ? `<div class="box"><h3>Tax exempt</h3>Farm Tax ID: <b>${esc(sale.taxExemptId ?? '')}</b><br>Tax removed: ${money(sale.taxExemptCents)}</div>` : ''
     }</div>
     <table class="lines"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>

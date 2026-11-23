@@ -701,6 +701,9 @@ export const migrations: Migration[] = [
  `},
  {version:42,name:'customer service text permission',up:`
  ALTER TABLE customers ADD COLUMN ok_to_service_text INTEGER NOT NULL DEFAULT 0 CHECK(ok_to_service_text IN (0,1));
+ `},
+ {version:43,name:'customer billing address on saved receipts',up:`
+ ALTER TABLE sales ADD COLUMN customer_address_snapshot TEXT;
  `}
 ]
 

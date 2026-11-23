@@ -193,6 +193,8 @@ export interface Sale {
   changeCents: number
   customerId: number | null
   customerName: string | null
+  /** Billing address captured at checkout; legacy receipts use the current customer record. */
+  customerAddress?: string | null
   taxExempt: boolean
   taxExemptId: string | null
   /** Tax removed because the sale was tax exempt */
@@ -432,4 +434,11 @@ export interface PosBridge {
   listReleases(): Promise<ReleaseInfo[]>
   installRelease(tag: string): Promise<void>
   onUpdateEvent(cb: (e: UpdateEvent) => void): () => void
+}
+
+export function customerMailingAddress(c:Pick<Customer,'street'|'street2'|'city'|'region'|'postcode'>|null|undefined):string{
+ if(!c)return ''
+ const city=String(c.city||'').trim(),region=String(c.region||'').trim(),postcode=String(c.postcode||'').trim()
+ const cityRegion=[city,region].filter(Boolean).join(', ')
+ return [c.street,c.street2,[cityRegion,postcode].filter(Boolean).join(' ')].map(s=>String(s||'').trim()).filter(Boolean).join('\n')
 }

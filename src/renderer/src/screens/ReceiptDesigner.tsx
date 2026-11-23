@@ -41,8 +41,8 @@ function cssToStyle(css: string): CSSProperties {
 function samples(): Record<string, Sale> {
   const serial = sampleSale(true)
   return {
-    normal: { ...sampleSale(false), id: 1042, customerId: 1, customerName: 'Kim Lee' },
-    serial: { ...serial, id: 1043, customerId: 1, customerName: 'Kim Lee', items: serial.items.map((i) => ({ ...i, alu: i.serial ? 'STIHL-BG50' : 'OIL-QUART', sku: i.serial ? 'BG50' : 'OIL-1QT' })) },
+    normal: { ...sampleSale(false), id: 1042, customerId: 1, customerName: 'Kim Lee',customerAddress:'123 Sample Street\nClaremore, OK 74019' },
+    serial: { ...serial, id: 1043, customerId: 1, customerName: 'Kim Lee',customerAddress:'123 Sample Street\nClaremore, OK 74019', items: serial.items.map((i) => ({ ...i, alu: i.serial ? 'STIHL-BG50' : 'OIL-QUART', sku: i.serial ? 'BG50' : 'OIL-1QT' })) },
     refund: {
       ...sampleSale(false),
       id: 1044,
@@ -149,7 +149,7 @@ export default function ReceiptDesigner() {
     if (!layout) return
     const z = layout[addTo]
     const bottom = Math.max(0, ...z.elements.map((e) => e.y + e.h))
-    const h = kind === 'line' ? 0.4 : kind === 'barcode' ? 10 : kind === 'logo' ? 16 : 5
+    const h = kind === 'line' ? 0.4 : kind === 'barcode' ? 10 : kind === 'logo' ? 16 : addField==='customerAddress'?18:5
     const e = receiptElement(kind, {
       field: kind === 'text' ? addField : 'text',
       text: kind === 'text' && addField === 'text' ? 'Your text here' : '',
@@ -315,6 +315,7 @@ export default function ReceiptDesigner() {
                     <textarea className="comments" rows={3} value={selEl.text} onChange={(e) => setEl(sel.zone, selEl.id, { text: e.target.value })} />
                   </label>
                 )}
+                {selEl.field==='customerAddress'&&<label className="check"><input type="checkbox" checked={selEl.onlySerialized===true} onChange={e=>setEl(sel.zone,selEl.id,{onlySerialized:e.target.checked})}/>Only when buying a serial-numbered unit</label>}
                 {selEl.field === 'signature' && (
                   <label className="check">
                     <input type="checkbox" checked={selEl.onlyRefund} onChange={(e) => setEl(sel.zone, selEl.id, { onlyRefund: e.target.checked })} />
@@ -401,6 +402,7 @@ export default function ReceiptDesigner() {
                 </label>
               </>
             )}
+            {selBlock.type==='customerAddress'&&<label className="check"><input type="checkbox" checked={selBlock.onlySerialized===true} onChange={e=>setBlock(selBlock.id,{onlySerialized:e.target.checked})}/>Only when buying a serial-numbered unit</label>}
             {selBlock.type === 'items' && (
               <>
                 <label className="check"><input type="checkbox" checked={selBlock.showAlu} onChange={e=>setBlock(selBlock.id,{showAlu:e.target.checked})}/>Alt lookup (ALU)</label>

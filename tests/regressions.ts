@@ -1,3 +1,4 @@
+import {testReceiptAddress} from './receipt-address'
 import {testQbGeneral} from './qb-general'
 import {testServiceTexts} from './service-texts'
 import { testFeeBillingAndCustomerSearch } from './fee-billing-customer-search'
@@ -55,6 +56,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
 let checks = 0
 const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`PASS ${name}`) }
 async function main() {
+  testReceiptAddress(check,dir)
   testQbGeneral(check,dir)
   testCardTypes(check,dir)
   await testReceivingAlerts(check,dir)
@@ -155,7 +157,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 42)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 43)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
