@@ -53,6 +53,17 @@ export async function testLifecycle(check:Check,dir:string){
  assert.equal(labelCreated,0)
  await labelManager.print({html:'Label fixture',label:true,printer:'Zebra-label',pageMm:{width:57.15,height:31.75}})
  check('label jobs never silently use Windows default and preserve the selected printer and label dimensions',()=>{assert.equal(labelOptions.deviceName,'Zebra-label');assert.deepEqual(labelOptions.pageSize,{width:57150,height:31750});assert.equal(labelCreated,1)})
+ let receiptOptions:any=null,receiptCss='',receiptPrints=0,receiptHeight=400,emptyReceipt=false
+ const receiptManager=createPrintManager(()=>{let closed=false;return{isDestroyed:()=>closed,destroy:()=>{closed=true},loadURL:async()=>{},webContents:{executeJavaScript:async()=>({heightPx:receiptHeight,hasText:!emptyReceipt}),insertCSS:async(css:string)=>{receiptCss=css;return 'fixture-css'},print:(options:any,cb:any)=>{receiptOptions=options;receiptPrints++;cb(true,'')}}}},()=>{},()=>{})
+ await receiptManager.print({html:'Receipt fixture',printer:'Star TSP100',receiptWidthMm:80})
+ check('thermal receipt job explicitly sends selected printer and measured width/length instead of driver-default page sizing',()=>{assert.equal(receiptOptions.deviceName,'Star TSP100');assert.deepEqual(receiptOptions.pageSize,{width:80000,height:109000});assert.equal(receiptOptions.scaleFactor,100);assert.ok(receiptCss.includes('80mm 109mm'));assert.equal(receiptPrints,1)})
+ receiptHeight=1200;await receiptManager.print({html:'Long receipt fixture',printer:'Star TSP100',receiptWidthMm:58})
+ check('long and narrow thermal receipts use their own measured page length without a fixed short cut',()=>{assert.deepEqual(receiptOptions.pageSize,{width:58000,height:321000});assert.equal(receiptPrints,2)})
+ emptyReceipt=true;await assert.rejects(receiptManager.print({html:'',printer:'Star TSP100',receiptWidthMm:80}),/rendered empty/)
+ check('an empty rendered receipt fails before sending a blank feed-and-cut job',()=>assert.equal(receiptPrints,2))
+ emptyReceipt=false;receiptHeight=12000;await assert.rejects(receiptManager.print({html:'Oversize',printer:'Star TSP100',receiptWidthMm:80}),/too long/)
+ await assert.rejects(receiptManager.print({html:'Conflict',printer:'Star TSP100',receiptWidthMm:80,letter:true}),/conflicting/)
+ check('oversize and conflicting thermal jobs are rejected rather than silently clipped',()=>assert.equal(receiptPrints,2))
  let cancelledDrafts=0,askedToCancel=0,blockedCancellation=true
  const cancelOptions={blocked:()=>blockedCancellation,confirm:async()=>{askedToCancel++;return true},clear:()=>{cancelledDrafts++}}
  assert.equal(await cancelSaleDraft(cancelOptions),false)

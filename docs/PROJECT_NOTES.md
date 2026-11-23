@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.55 source update — 23 November 2026: Star receipt rendering and page sizing
+- Greg clarified hardware is Star TSP100, Windows test page prints correctly, only DiamondPOS receipt/test job feeds half-inch/cuts blank. Windows paper is 72mm x Receipt (normal printable-width name for 80mm roll). Earlier Citizen identity was incorrect for this shop printer. Do not change working Windows driver/paper based on earlier diagnosis.
+- Thermal PrintJob adds receiptWidthMm; actual and test receipts pass configured 58/80 width. Main awaits trusted fixed DOM measurement (fonts/image decode/layout), rejects empty/invalid/>3m receipt, adds a valid width/height @page rule and matching Electron micron pageSize/100% scale. Removed invalid mixed 80mm auto CSS size. Page-authored scripts remain disabled; hidden print window disables background throttling. Content measurement errors retain messages; 30s timeout, quit cancellation and explicit named labels unchanged. Labels/full pages retain existing sizing.
+- 356 regressions pass, including measured Star page dimensions/long 58mm receipt/empty and oversize refusal, existing print timeout/cancel/label tests and financial checks. Typecheck/build pass. This is a proposed app-side fix, not a confirmed hardware resolution. Live Electron render probe could not complete in this Linux environment (headless startup segmentation fault/socket restrictions); no actual Windows/Star receipt printed here. Greg must test the update at the shop.
+- Package v0.3.55, schema42/min client0.3.52 unchanged. Main baseline e59a7ed317a06eb303c55824f093d4a78b4d832a (v0.3.54). ZIP/user-commit workflow; no remote write/tag/deployment/payment/message performed.
+
 ### v0.3.54 source update — 20 November 2026: generic QuickBooks income mapping
 - Greg requested removal of vendor-name rows under Income account for each department, leaving POS General. Replaced the UI department table rows with one All sales / POS General / default income selection.
 - Individual paid-sale and account-invoice summaries use qbItemName('') and defaultIncomeAccount for every merchandise/service/fee line. Legacy daily summaries aggregate all departments into taxable/non-taxable POS General lines. POS product departments and line descriptions remain; no deletion of catalog/vendors or existing QB transactions/items/exports. Historical saved departmentAccounts retained for compatibility but ignored by new summary generation. Dedicated tax-rounding item still uses default income to preserve reconciliation.
@@ -612,6 +618,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Greg at shop: apply v0.3.55 and test Star TSP100 test receipt and long saved receipt. Windows test print already confirmed good. If blank persists, inspect diagnostics/application.log for receipt-page dimensions and print callback, and capture exact installed Star driver. Do not mark hardware fixed until confirmed.
 
 - Apply v0.3.54 server first, confirm only POS General is visible and the default income account is selected, then check one new paid sale and one account invoice in the QuickBooks test company. Do not delete historical QB items to apply this change.
 

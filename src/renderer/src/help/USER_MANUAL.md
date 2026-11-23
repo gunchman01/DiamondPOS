@@ -837,3 +837,10 @@ The bottom Home card shows the Store Server's last verified backup, actual next 
 The QuickBooks connection has one **Income account** row: **POS General**. Select the QuickBooks income account to use for new sales and work-order charges. Vendor/department mapping rows are no longer shown, and old department overrides are ignored for new exports. POS departments and vendor records remain available for local inventory/reporting.
 
 Existing transactions already sent to QuickBooks are not rewritten or deleted. Taxable/non-taxable treatment and the separate tax-rounding reconciliation remain. Update the Store Server first so exports use the new mapping; update tills to see the simplified screen. No chart-of-accounts item or income account is deleted by this update.
+
+
+### Star TSP100 receipt printing (v0.3.55)
+
+Select the installed Star TSP100 in Settings → Printing. For the standard 80mm roll keep DiamondPOS at 80mm; the Star Windows driver's 72mm × Receipt names its printable area. The app measures receipt content and sends Windows an explicit width/length for each thermal job. Test receipts use this same path.
+
+If a Windows test page works but DiamondPOS feeds/cuts blank, test the updated app using Print test receipt. If it remains blank, report the app version, exact Star Windows printer/driver name and diagnostic log from Help. A successful spool callback only means the job was accepted; visually check text, width, total and cutting. Reprint an existing receipt rather than creating another sale. Label and full-page printing retain their existing settings.

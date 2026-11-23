@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.55 - 23 Nov 2026
+- Updated thermal receipt printing to wait for receipt rendering and send an explicit page width and measured length to Windows. This addresses a possible cause of blank feed-and-cut receipts on the Star TSP100.
+- Empty or oversized receipt rendering now shows an error before printing. Test receipts and saved-sale receipts use the same sizing path.
+
 ## v0.3.54 - 20 Nov 2026
 - Simplified QuickBooks income setup to one POS General row. Vendor/department income rows are removed.
 - Future sales and work-order exports use the selected default income account. Existing QuickBooks transactions stay unchanged; sales tax reconciliation remains in place.

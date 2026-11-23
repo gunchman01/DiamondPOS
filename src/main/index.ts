@@ -25,7 +25,7 @@ import type { AppConfig, BootInfo } from '../shared/types'
 let mainWindow: BrowserWindow | null = null
 let config: AppConfig
 let stopDiagnostics:(()=>void)|null=null
-const prints=createPrintManager(()=>new BrowserWindow({show:false,focusable:false,skipTaskbar:true,webPreferences:{javascript:false}}),()=>{if(!shutdown.closing&&mainWindow&&!mainWindow.isDestroyed()){mainWindow.focus();mainWindow.webContents.focus()}},logDiagnostic)
+const prints=createPrintManager(()=>new BrowserWindow({show:false,focusable:false,skipTaskbar:true,webPreferences:{javascript:false,backgroundThrottling:false}}),()=>{if(!shutdown.closing&&mainWindow&&!mainWindow.isDestroyed()){mainWindow.focus();mainWindow.webContents.focus()}},logDiagnostic)
 const shutdown=createQuitController({
  stop:async()=>{prints.stop();await Promise.allSettled([stopQbBridge(),stopServer()]);stopDiagnostics?.();await flushDiagnostics()},
  quit:()=>completeExit(()=>app.quit()),exit:()=>completeExit(()=>app.exit(0)),log:logDiagnostic

@@ -1,5 +1,5 @@
-DiamondPOS v0.3.54 source overlay
-Baseline main fa5137d4955d56b6739f05ef21f895e0a8d99b87 (v0.3.53)
+DiamondPOS v0.3.55 source overlay
+Baseline main e59a7ed317a06eb303c55824f093d4a78b4d832a (v0.3.54)
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,9 +9,10 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
-src/main/server/quickbooks/summary.ts
+src/main/index.ts
+src/main/printing.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/QuickBooks.tsx
-src/shared/quickbooks.ts
-tests/qb-general.ts
-tests/regressions.ts
+src/renderer/src/printing.ts
+src/renderer/src/receipt.ts
+src/shared/printing.ts
+tests/lifecycle.ts

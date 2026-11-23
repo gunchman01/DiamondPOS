@@ -1,5 +1,5 @@
-# v0.3.54 — POS General income mapping
+# v0.3.55 — thermal receipt rendering/page-size update
 
-One QuickBooks income row replaces vendor/department rows. Paid-sale, account-invoice and legacy daily summary generation use POS General/defaultIncomeAccount; old saved department overrides are retained but ignored. POS catalog departments and historical QB records stay unchanged. Tax-rounding reconciliation remains.
+Await actual receipt rendering, explicitly size each thermal spool page to 58/80mm width and measured length, remove invalid CSS mixed width/auto size, reject empty/oversize content before printing. Test/actual receipts share the path. Labels/full pages keep their existing sizing.
 
-Source overlay against v0.3.53 main fa5137d4955d56b6739f05ef21f895e0a8d99b87. Greg applies and commits the ZIP. No schema changes or actual QB calls, GitHub writes/tags or deployment. See START-HERE.md for Git commands and TESTING-NOTES.md for checks.
+356 regression checks, typecheck and build pass. Hardware outcome remains unverified. Windows test page on shop Star TSP100 works; DiamondPOS was feeding/cutting blank. Correct Windows size is 72mm x Receipt for standard 80mm roll. No Windows driver or physical settings changed here. ZIP for Greg to commit, no remote writes/tag/deployment. See START-HERE.md.

@@ -98,6 +98,8 @@ export interface PrintJob {
   /** '' = Windows default printer */
   printer: string
   copies?: number
+  /** Thermal receipt: measure content and explicitly size the spool page. */
+  receiptWidthMm?: 80 | 58
   /** Paper size in millimetres (labels); omitted = the printer's own paper (receipts) or Letter (full page) */
   pageMm?: { width: number; height: number }
   /** Letter-size page (full-page printer) */

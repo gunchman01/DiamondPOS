@@ -150,7 +150,8 @@ export function receiptHtml(
 
   const font = layout.font === 'sans' ? "Arial, 'Segoe UI', sans-serif" : "'Courier New', monospace"
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: ${widthMm}mm auto; margin: 0; }
+    @page { margin: 0; }
+    html { margin: 0; padding: 0; }
     body { width: ${widthMm - 8}mm; margin: 4mm; font-family: ${font}; line-height: 1.3; color: #000; }
     body > div, body > table { margin: 2px 0; }
     .r { text-align: right; white-space: nowrap; vertical-align: top; padding-left: 6px; }
