@@ -74,13 +74,14 @@ export function receiptHtml(
   settings: StoreSettings,
   widthMm: number = 80,
   layout: ReceiptLayout = defaultDesigns().receipt,
-  logoUrl: string | null = null
+  logoUrl: string | null = null,
+  driverMode = false
 ): string {
   const refund = sale.totalCents < 0
   const hasReturn = sale.items.some((i) => i.kind === 'return')
   const origs = [...new Set(sale.items.map((i) => i.returnOfSaleId).filter((x): x is number => !!x))]
 
-  const style = (b: ReceiptBlock) => `text-align:${b.align};font-size:${b.fontPt}pt;font-weight:${b.bold ? 700 : 400}`
+  const style = (b: ReceiptBlock) => `text-align:${b.align};font-size:${driverMode?Math.max(10,b.fontPt):b.fontPt}pt;font-weight:${driverMode||b.bold ? 700 : 400}`
   const row = (left: string, right: string, cls = '') => `<tr${cls ? ` class="${cls}"` : ''}><td>${left}</td><td class="r">${right}</td></tr>`
 
   const block = (b: ReceiptBlock): string => {
@@ -148,12 +149,13 @@ export function receiptHtml(
     }
   }
 
-  const font = layout.font === 'sans' ? "Arial, 'Segoe UI', sans-serif" : "'Courier New', monospace"
+  const font = driverMode||layout.font === 'sans' ? "Arial, 'Segoe UI', sans-serif" : "'Courier New', monospace"
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { margin: 0; }
     html { margin: 0; padding: 0; }
-    body { width: ${widthMm - 8}mm; margin: 4mm; font-family: ${font}; line-height: 1.3; color: #000; }
+    body { width: ${widthMm - (driverMode?12:8)}mm; margin: ${driverMode?2:4}mm; font-family: ${font}; line-height: 1.3; color: #000; }
     body > div, body > table { margin: 2px 0; }
+    ${driverMode?`body, body * { color: #000 !important; -webkit-text-fill-color: #000; font-family: Arial, Helvetica, sans-serif !important; font-weight: 700 !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } table { table-layout: fixed; } td:first-child { overflow-wrap: anywhere; word-break: normal; } td.r { width: 27mm; padding-left: 1mm; } img, svg { max-width: 100%; }`:''}
     .r { text-align: right; white-space: nowrap; vertical-align: top; padding-left: 6px; }
     table { width: 100%; border-collapse: collapse; }
     td { vertical-align: top; }

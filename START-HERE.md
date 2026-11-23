@@ -1,28 +1,25 @@
-# DiamondPOS v0.3.57 — Windows receipt dialog test
+# DiamondPOS v0.3.58 — Star receipt width and text
 
-v0.3.56 logs confirm receipt content was measured and Windows accepted it, but Star paper still comes out blank. This update adds a native driver path for testing, not a confirmed hardware fix.
+The native Windows path printed real content, but right-hand amounts were clipped and ordinary text faint. This update makes Windows-dialog receipts fit within72mm on80mm roll, wraps long descriptions and uses bold Arial with larger ordinary text. It does not change your printer darkness settings or saved receipt design.
 
-Source is committed directly to main at Greg's request while he is at the shop. No laptop source access is needed for release creation.
+## At the shop
 
-## Publish and test
+After the source commit appears on main, create/publish v0.3.58 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.58&target=main
 
-After the v0.3.57 commit appears on main, create tag/release v0.3.57 targeting main:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.57&target=main
+Wait for Release workflow/installer upload. Back up/resolve checkout recovery before updating. Update server first, then the actual print computer. No DB/dependency change; schema42/min client0.3.52 unchanged.
 
-Wait for the Release workflow to finish and upload installer/update files. Do not move existing tags. Update server first, then the actual printing computer. Schema42/min client0.3.52 unchanged; no database/dependency migration.
+1. Confirm app0.3.58.
+2. Keep Windows Star72mm x Receipt and app80mm for the80mm roll.
+3. Settings → Printing → Test receipt using Windows dialog; select Star and print.
+4. Check that right-hand amounts fit and item/date/payment text is darker.
+5. If correct, enable Use Windows print dialog for receipts and Save printing settings. Then reprint one existing receipt (do not create a new payment).
 
-1. Confirm running version0.3.57.
-2. Settings → Printing → Test receipt using Windows dialog.
-3. Select the Star in the app's printer chooser and click Print.
-4. A visible receipt window and native Windows print dialog should appear. Verify text is visible in the receipt window. Select Star TSP100, its existing72mm x Receipt paper setting, and print.
-5. If it prints correctly, enable Use Windows print dialog for receipts (driver compatibility) and Save printing settings on this computer. This is off by default; the dedicated test button uses it without changing your saved preferences.
-6. If blank persists, report whether the on-screen receipt has text and the exact Windows driver name/version. Check queue/paper before repeating a timed-out job. Do not create another payment just to test printing.
-
-359 regression checks, typecheck and build checked before commit. No physical Star test, deployment or live payment/message performed by the assistant. Receipt native mode omits app custom paper size; labels/full pages retain their paths.
+Normal silent printing remains unresolved; continue using Windows-dialog mode for this test.359 regressions/typecheck/build checked before check-in; physical fit/darkness remains to be confirmed by Greg. No live hardware print/payment/customer message performed here.
 
 ## Sync laptop later
 
-With a clean working tree:
+With clean working tree:
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -30,4 +27,4 @@ git status --short
 git pull --ff-only origin main
 ```
 
-Preserve local edits if listed. No need to duplicate the direct commit. Future source-only work follows the regular ZIP/user-commit workflow unless direct updates are requested.
+Preserve local edits if listed; do not duplicate the direct GitHub commit. Do not overwrite old version tags.

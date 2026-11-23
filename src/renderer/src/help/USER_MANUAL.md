@@ -860,3 +860,10 @@ If Windows test pages print correctly but silent POS receipts come out blank, op
 This test uses the printer's driver settings without forcing the app's measured paper dimensions. If it works, check **Use Windows print dialog for receipts (driver compatibility)** and save settings on that PC. Saved-sale receipts and normal test receipts then use this mode. Leave it unchecked to retain automatic measured sizing. Labels/full-page jobs keep their previous behavior.
 
 The native dialog has up to three minutes to finish. Cancel sends no intentional job; if a timeout/interruption occurs after clicking Print, check the Windows queue and paper before retrying. Windows acceptance is not physical output confirmation. Report whether the receipt was visible and whether the paper printed if the problem persists.
+
+
+### Star receipt fit and faint text (v0.3.58)
+
+Windows-dialog receipt mode fits its content and margins within72mm for the standard80mm Star roll (50mm printable width for58mm roll). It uses bold Arial, larger regular text, fixed amount columns and wrapping of long item descriptions. Your saved receipt template is retained; these thermal adjustments apply when using Windows-dialog receipt mode, including its dedicated test button.
+
+Keep Windows at72mm × Receipt and DiamondPOS at80mm for the standard roll. Test with the Windows-dialog button; if fit/darkness look correct, enable/save Use Windows print dialog for receipts and reprint a saved sale. This does not change the printer's hardware darkness settings.

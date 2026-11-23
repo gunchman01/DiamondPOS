@@ -1,9 +1,9 @@
-# v0.3.57 native receipt path
+# v0.3.58 — native thermal receipt fit/legibility
 
-359 regressions pass, including native dialog/selected Star/no custom dimensions/no measurement and receipt-only guard. Typecheck/build checked before commit. Physical Windows/Star output remains unverified.
+Run359 regression checks/typecheck/build before check-in. Source changes are HTML layout/font only in driver mode; exact physical rendering remains to test on the Star. Existing financial/print lifecycle tests remain required, but no new test merely mirroring CSS is added.
 
-- Use Test receipt using Windows dialog in Printing settings. Confirm a visible receipt and native dialog appear; select Star72mm x Receipt and print.
-- If successful, enable/save Windows receipt dialog option and reprint a saved receipt; no duplicate payment.
-- Unchecked saved option retains explicit measured silent receipt sizes. Label and Letter defaults remain unchanged.
-- Check cancel and timeout paths before retrying; do not infer physical success from print-finished log.
-- If native output is blank too, gather visible receipt rendering and driver version before changing code again.
+- Windows-dialog test: standard80mm roll, driver72mm x Receipt. Confirm all right-hand amounts fit and ordinary item/date/payment text is dark enough. Layout total72mm uses68mm body+2mm each side.
+- Reprint a long saved receipt with long item/ALU/serial text; wrapping must not push price column off paper.
+- Confirm total/customer/item values match saved receipt. Reprint must not create a new sale/payment.
+- Enable/save native mode for actual receipts if accepted. Silent mode remains unconfirmed; labels/full-page/designer rendering are not changed.
+-58mm native mode targets50mm width; hardware test only if using that roll.

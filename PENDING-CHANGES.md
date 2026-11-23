@@ -1,3 +1,3 @@
-# v0.3.57 direct GitHub update
+# v0.3.58 direct update
 
-Native Windows receipt test and optional saved per-PC mode; no custom paper/measurement override, visible print window, driver dialog. Off by default and selectable without saving through dedicated test button.359 regressions/typecheck/build checked. No physical hardware pass claimed. No schema/dependency change. Greg authorized direct commit; installer tag still requires GitHub UI.
+Windows-dialog thermal layout fits72mm printable page on80mm roll (50mm on58mm), wraps long descriptions, and uses bold Arial/larger ordinary text. Test and actual native receipts share this layout.359 regressions/typecheck/build before commit. Greg must confirm physical fit/legibility. No saved template, driver-density, schema or dependency changes. Direct source commit authorized at shop; new release tag remains a browser step.

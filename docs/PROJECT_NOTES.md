@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.58 direct check-in — 23 November 2026: native receipt width and thermal text
+- Greg confirmed v0.3.57 Windows-dialog receipt actually printed on Star TSP100, but right edge cut off and all non-bold text faint. Native path now confirmed to produce paper content; normal silent path remains unresolved. No photo available/required.
+- Native driverMode receiptHtml uses body68mm +2mm horizontal margins for total72mm within Star's72mm Receipt page on80mm roll.58mm mode body46+4=50mm. Fixed table layout with27mm right amount column and anywhere wrapping of long item names prevents table min-content widening. Native mode uses Arial/sans bold700 throughout, block text at least10pt and solid black text/color-adjust. Applied consistently to native test and saved-sale receipt HTML; normal mode/designer/default saved template unchanged.
+- Run existing359 regressions, typecheck and build before direct commit. Actual visual/Star darkness/fit still require shop test; no confirmed final hardware pass. No driver heat/density settings changed, no actual hardware print/payment/message here.
+- Version0.3.58, schema42/min client0.3.52. Baseline main d41bba1f04a77411d3bc7d95df8c74e6faacc99f. Greg authorizes direct updates while at shop; release tag via GitHub UI still required.
+
 ### v0.3.57 direct check-in — 23 November 2026: native Windows receipt path
 - Greg's log after v0.3.56: print-started, receipt-page-80x111mm, print-finished, but blank feed/cut persists. Rendering/Windows callback now succeed; physical driver output unresolved. Windows test page works. Do not infer a confirmed driver root cause from those logs.
 - Added explicit Test receipt using Windows dialog plus saved per-PC receiptWindowsDialog option (default false). Native receipt jobs set silent:false, omit custom pageSize/measurement/CSS overrides, and show a focusable visible sandboxed receipt window so the native dialog is accessible. Use Star72mm x Receipt/app80mm for standard80mm roll. Other receipt mode preserves measured explicit page sizing. Labels/Letter remain as before. Native dialog has180s timeout; no auto retry. A successful callback is still only Windows acceptance.
@@ -630,6 +636,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Shop test v0.3.58 Test receipt using Windows dialog with Star72mm x Receipt: confirm right-hand prices/totals fit and non-heading text is now dark. If successful enable/save receiptWindowsDialog and reprint an existing sale. Silent path remains unconfirmed.
 
 - Greg: after installing v0.3.57 use Test receipt using Windows dialog; verify receipt visible on screen, select Star72mm x Receipt and compare physical output. If it works, enable/save receiptWindowsDialog. If blank persists, collect native preview/queue result and actual Star driver version before further changes.
 

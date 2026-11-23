@@ -50,7 +50,7 @@ export async function printSaleAs(sale: Sale, format: SaleFormat, printer: strin
   }
   const s = await currentPrintSettings()
   const designs = await printDesigns()
-  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo), printer, copies, receiptWidthMm:s.receiptWidthMm,windowsDialog:!!s.receiptWindowsDialog })
+  await window.pos.print({ html: receiptHtml(sale, store, s.receiptWidthMm, designs.receipt, logo,!!s.receiptWindowsDialog), printer, copies, receiptWidthMm:s.receiptWidthMm,windowsDialog:!!s.receiptWindowsDialog })
 }
 
 /** Print a sale on its usual printer without asking. Returns where it went (for messages). */
@@ -161,7 +161,7 @@ export async function testPrint(kind: 'receipt' | 'fullPage' | 'label', s: Print
   const { store, logo } = await storeAndLogo()
   if (kind === 'receipt')
     return printWithChoice({
-      html: receiptHtml(sampleSale(false), store, s.receiptWidthMm, (await printDesigns()).receipt, logo),
+      html: receiptHtml(sampleSale(false), store, s.receiptWidthMm, (await printDesigns()).receipt, logo,windowsDialog),
       printer: s.receiptPrinter,
       receiptWidthMm:s.receiptWidthMm,
       windowsDialog

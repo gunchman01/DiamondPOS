@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.58 - 23 Nov 2026
+- Adjusted Windows-dialog receipt layout to fit the Star driver's printable area, with narrower margins and wrapped long item descriptions.
+- Windows-dialog receipts use bold Arial and larger ordinary text to improve faint thermal output. This applies to test receipts and saved-sale receipts using that mode.
+
 ## v0.3.57 - 23 Nov 2026
 - Added Test receipt using Windows dialog and an optional saved Windows-dialog receipt mode for drivers that accept silent jobs but print blank.
 - This mode shows the receipt and uses Windows printer preferences without forcing a custom paper size. Normal receipt, label and full-page defaults remain available.
