@@ -10,6 +10,8 @@ import type { CardBrand } from '../../../shared/types'
  * QuickBooks always equals the money actually taken.
  */
 import type { DB } from '../db'
+import { resolveSaleTax } from './taxMapping'
+import { WO_DEPARTMENTS } from '../../../shared/workorders'
 import {
   QB_ROUNDING_ITEM,
   qbItemName,
@@ -27,6 +29,9 @@ interface SaleRow {
   tax_exempt: number
   /** 'added' (tax on top, v0.3.16+) or 'inclusive' (older sales: tax inside the line amounts) */
   tax_mode: string | null
+  tax_rate: number | null
+  tax_rate_id: string | null
+  tax_rate_name: string | null
 }
 
 /** Dates (YYYY-MM-DD, store local time) that have completed sales, from `from` up to but not including `before` */
@@ -201,17 +206,19 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
       COALESCE(department, '') AS department, COALESCE(taxable, 1) AS taxable
       FROM sale_items WHERE sale_id = ? ORDER BY id`).all(s.id) as
       { name: string; serial: string | null; qty: number; amount: number; department: string; taxable: number }[]
+    const taxMapping = resolveSaleTax(db,cfg,s)
     const taxed = items.filter((it) => it.taxable && !s.tax_exempt)
     const taxShares = s.tax_mode === 'added' ? taxed.map(() => 0) : allocate(s.tax_cents, taxed.map((it) => it.amount))
     let taxIndex = 0
     const lines: QbSummaryLine[] = items.map((it) => {
       const taxable = !!it.taxable && !s.tax_exempt
       const net = it.amount - (taxable ? taxShares[taxIndex++] : 0)
-      return { department: '', itemName: qbItemName(''),
-        account: cfg.defaultIncomeAccount, taxable,
+      const labor = it.department === WO_DEPARTMENTS.labor && !!cfg.laborIncomeAccount
+      return { department: '', itemName: labor ? 'POS Labor' : qbItemName(''),
+        account: labor ? cfg.laborIncomeAccount! : cfg.defaultIncomeAccount, taxable,
         amountCents: net, description: `${it.name} (qty ${it.qty})${it.serial ? ` S/N ${it.serial}` : ''}` }
     })
-    const qbTax = Math.round(lines.filter((l) => l.taxable).reduce((sum, l) => sum + l.amountCents, 0) * (qbTaxRate ?? storeTaxRate))
+    const qbTax = Math.round(lines.filter((l) => l.taxable).reduce((sum, l) => sum + l.amountCents, 0) * (taxMapping.rate ?? s.tax_rate ?? storeTaxRate))
     const rounding = s.tax_cents - qbTax
     if (rounding) lines.push({ department: '', itemName: QB_ROUNDING_ITEM, account: cfg.defaultIncomeAccount,
       taxable: false, amountCents: rounding, description: 'Sales tax reconciliation' })
@@ -221,7 +228,7 @@ export function individualSummaries(db: DB, saleDate: string, cfg: QbConfig, sto
     else if (tenders[0].amount !== s.total_cents) manualReason = 'Payments do not match the sale total. Review before entering this sale in QuickBooks.'
     const legacy = db.prepare('SELECT id FROM qb_exports WHERE sale_date = ? LIMIT 1').get(saleDate)
     if (legacy) manualReason = 'A daily export already exists for this date. Reconcile it in QuickBooks before entering any individual sale, to avoid duplicates.'
-    return { cardBrand: method === 'card' ? tenders[0]?.card_brand ?? 'unknown' : undefined, saleId: s.id, customerId: s.customer_id, customerName, manualReason, saleDate, method,
+    return { salesTaxItem: taxMapping.name, taxMappingError: taxMapping.error, cardBrand: method === 'card' ? tenders[0]?.card_brand ?? 'unknown' : undefined, saleId: s.id, customerId: s.customer_id, customerName, manualReason, saleDate, method,
       refNumber: `DP${s.id.toString(36).toUpperCase()}`, saleCount: 1, firstSaleId: s.id, lastSaleId: s.id,
       taxExemptCount: s.tax_exempt ? 1 : 0, totalCents: s.total_cents, taxCents: s.tax_cents, roundingCents: rounding, lines }
   })

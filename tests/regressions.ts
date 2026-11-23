@@ -1,3 +1,4 @@
+import {testQbTaxMapping} from './qb-tax-mapping'
 import {testReceiptAddress} from './receipt-address'
 import {testQbGeneral} from './qb-general'
 import {testServiceTexts} from './service-texts'
@@ -56,6 +57,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'diamondpos-regression-'))
 let checks = 0
 const check = (name: string, fn: () => void) => { fn(); checks++; console.log(`PASS ${name}`) }
 async function main() {
+  testQbTaxMapping(check,dir)
   testReceiptAddress(check,dir)
   testQbGeneral(check,dir)
   testCardTypes(check,dir)

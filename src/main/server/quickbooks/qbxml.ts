@@ -39,6 +39,7 @@ export const rq = {
   findSalesReceipt: (refNumber: string) =>
     `<SalesReceiptQueryRq requestID="1"><RefNumber>${esc(refNumber)}</RefNumber></SalesReceiptQueryRq>`,
   addSalesReceipt: (s: QbDailySummary, cfg: QbConfig) => {
+    if(s.taxMappingError) throw new Error(s.taxMappingError)
     const m = cfg.methods[s.method]
     const paymentMethod = s.method === 'card' ? cfg.cardBrands?.[s.cardBrand ?? 'unknown'] || m.paymentMethod : m.paymentMethod
     const memo =
@@ -62,7 +63,7 @@ export const rq = {
       `<TxnDate>${s.saleDate}</TxnDate>` +
       `<RefNumber>${esc(s.refNumber)}</RefNumber>` +
       (paymentMethod ? ref('PaymentMethodRef', paymentMethod) : '') +
-      ref('ItemSalesTaxRef', cfg.salesTaxItem) +
+      ref('ItemSalesTaxRef', s.salesTaxItem ?? cfg.salesTaxItem) +
       `<Memo>${esc(memo.slice(0, 4095))}</Memo>` +
       ref('DepositToAccountRef', m.depositAccount) +
       lines +

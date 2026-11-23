@@ -71,6 +71,15 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.60 direct check-in — 23 November 2026: tax-location and labor mappings
+
+- User clarified Exmark website orders are recorded as received/sold locally using the customer's applicable selected POS tax location; no shipping workflow. Existing sales already snapshot tax rate/id/name. Added mappings keyed by saved rate ID AND value, exposing current and historical rates. Default store item is permitted only for the default identity (or legacy missing ID) at a matching cached QuickBooks rate. Missing/changed/unknown QB items or rate mismatch block insertion with a retryable problem. No large tax difference is disguised as general income.
+- Individual paid receipts and account invoices use the mapped ItemSalesTaxRef. Query-before-add still recovers already-created transactions before considering new mapping errors, preserving lost-response idempotence. Queue and preview show mapping issues; fix settings then select paid-sale retry or account Retry sync. Existing confirmed records are untouched. Legacy daily-export code remains reconciliation-only.
+- User additionally requested Sales/Labor income separation. Optional laborIncomeAccount maps exact saved Service Labor department to POS Labor, including account invoices. Work-order labor already snapshots that department. Other merchandise/parts/fees use POS General/default income; blank Labor retains compatibility. No vendor account rows restored. Catalog labor items should be assigned Service Labor. Does not reclassify historical QB entries or automatically determine jurisdiction/rates.
+- Validation: 374 regression checks, typecheck and build (final results recorded at check-in). New real-SQLite tests cover mixed-location paid/account XML, separate labor accounts, same-rate distinct authorities requiring mapping, mismatch/missing/unknown QB rates, saved rates after edits/default changes, retry without duplicate rows and blank labor fallback. Existing XML fixtures now supply valid cached tax items. Actual QuickBooks Desktop test-company validation remains with user. No schema change (43); minimum client remains0.3.59. Update Store Server to0.3.60 first for new connector behavior, then tills for mapping UI.
+- GitHub baseline a06e5ecb6bdeecd0272791a72d9b1c86d2e0f0a2; direct main check-in authorized during shop session. No real accounting transactions, hardware printing, email/text or deployment performed here.
+
+
 ### v0.3.59 direct check-in — 23 November 2026: customer address on receipts
 - Greg accepted current Windows-dialog Star output as close enough to use (slight right-edge issue remains; do not claim perfect alignment or silent path resolved). Requested customer address selection in Receipt Designer, then clarified default ON for ALL customer receipts, not only serialized sales.
 - Added customerAddress to designer text fields and growing middle blocks. Default/new layouts include a left-aligned address block before item lines, omitted when no address. Existing layouts gain it once using customerAddressConfigured marker; explicit saved removal/disabled state thereafter respected. Header/footer field creation reserves18mm; normal move/resize controls retained. Optional serialized-only checkbox defaults false and only tests positive serial purchases; returns alone don't satisfy it.
@@ -643,6 +652,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Release/install v0.3.60 server first then tills; select Sales and Labor accounts, map each POS tax location/rate to matching QuickBooks items. Refresh QB lists after creating items. Test store/Exmark rates and mixed parts/labor paid and on-account transactions in the test company; confirm tax liability and income account reports. Correct mapping errors then retry. Existing QB exports are not rewritten.
+
 
 - Install v0.3.59 server first/all tills; verify default address on ordinary/serialized customer receipts, designer placement and one old receipt. New receipts retain captured address; old ones reflect current customer data.
 

@@ -3,7 +3,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import {openDatabase} from '../src/main/server/db'
 import {createSale,readSettings} from '../src/main/server'
-import {getQbConfig} from '../src/main/server/quickbooks/store'
+import {getQbConfig, saveQbLists} from '../src/main/server/quickbooks/store'
 import {dailySummaries,individualSummaries} from '../src/main/server/quickbooks/summary'
 import {rq} from '../src/main/server/quickbooks/qbxml'
 export function testQbGeneral(check:(name:string,fn:()=>void)=>void,dir:string){
@@ -15,7 +15,8 @@ export function testQbGeneral(check:(name:string,fn:()=>void)=>void,dir:string){
   const a=product('Husqvarna',1),b=product('STIHL',0),c=product('Service Labor',1)
   const cash=createSale(db,{requestId:crypto.randomUUID(),customerId:customer,tillName:'Test',items:[{productId:a,qty:1},{productId:b,qty:1},{productId:c,qty:1}],payments:[{method:'cash',amountCents:320}]})
   const account=createSale(db,{requestId:crypto.randomUUID(),customerId:customer,tillName:'Test',items:[{productId:a,qty:1},{productId:c,qty:1}],payments:[],onAccount:true})
-  const cfg={...getQbConfig(db),defaultIncomeAccount:'Sales Income',departmentAccounts:{Husqvarna:'Old Vendor Income',STIHL:'Other Old Income','Service Labor':'Old Labor Income'}}
+  saveQbLists(db,{salesTaxItems:[{name:'State Tax',rate:10}]})
+  const cfg={...getQbConfig(db),salesTaxItem:'State Tax',defaultIncomeAccount:'Sales Income',departmentAccounts:{Husqvarna:'Old Vendor Income',STIHL:'Other Old Income','Service Labor':'Old Labor Income'}}
   const date=(db.prepare("SELECT date(created_at,'localtime') AS d FROM sales WHERE id=?").get(cash.id) as any).d
   const summaries=individualSummaries(db,date,cfg,0.1,0.1,undefined,true)
   check('cash and account export lines use POS General and default income despite saved vendor/service overrides',()=>{

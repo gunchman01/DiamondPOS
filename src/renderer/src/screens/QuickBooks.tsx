@@ -261,7 +261,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
             <input value={draft.customerName} onChange={(e) => set({ customerName: e.target.value })} />
           </label>
           <label>
-            Sales tax item
+            Default store sales tax item
             <Select
               value={draft.salesTaxItem}
               onChange={(v) => set({ salesTaxItem: v })}
@@ -286,8 +286,13 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           </label>
         </div>
 
-        <h4>Income account</h4>
-        <p className="muted small">All sales and work-order charges use POS General and the income account selected below.</p>
+        <h4>Sales tax locations and rates</h4>
+        <p className="small">Map each checkout tax rate to a QuickBooks sales tax item with the same percentage. Previous sales keep their saved rate. Unmapped or mismatched sales wait for correction; they are never sent using a different rate. The default store rate can use the default item above.</p>
+        <table className="table qb-table"><thead><tr><th>POS tax location / rate</th><th>QuickBooks sales tax item</th></tr></thead><tbody>
+          {(st.taxRates ?? []).map(t => <tr key={t.key}><td>{t.name} — {Number((t.rate*100).toFixed(5))}%</td><td><Select value={draft.taxMappings?.[t.key] ?? ''} placeholder="— no explicit mapping —" options={lists.salesTaxItems.filter(i=>i.rate!==null && Math.abs(i.rate/100-t.rate)<0.00000001).map(i=>i.name)} onChange={v=>set({taxMappings:{...draft.taxMappings,[t.key]:v}})}/></td></tr>)}
+        </tbody></table>
+        <h4>Income accounts</h4>
+        <p className="muted small">Merchandise, parts and fees use POS General. Work-order labor and items in the Service Labor department use POS Labor when a labor income account is selected. Blank keeps the general income mapping. Vendor account rows are not needed.</p>
         <table className="table qb-table">
           <thead>
             <tr>
@@ -299,7 +304,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
           <tbody>
             <tr>
               <td>
-                <b>All sales</b> <span className="muted small">(including work orders and tax rounding)</span>
+                <b>Sales / parts / fees</b> <span className="muted small">(including tax rounding)</span>
               </td>
               <td className="muted">POS General</td>
               <td>
@@ -310,7 +315,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                 />
               </td>
             </tr>
-
+            <tr><td><b>Labor</b> <span className="muted small">(Service Labor department)</span></td><td>POS Labor</td><td><Select value={draft.laborIncomeAccount ?? ''} options={income.map(a=>a.name)} placeholder="— use general income account —" onChange={v=>set({laborIncomeAccount:v})}/></td></tr>
           </tbody>
         </table>
 
@@ -387,6 +392,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
               </b>
               <b>{money(s.totalCents)}</b>
             </div>
+            {s.taxMappingError && <p className="error-text">Waiting for tax mapping: {s.taxMappingError}</p>}
             {s.manualReason && <p className="error-text">Enter by hand: {s.manualReason}</p>}
             <table className="table qb-table">
               <tbody>
@@ -401,7 +407,7 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
                 <tr>
                   <td>Sales tax (QuickBooks adds this)</td>
                   <td />
-                  <td className="muted">{draft.salesTaxItem || '(no tax item chosen)'}</td>
+                  <td className="muted">{s.salesTaxItem || '(no matching tax item)'}</td>
                   <td className="r">{money(s.taxCents - s.roundingCents)}</td>
                 </tr>
               </tbody>

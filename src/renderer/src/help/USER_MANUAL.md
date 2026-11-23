@@ -878,3 +878,14 @@ In Settings → Receipt Designer, select **Customer address** in the middle bloc
 Existing layouts receive the address once on upgrade. After saving, an intentional removal or disabled block is respected. New receipts capture the address when the sale is saved, so changing the customer later does not alter it on reprint. Older receipts have no captured address and use the customer's current record. Full-page sales receipts also use the captured address when available.
 
 Update the Store Server first and then every till to v0.3.59 for the new receipt data and designer choice. Continue the accepted Windows-dialog receipt mode for the shop's Star printer; this update does not alter its width/font settings.
+
+
+### QuickBooks: different sales tax locations and labor income (v0.3.60)
+
+Use the existing checkout tax-rate selector for Exmark customer-location orders. No shipping option is required. Sales retain the selected tax rate and name at checkout.
+
+In **Settings → QuickBooks**, refresh the QuickBooks lists after adding tax items in the test company. Under **Sales tax locations and rates**, select the matching QuickBooks sales tax item for each POS rate/location. Only equal-rate items appear as choices. Historical rates used on previous sales remain available even after editing the current rate list. Two locations with the same percentage can be mapped to different QuickBooks items. The default store rate can use the default store sales tax item above, provided its QuickBooks rate matches.
+
+A missing, removed or mismatched mapping prevents a new sales receipt/account invoice from being added with the wrong tax rate. The queue/preview shows the problem. After correcting and saving the mapping, select the affected paid receipts in the transaction queue and queue/retry them; for on-account invoices use the account **Retry sync** action. Run Web Connector again. Already confirmed transactions are not resent or rewritten. Tax settings changes do not repair old QuickBooks entries automatically. The POS uses configured tax rates; it does not determine which jurisdiction applies.
+
+Under **Income accounts**, choose the merchandise/parts Sales account and optionally a separate Labor Income account. Work-order labor and catalog items in the **Service Labor** department export as **POS Labor**. Other parts, merchandise, estimate fees, shop supplies and miscellaneous charges remain **POS General**. Blank Labor uses the general income account for compatibility. New QuickBooks POS Labor items are created using the selected labor account; review existing QuickBooks item/account settings if you later change accounts. Separate income accounts do not change whether a line is taxable.

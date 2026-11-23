@@ -8,7 +8,7 @@ import { paymentLabel,CARD_TYPES } from '../src/shared/types'
 import { returnableSale } from '../src/main/server/returns'
 import { receiptHtml } from '../src/renderer/src/receipt'
 import { endOfDayReport } from '../src/main/server/endOfDay'
-import { getQbConfig } from '../src/main/server/quickbooks/store'
+import { getQbConfig, saveQbLists } from '../src/main/server/quickbooks/store'
 import { individualSummaries } from '../src/main/server/quickbooks/summary'
 import { rq } from '../src/main/server/quickbooks/qbxml'
 import { customerAccount,receiveAccountPayment } from '../src/main/server/accounts'
@@ -39,7 +39,8 @@ export function testCardTypes(check:(name:string,fn:()=>void)=>void,dir:string){
   const original=returnableSale(db,debit.id)!,refund=createSale(db,{requestId:crypto.randomUUID(),tillName:'Card test',items:[],returns:[{saleItemId:original.lines[0].saleItemId,qty:1,reason:'Other',restock:true}],payments:[{method:'card',amountCents:-100,cardBrand:'debit'}]})
   check('debit receipt lookups and card refunds retain Debit as the card classification',()=>{assert.equal(original.payments[0].cardBrand,'debit');assert.equal(refund.payments[0].cardBrand,'debit');assert.equal(refund.items[0].alu,'ALT<&1>')})
   const date=(db.prepare("SELECT date(created_at,'localtime') d FROM sales WHERE id=?").get(credit.id) as any).d
-  const cfg=getQbConfig(db);cfg.cardBrands.credit='Credit Card';cfg.cardBrands.debit='Debit Card';cfg.methods.card.paymentMethod='General Card'
+  saveQbLists(db,{salesTaxItems:[{name:'Test Tax',rate:readSettings(db).taxRate*100}]})
+  const cfg=getQbConfig(db);cfg.salesTaxItem='Test Tax';cfg.cardBrands.credit='Credit Card';cfg.cardBrands.debit='Debit Card';cfg.methods.card.paymentMethod='General Card'
   const summaries=individualSummaries(db,date,cfg,0,0),summary=summaries.find(s=>s.saleId===credit.id)!
   check('QuickBooks can distinguish Credit and Debit while end-of-day nets refunds by type',()=>{
    const xml=rq.addSalesReceipt(summary,cfg);assert.ok(xml.includes('<FullName>Credit Card</FullName>'));assert.ok(xml.includes('Card type: Credit'))

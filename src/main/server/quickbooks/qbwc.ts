@@ -27,6 +27,7 @@ import { recordQbCompletion, recordQbFailure } from '../operations'
 import type { DB } from '../db'
 import type { StoreSettings } from '../../../shared/types'
 import { QB_ROUNDING_ITEM, qbItemName, type QbConfig, type QbDailySummary, type QbStatus } from '../../../shared/quickbooks'
+import { taxChoices } from './taxMapping'
 import { SERVER_PORT, QB_BRIDGE_PORT } from '../../../shared/constants'
 import { child, esc, parseXml, text } from './xml'
 import { envelope, parseResponse, readList, rq, salesReceiptTxnId, type QbResult } from './qbxml'
@@ -287,6 +288,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
             qbLog(db, 'info', `${label} was already in QuickBooks, so it was not sent again`)
             return
           }
+          if (summary.taxMappingError) { markError(exportId, summary.taxMappingError); s.failed++; return }
           const addReceipt = () => s.queue.unshift({
             kind: 'rq', label: `Add ${label}`, xml: rq.addSalesReceipt(summary, cfg),
             onOk: (res) => {
@@ -473,6 +475,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       config: cfg,
       lists: getQbLists(db),
       missing: qbMissing(db, cfg),
+      taxRates: taxChoices(db, readSettings(db).taxRates ?? []),
       departments: departments(db),
       lastContact,
       syncing: sessions.size > 0
@@ -490,8 +493,14 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(b.startDate))) return res.status(400).json({ error: 'Start date must be a date' })
       clean.startDate = str(b.startDate)
     }
-    for (const k of ['customerName', 'salesTaxItem', 'taxableCode', 'nonTaxableCode', 'defaultIncomeAccount'] as const)
+    for (const k of ['customerName', 'salesTaxItem', 'taxableCode', 'nonTaxableCode', 'defaultIncomeAccount', 'laborIncomeAccount'] as const)
       if (b[k] !== undefined) clean[k] = str(b[k]).slice(0, 159)
+    if (b.taxMappings !== undefined) {
+      if (!b.taxMappings || typeof b.taxMappings !== 'object' || Array.isArray(b.taxMappings) || Object.keys(b.taxMappings).length > 2000) return res.status(400).json({error:'Invalid tax mappings'})
+      const entries = Object.entries(b.taxMappings)
+      if(entries.some(([k,v])=>!/^.{1,150}@[0-9]+\.[0-9]{8}$/.test(k) || typeof v !== 'string' || v.length>159)) return res.status(400).json({error:'Invalid tax mapping'})
+      clean.taxMappings=Object.fromEntries(entries.map(([k,v])=>[k,v.trim()]).filter(([,v])=>v))
+    }
     if (b.departmentAccounts && typeof b.departmentAccounts === 'object')
       clean.departmentAccounts = Object.fromEntries(
         Object.entries(b.departmentAccounts).map(([k, v]) => [k, str(v)]).filter(([, v]) => v)

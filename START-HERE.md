@@ -1,32 +1,42 @@
-# DiamondPOS v0.3.59 — customer address on every customer receipt
+# DiamondPOS v0.3.60 — QuickBooks tax locations and labor income
 
-Customer billing address is ON by default for all selected-customer receipts (ordinary and serialized purchases), and omitted for walk-ins/no address. Existing layouts receive a growing address block once; designer can hide/move/style it or optionally restrict it to serialized purchases.
+Maps the tax rate saved on each sale to its matching QuickBooks sales tax item. Includes separate Sales and Labor income mappings. No shipping workflow or new database migration; schema43 and minimum client0.3.59 remain.
 
-New receipts capture the billing address at checkout; later customer edits do not change it. Legacy receipts use current customer data. Full-page receipts also use captured addresses.367 regressions, typecheck and build pass; Windows visual/physical address print needs the shop test.
+## Release from the shop
 
-## Publish from the shop
+Direct main check-in authorized. Create/publish v0.3.60 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.60&target=main
 
-After direct commit appears on main, create/publish v0.3.59 targeting main:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.59&target=main
+Wait for the Release workflow and installer assets. Back up the Store Server and finish pending checkouts/syncs. Update Store Server first, then all tills to0.3.60. Existing confirmed QuickBooks transactions are not rewritten.
 
-Wait for Release workflow/installer files. Back up the Store Server, resolve pending checkout recovery and finish QuickBooks sync before installing. Update STORE SERVER FIRST, then EVERY till. Schema43 stores receipt addresses and minimum client is0.3.59; older tills must update. No dependency or website changes.
+## Configure and test
 
-## Check
+1. In the QuickBooks TEST company, create the sales tax items for each applicable location at the correct percentage, and choose/create the Sales and Labor Income accounts you need.
+2. Run Web Connector. In POS QuickBooks settings, refresh lists if necessary and run again.
+3. Select the default store tax item; map every other tax location/rate in Sales tax locations and rates. Historical rates remain available. Save mappings.
+4. Select Sales and Labor income accounts. Work-order labor uses Service Labor automatically; assign catalog labor items to that department. Other fees/supplies remain general sales income.
+5. Complete store-rate and Exmark customer-location test sales using the checkout tax selector. Include parts/labor and an on-account invoice. Sync and verify tax item, tax amount, total and separate income accounts in QuickBooks.
+6. Test an unmapped rate: it must show a problem and not add a transaction. Correct mapping, retry the paid sale in transaction queue or use account Retry sync, then run Web Connector. Repeat sync to confirm no duplicate.
 
-- Select a customer with billing address, make an ordinary or serialized test purchase in the test system, print/reprint: address should appear by default under customer header and before items. Do not create a real payment just to test a printer.
-- Walk-in/customer with no recorded address: no address block prints.
-- Settings → Receipt Designer: Customer address is selected in the middle by default. Move/hide/style and save if desired. It can also be placed as a header/footer field. Leave Only when buying a serial-numbered unit unchecked for every customer receipt.
-- Existing old receipts use the current customer address; new ones retain the address from sale time, even after customer edits. Previously printed receipts cannot recover unknown historical addresses.
-- Keep the Windows-dialog Star mode accepted at the shop. This update does not change thermal fit/fonts.
+## Git commands on your laptop later
 
-## Sync laptop later
-
-With a clean working tree:
+The code is already committed directly to main; pull it before making further local changes. If you have uncommitted edits, preserve them before pulling.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
-git status --short
+git status
 git pull --ff-only origin main
+npm ci
+npm run typecheck
+npm test
+npm run build
 ```
 
-Preserve local edits; do not duplicate the direct commit or move earlier version tags. No actual customer payment/message, hardware print or installation performed by the assistant.
+If publishing the tag from Git instead of the GitHub release page (use only one route):
+
+```bash
+git tag v0.3.60
+git push origin v0.3.60
+```
+
+374 regression checks, typecheck/build are the automated release checks. Actual QuickBooks Desktop, Windows UI and printer checks remain on shop hardware. No website file changes.

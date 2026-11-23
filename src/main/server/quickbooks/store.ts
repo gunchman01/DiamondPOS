@@ -35,6 +35,8 @@ export function getQbConfig(db: DB): QbConfig {
     startDate: saved.startDate ?? today(),
     customerName: saved.customerName === 'DiamondPOS Daily Sales' ? 'DiamondPOS Walk-in' : saved.customerName ?? 'DiamondPOS Walk-in',
     salesTaxItem: saved.salesTaxItem ?? '',
+    taxMappings: saved.taxMappings ?? {},
+    laborIncomeAccount: saved.laborIncomeAccount ?? '',
     taxableCode: saved.taxableCode ?? 'Tax',
     nonTaxableCode: saved.nonTaxableCode ?? 'Non',
     departmentAccounts: saved.departmentAccounts ?? {},

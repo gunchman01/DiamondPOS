@@ -6,7 +6,7 @@ import { migrations } from '../src/main/server/migrations'
 import { openDatabase } from '../src/main/server/db'
 import { createSale, createApp } from '../src/main/server'
 import { saleInstant, saleTimeFromLocal, localSaleTime } from '../src/shared/saleDates'
-import { getQbConfig } from '../src/main/server/quickbooks/store'
+import { getQbConfig, saveQbLists } from '../src/main/server/quickbooks/store'
 import { individualSummaries } from '../src/main/server/quickbooks/summary'
 import { accountSteps, invoiceAdd } from '../src/main/server/quickbooks/accountSync'
 import { transactionQueue } from '../src/main/server/quickbooks/queue'
@@ -51,7 +51,8 @@ export async function testSaleDates(check:Check,dir:string){
     assert.equal(report.rows[0].day,day);assert.equal(report.rows[0].dateOverridden,1);assert.notEqual(report.rows[0].enteredAt,report.rows[0].saleTime)
     assert.ok(receiptHtml(sale,readSettings(db)).includes('Receipt #'+sale.id))
   })
-  const cfg={...getQbConfig(db),startDate:'2000-01-01'}
+  saveQbLists(db,{salesTaxItems:[{name:'Test Tax',rate:readSettings(db).taxRate*100}]})
+  const cfg={...getQbConfig(db),startDate:'2000-01-01',salesTaxItem:'Test Tax'}
   check('QuickBooks paid receipt summary uses the chosen business day and discounted total',()=>{
     const summaries=individualSummaries(db,day,cfg,0,null,[sale.id]);assert.equal(summaries.length,1);assert.equal(summaries[0].saleDate,day);assert.equal(summaries[0].totalCents,90)
   })

@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.60 - 23 Nov 2026
+- Match each checkout tax location/rate to its own QuickBooks sales tax item. Exmark customer-location sales keep the tax rate saved on the sale when sent to QuickBooks.
+- Missing, removed or mismatched tax mappings show a clear problem and prevent adding the sale or account invoice with the wrong rate. Correct the mapping and retry; already confirmed transactions are not resent.
+- Historical tax rates remain available for mapping after checkout rates are edited. QuickBooks preview shows the actual mapped tax item.
+- Separate Sales and Labor income account settings. Work-order labor and items assigned to Service Labor use POS Labor; parts, merchandise and fees continue using POS General. Blank Labor retains the existing general mapping.
+
 ## v0.3.59 - 23 Nov 2026
 > Update the Store Server PC first.
 - Customer billing address prints by default when a customer with an address is selected, including serialized-unit purchases. Walk-in receipts omit it.

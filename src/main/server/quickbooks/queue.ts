@@ -3,6 +3,7 @@ import type { DB } from '../db'
 import type { StoreSettings } from '../../../shared/types'
 import type { QbQueuePage, QbQueueRow, QbQueueState } from '../../../shared/quickbooks'
 import { getQbConfig, qbLog } from './store'
+import { resolveSaleTax } from './taxMapping'
 import { individualSummaries } from './summary'
 
 const states: QbQueueState[] = ['waiting', 'synced', 'failed', 'manual', 'excluded']
@@ -69,14 +70,17 @@ export function transactionQueue(db: DB, options: QueueOptions = {}): QbQueuePag
   for (const r of db.prepare(cte + ' SELECT status, COUNT(*) AS n FROM filtered GROUP BY status').all(...args) as { status: QbQueueState; n: number }[]) counts[r.status] = r.n
   const rows = db.prepare(cte + ` SELECT * FROM filtered${where} ORDER BY saleId DESC LIMIT ? OFFSET ?`).all(...args, ...selection, pageSize, (page - 1)*pageSize) as
     (QbQueueRow & { exportStatus: string | null; saleStatus:string;onAccount:number })[]
-  return { total, page, pageSize, counts, rows: rows.map((r) => ({
+  return { total, page, pageSize, counts, rows: rows.map((r) => {
+    const sale=db.prepare('SELECT tax_rate,tax_rate_id,tax_rate_name FROM sales WHERE id=?').get(r.saleId) as any
+    const taxError=(r.status === 'waiting' || r.status === 'failed') && r.saleStatus==='completed' ? resolveSaleTax(db,cfg,sale).error : undefined
+    return ({
     saleId: r.saleId, saleDate: r.saleDate, createdAt: r.createdAt.replace(' ','T')+'Z', customerName: r.customerName,
     totalCents: r.totalCents, status: r.status,
-    reason: r.status === 'synced' && r.saleStatus !== 'void' && !r.onAccount ? (r.txnId === 'MANUAL' ? 'Marked as entered by hand.' : 'QuickBooks confirmed this transaction.') : r.reason,
+    reason: r.status === 'synced' && r.saleStatus !== 'void' && !r.onAccount ? (r.txnId === 'MANUAL' ? 'Marked as entered by hand.' : 'QuickBooks confirmed this transaction.') : taxError || r.reason,
     exportId: r.exportId, refNumber: r.refNumber, txnId: r.txnId,
     sentAt: r.sentAt ? r.sentAt.replace(' ','T')+'Z' : null,
     eligible: !r.onAccount && r.saleStatus === 'completed' && (r.status === 'waiting' || r.status === 'failed'), queued: !r.onAccount && r.saleStatus === 'completed' && r.exportStatus === 'pending'
-  })) }
+  })}) }
 }
 
 export function queueTransactions(db: DB, saleIds: number[], storeRate: number, qbRate: number | null): number {
@@ -90,6 +94,7 @@ export function queueTransactions(db: DB, saleIds: number[], storeRate: number, 
     for (const date of dates) {
       const summaries = individualSummaries(db, date, cfg, storeRate, qbRate, ids)
       for (const s of summaries) {
+        if (s.taxMappingError) throw new Error(s.taxMappingError)
         if (s.manualReason) throw new Error('A selected transaction needs manual reconciliation. Refresh the queue.')
         db.prepare(`INSERT INTO qb_sale_exports (sale_id, customer_name, sale_date, method, ref_number, total_cents, sale_count)
           VALUES (?, ?, ?, ?, ?, ?, 1) ON CONFLICT(sale_id) DO UPDATE SET status = 'pending', error = NULL, updated_at = datetime('now')

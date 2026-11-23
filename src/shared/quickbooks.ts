@@ -17,6 +17,10 @@ export interface QbConfig {
   customerName: string
   /** QuickBooks sales tax item (e.g. "State Sales Tax") */
   salesTaxItem: string
+  /** Key contains saved POS rate identity and value; historical rates remain separately mapped. */
+  taxMappings?: Record<string, string>
+  /** Service Labor department; blank retains the general income mapping. */
+  laborIncomeAccount?: string
   /** QuickBooks sales tax codes for taxable / non-taxable lines */
   taxableCode: string
   nonTaxableCode: string
@@ -76,6 +80,7 @@ export interface QbStatus {
   lists: QbLists
   /** Problems that stop sales being sent (empty = ready) */
   missing: string[]
+  taxRates?: { key: string; name: string; rate: number }[]
   departments: string[]
   lastContact: string | null
   syncing: boolean
@@ -93,6 +98,8 @@ export interface QbSummaryLine {
 
 /** The Sales Receipt DiamondPOS will create for one day + payment method */
 export interface QbDailySummary {
+  salesTaxItem?: string
+  taxMappingError?: string
   cardBrand?: CardBrand
   saleId?: number
   customerId?: number | null

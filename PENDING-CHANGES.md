@@ -1,3 +1,3 @@
-# v0.3.59 direct update
+# v0.3.60 direct update
 
-Default-on customer billing address for every customer receipt; designer field/growing block remains optional/customizable. Schema43 snapshots new sale addresses, legacy NULL uses current customer record. Full-page also uses snapshot.367 regressions/typecheck/build pass; actual shop print awaits confirmation. Update server first and all tills (minimum0.3.59). Direct GitHub authorized; release tag via web UI. No real messages/payments/deployment.
+Per-saved-tax-location/rate mappings for paid receipts and account invoices; safe blocking and retry for missing/mismatched QB tax items. Historical choices remain. Separate Sales and optional Labor income account with POS Labor for Service Labor department. No vendor mappings restored, no shipping workflow, no website/schema change. Schema43/minimum client0.3.59 retained. Update server first then tills for v0.3.60. Direct GitHub authorized; tag/release publication remains GitHub UI step. Automated regression/typecheck/build results in testing notes; real test-company verification still required.

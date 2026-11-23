@@ -17,13 +17,14 @@ export function paymentQuery(value: string) {
   return `<ReceivePaymentQueryRq requestID="1"><RefNumber>${esc(value)}</RefNumber><IncludeLineItems>true</IncludeLineItems></ReceivePaymentQueryRq>`
 }
 export function invoiceAdd(s: QbDailySummary, cfg: QbConfig, due: string) {
+  if(s.taxMappingError) throw new Error(s.taxMappingError)
   const lines = s.lines
     .map(
       (l) =>
         `<InvoiceLineAdd>${ref('ItemRef', l.itemName)}<Desc>${esc(l.description ?? l.itemName)}</Desc><Amount>${money(l.amountCents)}</Amount>${ref('SalesTaxCodeRef', l.taxable ? cfg.taxableCode : cfg.nonTaxableCode)}</InvoiceLineAdd>`
     )
     .join('')
-  return `<InvoiceAddRq requestID="1"><InvoiceAdd>${ref('CustomerRef', s.customerName!)}<TxnDate>${s.saleDate}</TxnDate><RefNumber>${esc(s.refNumber)}</RefNumber><DueDate>${due}</DueDate>${ref('ItemSalesTaxRef', cfg.salesTaxItem)}<Memo>${esc(`DiamondPOS account sale #${s.saleId}; unpaid invoice`)}</Memo><IsToBePrinted>false</IsToBePrinted><IsToBeEmailed>false</IsToBeEmailed>${lines}</InvoiceAdd></InvoiceAddRq>`
+  return `<InvoiceAddRq requestID="1"><InvoiceAdd>${ref('CustomerRef', s.customerName!)}<TxnDate>${s.saleDate}</TxnDate><RefNumber>${esc(s.refNumber)}</RefNumber><DueDate>${due}</DueDate>${ref('ItemSalesTaxRef', s.salesTaxItem ?? cfg.salesTaxItem)}<Memo>${esc(`DiamondPOS account sale #${s.saleId}; unpaid invoice`)}</Memo><IsToBePrinted>false</IsToBePrinted><IsToBeEmailed>false</IsToBeEmailed>${lines}</InvoiceAdd></InvoiceAddRq>`
 }
 export function receivePaymentAdd(p: any, allocations: any[], customer: string, cfg: QbConfig) {
   const m = cfg.methods[p.method as 'cash' | 'card' | 'check'],
@@ -144,6 +145,7 @@ export function accountSteps(
             fail('Previously confirmed invoice is missing. Check the company file; it will not be recreated automatically.')
             return
           }
+          if(summary.taxMappingError) { fail(summary.taxMappingError); return }
           enqueue([
             {
               kind: 'rq',
