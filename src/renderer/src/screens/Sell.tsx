@@ -109,6 +109,11 @@ export default function Sell({
   const [customerQuery,setCustomerQuery]=useState('')
   const [pickingCustomer, setPickingCustomer] = useState(false)
   const [kioskOpen, setKioskOpen] = useState(false)
+  const [kioskCustomerId,setKioskCustomerId]=useState<number|undefined>(undefined)
+  function openKiosk(customerId?:number){
+    if(checkoutWaiting || pendingCheckout || pendingHold)return
+    setKioskCustomerId(customerId);setKioskOpen(true)
+  }
   /** Apply the customer's tax exemption to this sale */
   const [exempt, setExempt] = useState(false)
   /** Tax rate picked for this sale (null = the store's default) */
@@ -816,7 +821,7 @@ export default function Sell({
       F3: () => selectedLine && setEditingQty(true),
       F4: removeSelected,
       F5: () => setPickingCustomer(true),
-      F9: () => setKioskOpen(true),
+      F9: () => openKiosk(customer?.id),
       F6: startHold,
       F7: () => startPayment('cash'),
       F8: () => startPayment('card')
@@ -874,8 +879,8 @@ export default function Sell({
         <button className="fkey return-key" onClick={openReturn} title="Return items from a receipt (refund or exchange)">
           ↩ Return
         </button>
-        <button className="fkey" onClick={() => setKioskOpen(true)}>
-          <kbd>F9</kbd> Kiosk
+        <button className="fkey" disabled={checkoutWaiting||!!pendingCheckout||!!pendingHold} onClick={() => openKiosk(customer?.id)}>
+          <kbd>F9</kbd> {customer ? 'Validate customer on kiosk' : 'New customer on kiosk'}
         </button>
           </div>
         </details>
@@ -935,6 +940,7 @@ export default function Sell({
           {customer?<>
             <div className="cust-text"><b>{customerDisplayName(customer)}</b><span className="dim">{[customer.customerNo,customer.phone||customer.mobile,customer.email].filter(Boolean).join(' · ')}</span><TaxExemptBadge customer={customer} long/></div>
             {wo?<span className="wo-chip">{wo.order.number}</span>:<button onClick={()=>setPickingCustomer(true)}>Change</button>}
+            <button disabled={checkoutWaiting||!!pendingCheckout||!!pendingHold} onClick={()=>openKiosk(customer.id)} title="Send this customer's saved details to the kiosk to accept or update">Validate on kiosk</button>
             {customer.taxExempt&&!canExempt&&<button onClick={()=>setEditingCustomer(true)}>Update Tax ID</button>}
             <button className="danger" title={wo?'Take the work order off this sale':'Remove customer'} onClick={async()=>{if(wo){if(!await confirmAction(`Take ${wo.order.number} off this sale?`))return;setWo(null);onWorkOrderDone?.()}setCustomer(null);setCustomerQuery('');setExempt(false)}}>✕</button>
           </>:<CustomerSearch value={customerQuery} onChange={setCustomerQuery} onPick={chosen=>{attachCustomer(chosen,'Customer');focusScan()}} onFind={()=>setPickingCustomer(true)}/>}
@@ -1321,8 +1327,9 @@ export default function Sell({
       {kioskOpen && (
         <KioskSignup
           tillName={boot.config.tillName}
+          customerId={kioskCustomerId}
           onDone={(c, matched) => {
-            attachCustomer(c, matched ? 'Found existing customer' : 'New customer from kiosk')
+            attachCustomer(c, kioskCustomerId ? 'Customer details verified at kiosk' : matched ? 'Found existing customer' : 'New customer from kiosk')
             setTimeout(() => {
               setKioskOpen(false)
               focusScan()
@@ -1339,7 +1346,7 @@ export default function Sell({
         <CustomerPicker initialQuery={customerQuery}
           onSendToKiosk={() => {
             setPickingCustomer(false)
-            setKioskOpen(true)
+            openKiosk()
           }}
           onCancel={() => {
             setPickingCustomer(false)

@@ -1102,3 +1102,6 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 
 /* Unified transaction history */
 .sales-history .history-filters{flex-wrap:wrap;align-items:end;margin-bottom:16px}.sales-history .history-filters label:first-child{flex:1;min-width:220px}.sales-history .history-row{cursor:pointer}.sales-history .history-row:hover,.sales-history .history-row:focus{background:#e8effb;outline:2px solid #7e9bc8;outline-offset:-2px}.sales-history .grid{min-width:900px}
+
+/* Keep selected-customer kiosk action visible on scaled till displays. */
+.qb-sale .cust-box.set{flex-wrap:wrap}.qb-sale .cust-box.set .cust-text{flex:1 0 100%}.qb-sale .cust-box.set>button{white-space:nowrap}

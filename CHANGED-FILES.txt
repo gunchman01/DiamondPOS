@@ -1,5 +1,5 @@
-DiamondPOS v0.3.62 direct check-in
-Baseline main 329b1ae03a5a36153fcb46ceef589e988056f1c3
+DiamondPOS v0.3.63 direct check-in
+Baseline main 32c33fa2ab38406684261668017cf421dc92561d
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,15 +9,8 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
-src/main/server/index.ts
-src/main/server/transactionHistory.ts
-src/renderer/src/App.tsx
-src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/menus.ts
-src/renderer/src/screens/Home.tsx
-src/renderer/src/screens/SalesHistory.tsx
+src/renderer/src/screens/CustomerEditor.tsx
+src/renderer/src/screens/KioskSignup.tsx
+src/renderer/src/screens/Sell.tsx
 src/renderer/src/styles.css
-src/shared/transactionHistory.ts
-tests/regressions.ts
-tests/transaction-history.ts

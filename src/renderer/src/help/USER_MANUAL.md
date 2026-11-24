@@ -891,7 +891,7 @@ Under **Income accounts**, choose the merchandise/parts Sales account and option
 
 ### Verify an existing customer's contact details at the kiosk (v0.3.61)
 
-Open a saved customer from **Customers** (or edit the selected customer on Make a Sale). Save any pending edits, then click **Verify customer on kiosk**. The paired, online kiosk for this till displays only that customer's name, company, address, phone/mobile and email. The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
+Open a saved customer from **Customers**. Click **Validate on kiosk**. If you have pending edits, the button reads **Save & validate on kiosk** and saves them before sending. The paired, online kiosk for this till displays only that customer's name, company, address, phone/mobile and email. The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
 
 No account balance, staff notes, tax exemption, discount or marketing controls are shown in this review. Staff-only fields remain unchanged. Changing the email address does not grant marketing permission to the new address. If staff change contact details during the review, resend the verification request. Cancelling, replacing, unpairing or the five-minute timeout ends access. Contact fields clear when the kiosk returns to its welcome screen. After updating, reload the kiosk browser page to get the new Accept/Update form.
 
@@ -909,3 +909,10 @@ Account payments open a payment-details window with customer, amount, date, meth
 Voids show their original receipt amount and original sale date, marked VOID; the receipt detail shows the void date/reason. Refunds retain negative amounts, zero exchanges remain zero. History does not add these different transaction types into a misleading sales total. Reports and End of Day remain available separately for totals.
 
 Sales History can also be added to the left/dropdown menus in **Settings → Menus**. Existing customized menu choices remain saved.
+
+
+### Direct customer validation from Make a Sale (v0.3.63)
+
+Once a customer is selected, click **Validate on kiosk** beside their name to send that customer's current saved details to the paired kiosk. You do not need to open the customer editor. **F9** and **I want to… → Validate customer on kiosk** do the same. Without a selected customer, F9 still starts a blank new-customer signup. The customer can accept or update the details; their answer refreshes the selected customer while keeping items, returns and work-order lines on the sale. Cancel leaves the customer and cart as they were. These controls are unavailable during checkout/hold recovery.
+
+From **Customers**, open an existing customer and choose the prominent **Validate on kiosk** button. No save/reopen step is needed if nothing changed. If you edited the record, choose **Save & validate on kiosk** to save those edits and send the updated record in one action. The kiosk must already be paired and online. Existing privacy, timeout and conflict checks apply.

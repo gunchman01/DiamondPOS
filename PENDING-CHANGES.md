@@ -1,3 +1,3 @@
-# v0.3.62 direct update
+# v0.3.63 direct update
 
-Dedicated Sales History table behind Home tile; includes all saved receipts and account payments with separate source/ID keys. Click opens receipt or read-only payment detail with invoice links. Server-side search/date/type filters and50/page. Existing Reports/End of Day unchanged. No schema change43/minimum client0.3.59. Update server then tills. Direct main commit authorized; release tag via GitHub UI. No live transactions, messages or deployment.
+Prominent customer Validate on kiosk plus one-action Save & validate for edits. Direct selected-customer button on Make a Sale; F9/menu validate selected customer and preserve blank signup when none selected. Existing kiosk backend/guards unchanged. Version0.3.63/schema43/min client0.3.59. Direct main commit authorized; release tag remains GitHub UI. No live transactions/messages/deployment.

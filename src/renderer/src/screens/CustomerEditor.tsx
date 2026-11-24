@@ -150,13 +150,33 @@ export default function CustomerEditor(props: CustomerEditorProps) {
     }, 0)
   }
 
+  const hasUnsavedEdits=JSON.stringify(form)!==JSON.stringify(toForm(detail?.customer ?? null))
+  async function persist(input:CustomerInput){
+    return editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase(),detail?.customer.okToServiceText===input.okToServiceText&&String(detail?.customer.mobile||detail?.customer.phone||'').replace(/\D/g,'')===String(input.mobile||input.phone||'').replace(/\D/g,'')) : await api.createCustomer(input)
+  }
+  async function sendForValidation(){
+    if(!editingId || !detail || busy)return
+    setBusy(true);setError('')
+    try{
+      const boot=await window.pos.getBootInfo()
+      if(hasUnsavedEdits){
+        const input=fromForm(form)
+        if(typeof input==='string')throw new Error(input)
+        const saved=await persist(input)
+        const fresh=await api.getCustomer(saved.id)
+        setDetail(fresh);setForm(toForm(fresh.customer));props.onSaved(fresh.customer)
+      }
+      setKioskTill(boot.config.tillName)
+    }catch(e){setError((e as Error).message)}finally{setBusy(false)}
+  }
+
   async function save(andNew: boolean) {
     const input = fromForm(form)
     if (typeof input === 'string') return setError(input)
     setBusy(true)
     setError('')
     try {
-      const saved = editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase(),detail?.customer.okToServiceText===input.okToServiceText&&String(detail?.customer.mobile||detail?.customer.phone||'').replace(/\D/g,'')===String(input.mobile||input.phone||'').replace(/\D/g,'')) : await api.createCustomer(input)
+      const saved = await persist(input)
       props.onSaved(saved)
       if (andNew) {
         setEditingId(null)
@@ -205,7 +225,7 @@ export default function CustomerEditor(props: CustomerEditorProps) {
           </button>
         </div>
 
-        {editingId && <div className="row gap"><button disabled={busy || JSON.stringify(form)!==JSON.stringify(toForm(detail?.customer ?? null))} onClick={async()=>{try{const b=await window.pos.getBootInfo();setKioskTill(b.config.tillName)}catch(e){setError((e as Error).message)}}}>Verify customer on kiosk</button><span className="small muted">Save any edits first. Send saved contact details for the customer to confirm or update.</span></div>}
+        {editingId && <div className="row gap"><button type="button" className="primary" disabled={busy||!detail||!detail.customer.active} onClick={()=>void sendForValidation()}>{hasUnsavedEdits?'Save & validate on kiosk':'Validate on kiosk'}</button><span className="small muted">Customer can accept their information or update it. Pending edits are saved first when you choose Save &amp; validate.</span></div>}
         {kioskTill && editingId && <KioskSignup tillName={kioskTill} customerId={editingId} onClose={()=>setKioskTill(null)} onDone={async c=>{setKioskTill(null);setForm(toForm(c));props.onSaved(c);setNotice('Customer details verified at kiosk');try{const d=await api.getCustomer(c.id);setDetail(d);setForm(toForm(d.customer))}catch(e){setError((e as Error).message)}}}/>}
 
         {/* ----- Customer info (big fields across the top) ----- */}

@@ -1,24 +1,26 @@
-# DiamondPOS v0.3.62 — unified Sales History
+# DiamondPOS v0.3.63 — direct customer kiosk validation
 
-Home → Sales History now opens a dedicated transaction table for sales, voids, work-order checkout sales, refunds/exchanges, on-account sales and payments on account. Click a row for its receipt/payment; payment allocations link to original invoices. All dates by default, newest first, 50/page with search/date/type filters. Reports and End of Day remain separate.
+Customers: open saved customer → Validate on kiosk. No save/reopen required when unchanged. Edited records show Save & validate on kiosk to save and send in one action.
 
-## Publish and install
+Make a Sale: select customer → Validate on kiosk beside their name. F9/menu also validate the selected customer. No customer selected: F9 remains blank signup. Customer accepts or updates details; selected customer refreshes and current cart stays.
 
-After direct main check-in, publish v0.3.62 targeting main:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.62&target=main
+## Publish/install
 
-Wait for Release installer assets. Back up and update Store Server first, then tills. No migration (schema43/minimum client0.3.59 retained). No website or kiosk changes in this version. Existing customized menus can add Sales History under Settings → Menus; the Home tile always opens the new page.
+After direct main check-in, publish v0.3.63 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.63&target=main
 
-## Shop checks
+Wait for installer assets. Update Store Server then tills; paired kiosk must be online and have the v0.3.61+ page loaded. This is UI wiring only: no new schema/website/kiosk protocol changes. Schema43/minimum client0.3.59 retained.
 
-- Browse all transaction types, search customer/receipt/payment/WO/reference, date/type filters and Previous/Next.
-- Open sale/refund/work-order/void receipts; original void amounts are marked and refund signs remain negative. Reprint if desired. Closing after a void refreshes the table.
-- Open AP payment details; confirm amount/method, QuickBooks status and links to invoices paid. A payment is not another sale; no combined revenue total is shown.
-- Verify readable layout at 125% scaling, horizontal scrolling if needed, keyboard Enter/Space on rows. No real Windows visual/printing check was performed here.
+## Check
+
+- Clean saved customer can be sent immediately; dirty customer is saved before sending with the clearly labelled action.
+- Selected sale customer goes to correct kiosk record and acceptance/update returns same customer; cart/returns/work-order lines remain. Cancel leaves them alone.
+- F9/menu selected customer uses validation; no selected customer/new signup via picker stays blank signup.
+- Checkout/hold recovery prevents starting validation. Test actual Windows/tablet placement; no real device interaction was performed here.
 
 ## Git commands later on your laptop
 
-Changes are committed directly to main. Preserve any uncommitted local edits before pulling.
+Code is directly committed to main. Preserve any local edits first.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -30,9 +32,9 @@ npm test
 npm run build
 ```
 
-If publishing the tag with Git instead of the release page (choose one):
+Only if publishing via Git instead of the release page:
 
 ```bash
-git tag v0.3.62
-git push origin v0.3.62
+git tag v0.3.63
+git push origin v0.3.63
 ```

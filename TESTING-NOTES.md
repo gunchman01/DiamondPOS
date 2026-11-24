@@ -1,5 +1,5 @@
-# v0.3.62 Sales History
+# v0.3.63 validation
 
-399 regressions, typecheck and production build passed. New real SQLite/HTTP tests use actual checkout, return, void and account-payment routines to verify unified row types, unique sale/payment keys, original receipt/detail lookup, amounts/signs/cash change, work-order links, allocation details without request hashes, filters and escaped wildcard queries, company names, stable bounded pagination, paired API validation and unchanged stock/allocations after reading. Existing financial/QuickBooks/service-text/kiosk/backup/printing checks remain included.
+All399 regressions, typecheck and production build passed. Existing kiosk integration and simulated-browser tests cover accept/update, correct customer record, staff/token authorization, privacy, cancelled/conflicting sessions and timeout. UI-only changes add selected-customer buttons/F9 routing and save-and-validate using the existing customer save path; no implementation-mirroring tests added.
 
-Actual Windows display/click/keyboard/reprint checks remain shop tests. Verify at125% scaling, all types, date/search/type filters, pagination and AP detail → receipt link. No live sales, messages, QuickBooks sync or hardware printing were performed here.
+Shop checks: clean customer sends immediately; dirty record Save & validate saves and stays open; selected sale customer goes to kiosk and updates without cart changes; F9 selected/no-selection routing; cancellation; checkout/hold recovery guard. Real Windows/tablet visual interaction remains unverified. No real financial transactions, messages or sync performed.

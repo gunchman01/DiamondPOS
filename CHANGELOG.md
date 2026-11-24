@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.63 - 24 Nov 2026
+- Selected customers on Make a Sale now have a direct Validate on kiosk button. F9 and the Kiosk menu action validate the selected customer; with no customer selected they still open new-customer signup.
+- Customer records have a prominent Validate on kiosk button that works immediately for saved details. If you have edits, Save & validate on kiosk saves them and sends the updated information in one action.
+- Customers can accept the information or update it on the kiosk. Changes refresh the customer record and selected sale customer without clearing sale items.
+
 ## v0.3.62 - 24 Nov 2026
 - Home → Sales History now opens a transaction table, separate from Reports. Includes sales, voids, work-order checkout sales, refunds, exchanges, on-account sales and payments received on account.
 - Search by receipt/payment number, customer, till, work-order number or reference. Filter dates and transaction type; browse all dates newest first with Previous/Next pages.

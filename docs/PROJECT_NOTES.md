@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.63 — 24 November 2026: direct customer kiosk validation buttons
+
+- User reiterated opening a customer must directly send saved information for accept/update, and selecting a customer on Make a Sale needs its own button. Promoted CustomerEditor action to primary Validate on kiosk, enabled once active customer is loaded rather than blocking for any edit. Dirty state clearly labels Save & validate on kiosk; shared persist helper preserves existing customer-save/consent behavior, saves without closing, reloads detail, then starts verification. Clean records require no save/reopen.
+- Selected sale customer has direct Validate on kiosk button. Kiosk target ID captured when opening and passed to existing KioskSignup; customer acceptance/update uses existing scoped backend verification. F9/menu validate selected customer; no selection and customer-picker new-signup path stay blank. Checkout/pending checkout/hold recovery block starting a kiosk request. Cart/work-order lines are not changed by kiosk completion; selected customer details refresh via existing attachCustomer.
+- No server/schema/protocol change; version0.3.63/schema43/minimum client0.3.59. Baseline main32c33fa2ab38406684261668017cf421dc92561d; direct main check-in authorized. All399 regression checks, typecheck and production build passed; no new tests mirroring this reversible UI wiring. Existing kiosk HTTP/simulated-browser checks cover accept/update/cancel/conflict/privacy; actual Windows button location/cart-preservation interaction remains shop verification. No real messages, payments or deployment performed.
+
+
 ### v0.3.62 — 24 November 2026: unified Sales History
 
 - User requested Home Sales History be a table of all Make a Sale activity including voids, work-order checkouts, refunds and account payments, each opening its source transaction. Repointed Home tile from Reports to dedicated history screen, registered App title/help/navigation, and added configurable menu entry. Report library and end-of-day screens retained.
@@ -669,6 +676,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.63 then verify Customers → open record → Validate on kiosk without save/reopen; dirty form Save & validate persists before send. Make a Sale → select customer → Validate on kiosk/F9, Accept/Update returns same customer and retains cart. Test no-customer F9 stays new signup and Cancel does not alter sale. Actual paired tablet/Windows UI check needed.
+
 
 - Publish/install v0.3.62 server first then tills. Home → Sales History: verify all transaction types, date/type/search, pages, row-click receipts, void status after closing, and AP detail → invoice receipt links. Check 125% display/table scrolling and keyboard Enter/Space on actual shop PC. Read-only browsing must not change inventory/account/sync balances.
 

@@ -89,7 +89,7 @@ export default function KioskSignup(props: {
   return (
     <div className="modal-backdrop">
       <div className="modal kiosk-wait" onKeyDown={(e) => {if(e.key==='Escape'){e.stopPropagation();close()}}}>
-        <h2>Customer kiosk</h2>
+        <h2>{props.customerId ? 'Validate customer information' : 'Customer kiosk'}</h2>
         {error ? (
           <>
             <div className="kiosk-state bad">
