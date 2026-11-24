@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.64 — 24 November 2026: one-line Sales History rows
+
+- User screenshot showed each transaction wrapping into a3x3 block under the first table heading. Root cause confirmed: shared .history-row sets display:grid/grid-template-columns for customer card history, but SalesHistory reused it on tr. Renamed to scoped sales-history-row, enforced table-row layout and fixed table columns with nowrap/ellipsis. Removed secondary On account / Original amount block lines; receipt/payment details retain information. Main table has1200px minimum with horizontal scrolling on narrow screens; full customer/till titles remain available.
+- UI-only fix, no schema/server/financial behavior change. Version0.3.64, schema43/min client0.3.59. Baseline main27f7280972aab85f6812941d60ed48a0aa7f4a06; direct GitHub commit authorized. Typecheck/build used for this reversible layout fix, no implementation-mirroring tests added or financial suite repeated. Actual shop Windows visual confirmation remains. No release tag/deployment.
+
+
 ### v0.3.63 — 24 November 2026: direct customer kiosk validation buttons
 
 - User reiterated opening a customer must directly send saved information for accept/update, and selecting a customer on Make a Sale needs its own button. Promoted CustomerEditor action to primary Validate on kiosk, enabled once active customer is loaded rather than blocking for any edit. Dirty state clearly labels Save & validate on kiosk; shared persist helper preserves existing customer-save/consent behavior, saves without closing, reloads detail, then starts verification. Clean records require no save/reopen.
@@ -676,6 +682,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.64 and verify Sales History aligns all nine cells under headings in one compact row, including void and on-account work-order receipts. Click opens full details; test125% scale and horizontal scrolling in narrow windows.
+
 
 - Install v0.3.63 then verify Customers → open record → Validate on kiosk without save/reopen; dirty form Save & validate persists before send. Make a Sale → select customer → Validate on kiosk/F9, Accept/Update returns same customer and retains cart. Test no-customer F9 stays new signup and Cancel does not alter sale. Actual paired tablet/Windows UI check needed.
 

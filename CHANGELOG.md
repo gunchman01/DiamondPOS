@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.64 - 24 Nov 2026
+- Fixed Sales History transactions breaking into multi-line cards under the first column. Each transaction now stays on one table row aligned with the headings.
+- Removed secondary lines from the list, kept long values on one line, and retained click-to-open details. Narrow windows can scroll horizontally.
+
 ## v0.3.63 - 24 Nov 2026
 - Selected customers on Make a Sale now have a direct Validate on kiosk button. F9 and the Kiosk menu action validate the selected customer; with no customer selected they still open new-customer signup.
 - Customer records have a prominent Validate on kiosk button that works immediately for saved details. If you have edits, Save & validate on kiosk saves them and sends the updated information in one action.

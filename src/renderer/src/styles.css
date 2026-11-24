@@ -1101,7 +1101,10 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 .qb-sale .sale-customer-search {position:relative;}.customer-suggestions {position:absolute;top:calc(100% + 5px);left:0;right:0;min-width:260px;max-height:320px;overflow:auto;background:#fff;border:1px solid #9aacc7;border-radius:4px;box-shadow:0 8px 20px #14233b33;z-index:35;}.customer-suggestions > button {width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:3px;border:0;border-bottom:1px solid #e4e9f0;border-radius:0;padding:9px 10px;text-align:left;background:#fff;}.customer-suggestions > button.active {background:#e4edfa;color:#153f75;}.customer-suggestions span,.customer-suggestions p {font-size:11px;color:#64748b;}.customer-suggestions p {margin:0;padding:9px 10px;}.customer-search-hint {position:sticky;bottom:0;background:#f4f7fb;}
 
 /* Unified transaction history */
-.sales-history .history-filters{flex-wrap:wrap;align-items:end;margin-bottom:16px}.sales-history .history-filters label:first-child{flex:1;min-width:220px}.sales-history .history-row{cursor:pointer}.sales-history .history-row:hover,.sales-history .history-row:focus{background:#e8effb;outline:2px solid #7e9bc8;outline-offset:-2px}.sales-history .grid{min-width:900px}
+.sales-history .history-filters{flex-wrap:wrap;align-items:end;margin-bottom:16px}.sales-history .history-filters label:first-child{flex:1;min-width:220px}.sales-history .sales-history-row{cursor:pointer}.sales-history .sales-history-row:hover,.sales-history .sales-history-row:focus{background:#e8effb;outline:2px solid #7e9bc8;outline-offset:-2px}.sales-history .grid{min-width:900px}
 
 /* Keep selected-customer kiosk action visible on scaled till displays. */
 .qb-sale .cust-box.set{flex-wrap:wrap}.qb-sale .cust-box.set .cust-text{flex:1 0 100%}.qb-sale .cust-box.set>button{white-space:nowrap}
+
+/* Use actual table rows; the customer card history-row class uses CSS grid. */
+.sales-history-table{table-layout:fixed;width:100%;min-width:1200px!important}.sales-history-table tbody tr{display:table-row}.sales-history-table th,.sales-history-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:34px;vertical-align:middle}.sales-history-table .sales-history-row:focus td{background:#e8effb}

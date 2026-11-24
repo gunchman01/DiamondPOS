@@ -1,3 +1,3 @@
-# v0.3.63 direct update
+# v0.3.64 direct update
 
-Prominent customer Validate on kiosk plus one-action Save & validate for edits. Direct selected-customer button on Make a Sale; F9/menu validate selected customer and preserve blank signup when none selected. Existing kiosk backend/guards unchanged. Version0.3.63/schema43/min client0.3.59. Direct main commit authorized; release tag remains GitHub UI. No live transactions/messages/deployment.
+Fix Sales History card/grid class collision; single aligned table row per transaction, no secondary block lines, nowrap/truncation and horizontal scrolling. Click-to-open details preserved. No schema/server/financial change. Typecheck/build validation; shop visual check remains. Direct main commit authorized; release publication via GitHub UI.

@@ -1,5 +1,5 @@
-# v0.3.63 validation
+# v0.3.64 layout verification
 
-All399 regressions, typecheck and production build passed. Existing kiosk integration and simulated-browser tests cover accept/update, correct customer record, staff/token authorization, privacy, cancelled/conflicting sessions and timeout. UI-only changes add selected-customer buttons/F9 routing and save-and-validate using the existing customer save path; no implementation-mirroring tests added.
+Typecheck and production build. Root cause traced to global .history-row display:grid on table tr. Distinct sales-history-row plus explicit table-row/nowrap/fixed columns removes the conflict. Secondary block lines removed. No financial/server changes; existing399-check suite last passed v0.3.63 and was not repeated for CSS/list presentation only.
 
-Shop checks: clean customer sends immediately; dirty record Save & validate saves and stays open; selected sale customer goes to kiosk and updates without cart changes; F9 selected/no-selection routing; cancellation; checkout/hold recovery guard. Real Windows/tablet visual interaction remains unverified. No real financial transactions, messages or sync performed.
+Shop visual confirmation: each transaction is one aligned row, all nine columns visible or horizontally scrollable, long names truncate, void/on-account rows do not grow extra lines, and click/Enter opens full details. Actual Windows rendering not tested here.
