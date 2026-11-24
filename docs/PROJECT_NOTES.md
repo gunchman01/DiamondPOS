@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.69 — 24 November 2026: shorten printed mechanic worksheet
+
+- User tested sheet, liked it, reported two pages and requested removing2parts lines and checking in. Reduced8blank parts rows to6 (14mm less content); retained other identity/check-in/notes/labor information. Updated existing worksheet assertion/manual. No new logic/schema/financial change. Version0.3.69/schema43/min client0.3.59. Baseline main8230f0efae041dded5ae46f42613c0cb7c394db1.
+- Four focused real-ticket worksheet checks passed. Typecheck/build checked before check-in; full423 regression suite last passed v0.3.68 and not repeated for row-count-only presentation change. Actual shop printer single-page confirmation remains. Direct GitHub check-in explicitly requested; no tag/deployment/physical print performed.
+
+
 ### v0.3.68 — 24 November 2026: leading-zero scan lookup and mechanic worksheet
 
 - User supplied raw scanner values049234 and025752 while saved item numbers49234/25752 lack leading zero; explicitly approved lookup tolerance with no saved ALU rewrite. New server productLookup checks exact active UPC/sku/ALU across distinct products, then unique numeric-only zero-normalized fallback across those fields. No Number conversion/precision loss, no internal-zero/alphanumeric/punctuation stripping, no all-zero fallback. Ambiguous exact/fallback matches409 rather than LIMIT1 arbitrary product. Original fields unchanged.
@@ -711,6 +717,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.69 and reprint same mechanic worksheet on Letter paper. Confirm six parts rows and footer fit one page with normal issue text; unusually long issues may still need extra pages.
+
 
 - Release/install v0.3.68 server first/tills: scan025752→item25752 and049234→49234, ensure exact barcode priority and no ALU rewrite. Open checked-in WO → Print estimate worksheet; choose laser printer and verify room for handwritten diagnosis/8parts rows plus exact unit/issue details. Confirm print cancellation/notes unchanged and normal approval workflow remains separate.
 

@@ -14,6 +14,9 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.69 - 24 Nov 2026
+- Shortened the mechanic estimate worksheet from eight parts rows to six to help keep the standard sheet on one Letter page.
+
 ## v0.3.68 - 24 Nov 2026
 - Scanning can now find numeric UPCs, item numbers and alternate lookup codes that differ only by leading zeros. Exact matches take priority; ambiguous matches require staff selection. Stored codes and displayed ALU are unchanged.
 - Added Print estimate worksheet to checked-in work orders. The Letter-size sheet shows customer, work-order number, unit details and reported issue, plus a blank mechanic findings box, part-number/name/quantity rows and labor/date spaces.
