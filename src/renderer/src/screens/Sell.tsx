@@ -943,7 +943,7 @@ export default function Sell({
             <button disabled={checkoutWaiting||!!pendingCheckout||!!pendingHold} onClick={()=>openKiosk(customer.id)} title="Send this customer's saved details to the kiosk to accept or update">Validate on kiosk</button>
             {customer.taxExempt&&!canExempt&&<button onClick={()=>setEditingCustomer(true)}>Update Tax ID</button>}
             <button className="danger" title={wo?'Take the work order off this sale':'Remove customer'} onClick={async()=>{if(wo){if(!await confirmAction(`Take ${wo.order.number} off this sale?`))return;setWo(null);onWorkOrderDone?.()}setCustomer(null);setCustomerQuery('');setExempt(false)}}>✕</button>
-          </>:<CustomerSearch value={customerQuery} onChange={setCustomerQuery} onPick={chosen=>{attachCustomer(chosen,'Customer');focusScan()}} onFind={()=>setPickingCustomer(true)}/>}
+          </>:<><CustomerSearch value={customerQuery} onChange={setCustomerQuery} onPick={chosen=>{attachCustomer(chosen,'Customer');focusScan()}} onFind={()=>setPickingCustomer(true)}/><button type="button" disabled={checkoutWaiting||!!pendingCheckout||!!pendingHold} onClick={()=>openKiosk()}>New customer on kiosk</button></>}
         </div>
       </div>
       {/* ---------- Receipt (current sale) ---------- */}

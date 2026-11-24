@@ -931,3 +931,14 @@ The existing-customer validation screen shows **Tax exempt: Yes/No**, with exemp
 Update the **Store Server first**, then all tills to **v0.3.66 or newer**. On the kiosk, close any duplicate kiosk browser tabs and reload the kiosk page. Send Validate on kiosk again. A saved customer's name/contact details and read-only tax exemption should appear with Accept details / Update details. New-customer signup is a separate blank form.
 
 From v0.3.66, the validation action checks server support and whether every connected page for that kiosk supports verification. An old page produces a clear reload instruction instead of a blank signup. Reloading does not require pairing again unless the browser token was cleared. If the kiosk says Welcome! Tell us about you rather than Please verify your details, do not fill it out as a new customer; cancel and check server/till versions and reload the kiosk.
+
+
+### New customers on the kiosk (v0.3.67)
+
+Use **New customer on kiosk** from any of these entry points:
+
+- **Make a Sale:** with no customer selected, click the button beside the customer search (or press F9). Submitted details select the customer on the current sale; scanned items remain.
+- **New work order:** in Select customer, click New customer on kiosk. After submission, that customer is selected and check-in continues with Which unit / Add a unit. The kiosk does not create the work order or collect its fee automatically.
+- **Customers → Add customer:** click New customer on kiosk. After submission, the saved/matched customer returns to the customer list. No need to save a blank customer first.
+
+These actions send a blank new-customer form rather than saved-customer validation. Existing matching phone/email may return a customer already on file instead of duplicating it. Staff receive the existing tax-card copy prompt when needed. Cancelling leaves the originating draft/picker available and creates no partial customer. Unsaved staff entries in Add Customer are not sent to the kiosk; the customer fills in the blank form. The kiosk must be paired and online for that till.

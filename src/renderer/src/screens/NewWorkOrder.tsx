@@ -4,6 +4,7 @@ import { unitLabel, type CustomerUnit, type WoSettings, type WorkOrder } from '.
 import { money, parseMoney } from '../format'
 import { api } from '../api'
 import CustomerPicker from './CustomerPicker'
+import KioskSignup from './KioskSignup'
 import UnitEditor from './UnitEditor'
 
 /** Check in a unit: 1. customer → 2. unit (theirs, or add one) → 3. what's wrong. */
@@ -15,6 +16,7 @@ export default function NewWorkOrder(props: {
   onCreated: (wo: WorkOrder, collectFee: boolean) => void
   onCancel: () => void
 }) {
+  const [kioskOpen,setKioskOpen]=useState(false)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [picking, setPicking] = useState(!props.initialCustomerId)
   const [units, setUnits] = useState<CustomerUnit[]>([])
@@ -74,7 +76,9 @@ export default function NewWorkOrder(props: {
 
   if (picking)
     return (
+      <>
       <CustomerPicker
+        onSendToKiosk={()=>setKioskOpen(true)}
         onPick={(c) => {
           setCustomer(c)
           setUnit(null)
@@ -82,6 +86,8 @@ export default function NewWorkOrder(props: {
         }}
         onCancel={() => (customer ? setPicking(false) : props.onCancel())}
       />
+      {kioskOpen&&<KioskSignup tillName={props.by} onClose={()=>setKioskOpen(false)} onDone={c=>{setCustomer(c);setUnit(null);setKioskOpen(false);setPicking(false)}}/>}
+      </>
     )
 
   return (

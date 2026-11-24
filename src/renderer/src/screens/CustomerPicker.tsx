@@ -73,7 +73,7 @@ export default function CustomerPicker(props: {
           />
           {props.onSendToKiosk && (
             <button onClick={props.onSendToKiosk} title="Customer types their own details on the iPad">
-              Send to kiosk
+              New customer on kiosk
             </button>
           )}
           <button className="primary" onClick={() => setAdding(true)}>

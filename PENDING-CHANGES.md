@@ -1,3 +1,3 @@
-# v0.3.66 direct update
+# v0.3.67 direct update
 
-Dedicated saved-customer validation route and mandatory target; server capability/target acknowledgement checks; kiosk page capability prevents old browser from showing blank signup. Separate normal signup preserved. Update server then tills, close duplicate kiosk tabs and reload browser. No migration.406 regressions/typecheck/build validation; actual shop confirmation needed. Direct main commit authorized, release via GitHub UI. No live messages/deployment.
+Blank new-customer kiosk entry from sale header, new-work-order customer picker and Add Customer editor. Reuse existing session lifecycle and returned-customer callbacks; no partial customer before submission. Existing validation unchanged. Version0.3.67/schema43/min client0.3.59.408 regressions/typecheck/build validation and shop UI check required. Direct main authorized; release via GitHub UI. No live data/messages/deployment.

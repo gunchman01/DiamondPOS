@@ -154,6 +154,11 @@ export default function CustomerEditor(props: CustomerEditorProps) {
   async function persist(input:CustomerInput){
     return editingId ? await api.updateCustomer(editingId, input,detail?.customer.okToEmail===input.okToEmail&&String(detail?.customer.email??'').trim().toLowerCase()===String(input.email??'').trim().toLowerCase(),detail?.customer.okToServiceText===input.okToServiceText&&String(detail?.customer.mobile||detail?.customer.phone||'').replace(/\D/g,'')===String(input.mobile||input.phone||'').replace(/\D/g,'')) : await api.createCustomer(input)
   }
+  async function startNewCustomerKiosk(){
+    if(busy)return
+    setBusy(true);setError('')
+    try{const boot=await window.pos.getBootInfo();setKioskTill(boot.config.tillName)}catch(e){setError((e as Error).message)}finally{setBusy(false)}
+  }
   async function sendForValidation(){
     if(!editingId || !detail || busy)return
     setBusy(true);setError('')
@@ -226,7 +231,8 @@ export default function CustomerEditor(props: CustomerEditorProps) {
         </div>
 
         {editingId && <div className="row gap"><button type="button" className="primary" disabled={busy||!detail||!detail.customer.active} onClick={()=>void sendForValidation()}>{hasUnsavedEdits?'Save & validate on kiosk':'Validate on kiosk'}</button><span className="small muted">Customer can accept their information or update it. Pending edits are saved first when you choose Save &amp; validate.</span></div>}
-        {kioskTill && editingId && <KioskSignup tillName={kioskTill} customerId={editingId} onClose={()=>setKioskTill(null)} onDone={async c=>{setKioskTill(null);setForm(toForm(c));props.onSaved(c);setNotice('Customer details verified at kiosk');try{const d=await api.getCustomer(c.id);setDetail(d);setForm(toForm(d.customer))}catch(e){setError((e as Error).message)}}}/>}
+        {!editingId && <div className="row gap"><button type="button" className="primary" disabled={busy} onClick={()=>void startNewCustomerKiosk()}>New customer on kiosk</button><span className="small muted">Send a blank form for the customer to enter their details. No customer is saved until they submit.</span></div>}
+        {kioskTill && <KioskSignup tillName={kioskTill} customerId={editingId??undefined} onClose={()=>setKioskTill(null)} onDone={async c=>{setKioskTill(null);if(!editingId){props.onSaved(c);props.onClose();return}setForm(toForm(c));props.onSaved(c);setNotice('Customer details verified at kiosk');try{const d=await api.getCustomer(c.id);setDetail(d);setForm(toForm(d.customer))}catch(e){setError((e as Error).message)}}}/>}
 
         {/* ----- Customer info (big fields across the top) ----- */}
         <div className="cust-info">

@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.67 — 24 November 2026: new-customer kiosk entry from work order, sale and customer add
+
+- User requested blank new-customer intake from new work order/new sale/just adding a customer. Added explicit New customer on kiosk action to no-selected-customer sale header and Add Customer editor; labelled picker callback consistently. NewWorkOrder now wires its customer-picker kiosk action and reuses KioskSignup, selecting returned customer then continuing unit selection without automatically creating WO/collecting fee. Existing props.by is the till name from WorkOrders/WorkOrderTicket, used for kiosk routing like current sale flow.
+- Add Customer uses same existing kiosk lifecycle without customerId; after submit invokes existing onSaved/onClose so parent list/picker/sale gets the saved or matched customer. No blank customer is inserted first. Cancellation leaves unsaved staff form alone. Sale uses existing openKiosk() guard/undefined target and returns customer without clearing cart. Saved-customer validation remains separate; readonly tax validation and server/page compatibility guards unchanged.
+- Baseline mainee79429cc725ec138742945e94f380fcbca2a005. Version0.3.67/schema43/min client0.3.59. Direct main commit authorized.408 regression checks, typecheck and production build passed; new real HTTP/SQLite assertions cover complete blank signup returning one saved customer with phone/address details, replay rejection and no partial row on cancellation. No frontend implementation-mirroring tests added for simple entry wiring. Actual Windows/tablet buttons and continuing check-in/sale remain shop checks. No live customers/messages/financial sync/deployment performed.
+
+
 ### v0.3.66 — 24 November 2026: prevent blank signup during customer validation
 
 - User reports customer-page Validate opens a blank customer. Current local flow already passes editingId through KioskSignup/API and server stores target/contact; HTTP/simulated-browser prefill tests pass. Exact shop version/browser state not observed, so do not claim a reproduced unique root cause. Identified real mixed-version paths: older server ignores customerId on generic signup route; already-open old kiosk page ignores server's saved-customer snapshot. Added guardrails for both.
@@ -696,6 +703,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.67 then verify New customer on kiosk from sale header, new work-order customer picker and Customers → Add customer. Submission should attach/select customer in originating flow, cancellation should retain draft, and no partial/duplicate records should appear. Verify tax-card staff step and existing-customer validation remain separate. Kiosk must be paired/online and browser current.
+
 
 - Install v0.3.66 on server/tills, close duplicate kiosk tabs and reload browser. Customer page Validate must show existing contact and read-only exemption with Accept/Update. Test sale-selected customer too. Old server should block before sending, old browser should show reload error; signup with no selected customer remains blank. Actual shop version/browser state was not available during development.
 

@@ -1,17 +1,15 @@
-# DiamondPOS v0.3.66 — saved-customer validation instead of blank signup
+# DiamondPOS v0.3.67 — new-customer kiosk intake in all three places
 
-Validation now has a dedicated selected-customer request plus server/kiosk capability checks. Older Store Server versions or an already-open older kiosk page can otherwise treat validation as blank signup; the new version blocks those paths with update/reload instructions. Existing contact editing/read-only exemption remain.
+- Make a Sale, no selected customer → New customer on kiosk beside search (or F9).
+- New work order → Select customer → New customer on kiosk. Submission selects customer and continues unit/check-in steps.
+- Customers → Add customer → New customer on kiosk. Submission saves/matches customer and refreshes originating list/picker.
 
-Publish v0.3.66 targeting main after direct check-in:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.66&target=main
+No blank customer needs saving first. Cancel creates no partial record. Existing validation is separate and sends saved details. Kiosk must be paired/online; existing tax-card staff review still applies.
 
-1. Wait for Release installer assets.
-2. Update STORE SERVER FIRST, then every till.
-3. Close duplicate kiosk browser tabs and reload the paired kiosk page. Do not clear browser data/pairing unnecessarily.
-4. Open an existing customer and click Validate on kiosk. Confirm existing name/address/contact plus read-only exemption, and Accept/Update buttons. Validate from selected sale customer too.
-5. New-customer signup without a selected customer should still be blank.
+Publish v0.3.67 targeting main after direct check-in:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.67&target=main
 
-No migration (schema43/minimum client0.3.59). Exact shop version/browser state not observed; actual tablet check required.406 regressions/typecheck/build checked. No live messages or deployment.
+Wait for installer assets. Update server then tills; keep kiosk browser refreshed from v0.3.66+. No new schema/protocol/website changes.408 regressions/typecheck/build checked; actual shop interaction remains to verify.
 
 ## Git commands later
 
@@ -27,9 +25,9 @@ npm test
 npm run build
 ```
 
-Only if publishing with Git instead of the release page:
+Only if publishing via Git instead of release page:
 
 ```bash
-git tag v0.3.66
-git push origin v0.3.66
+git tag v0.3.67
+git push origin v0.3.67
 ```

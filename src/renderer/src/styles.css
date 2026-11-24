@@ -1108,3 +1108,6 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 
 /* Use actual table rows; the customer card history-row class uses CSS grid. */
 .sales-history-table{table-layout:fixed;width:100%;min-width:1200px!important}.sales-history-table tbody tr{display:table-row}.sales-history-table th,.sales-history-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:34px;vertical-align:middle}.sales-history-table .sales-history-row:focus td{background:#e8effb}
+
+/* Direct new-customer kiosk action beside sale customer search. */
+.qb-sale .cust-box:not(.set){flex-wrap:wrap}.qb-sale .cust-box:not(.set) .sale-customer-search{flex:1 0 100%}.qb-sale .cust-box:not(.set)>button{white-space:nowrap}

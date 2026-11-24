@@ -1,5 +1,5 @@
-# v0.3.66 kiosk validation compatibility
+# v0.3.67 new-customer kiosk entry
 
-406 regressions: actual frontend API transport mocked against older/newer health response to verify no POST to old server, exact selected customer ID to dedicated verification route, and separate new signup. Real HTTP/SQLite/SSE tests reject legacy open kiosk pages with reload instruction, reject missing target on verify route, acknowledge target ID and load correct saved details through scoped kiosk endpoint. Existing privacy/readonly exemption/conflict/cancel/timeout/signup tests remain. Typecheck/build required before check-in.
+408 regression checks, typecheck and production build passed. New HTTP/SQLite checks complete blank signup into one saved customer returned through session, preserve mobile/address2, reject duplicate submission, and confirm cancellation creates no partial customer. Existing tests cover required signup fields, legacy-page safeguards for verification, read-only tax info, conflicts/privacy/timeouts, financial/stock/QB behavior.
 
-Actual shop browser/server versions and Windows/tablet screen were not observed. Update server/tills then reload kiosk/close duplicate tabs; verify customer-page and selected-sale validation show saved details rather than blank form. No live customer edit, message or financial sync performed.
+Actual shop checks: direct new-sale button/F9 without selected customer; new-work-order Select customer button; Customers Add customer button. Submit should attach/select record and keep scanned items or continue unit selection; Cancel retains draft and does not create row. Tax-card staff step applies when needed. No real customer creation/messages/payments/device interaction performed here.

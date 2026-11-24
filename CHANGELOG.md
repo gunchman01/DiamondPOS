@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.67 - 24 Nov 2026
+- New customer on kiosk is available directly from Make a Sale when no customer is selected, the customer picker for a new work order, and the Add Customer screen.
+- Submitted customers return to the initiating sale, work-order check-in or customer list. No partial customer is created when a kiosk signup is cancelled.
+- Existing-customer validation remains a separate action with saved details and read-only tax exemption.
+
 ## v0.3.66 - 24 Nov 2026
 - Customer validation uses a dedicated request that requires the selected customer. It no longer shares the blank-signup request used for new customers.
 - Added Store Server and kiosk-page compatibility checks. Older servers/pages show an update or reload instruction instead of silently opening a blank signup form.
