@@ -14,6 +14,15 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.74 - 24 November 2026
+- Fixed: send the repair questionnaire as soon as the customer and unit are selected; staff no longer have to type the issue first.
+- Customer answers now populate Reported issue and print on the mechanic worksheet and full work order. Staff notes are preserved; stale saves cannot erase the latest answers.
+> Update the Store Server PC first, then all tills. Back up before updating.
+- Open an active work order and choose Cancel work order. Enter a reason and confirm any reserved parts can return to inventory.
+- Cancelled tickets stay in history under the new Cancelled filter, with staff name/time/reason. Parts are released once; the ticket cannot be reopened or rung up.
+- Paid estimate fees and existing payments remain unchanged, with no automatic refund. Unpaid repair charges are cancelled. Completed/invoiced repairs must be corrected through their receipts and QuickBooks instead.
+- Pending repair questionnaires stop, and late estimate approval responses cannot restart a cancelled repair. Website approval links are cancelled on the next successful response sync.
+
 ## v0.3.73 - 24 November 2026
 > Update the Store Server PC first, then all tills. Reload the kiosk browser page after updating.
 - Work Order Settings now includes separate customer intake questionnaires for mowers, handhelds and other equipment, with starter questions you can customize.

@@ -1,22 +1,21 @@
-# DiamondPOS v0.3.73 — repair questions on the kiosk
+# DiamondPOS v0.3.74 — cancellation and customer-described kiosk issues
 
-Back up the Store Server, update it first, then all tills (schema46). Reload the kiosk browser page and close older kiosk tabs. No website upload required.
+Back up first. Update Store Server before all tills (schema47). No website upload required.
 
-1. Work Order Settings → Customer kiosk · Repair intake questions → Mowers / Handhelds / Other equipment. Edit starter questions, set type/required, then main Save settings.
-2. At new check-in, choose Check in & send questions to kiosk. This saves the ticket first; estimate fee is collected later. Closing the waiting window keeps the checked-in ticket, even on error/offline.
-3. Existing open ticket → Customer repair intake → Send intake to kiosk.
-4. Customer answers and taps Send answers. Staff select Review answers. Each submission keeps original wording; resending keeps prior responses. This is intake information, not repair approval.
+New check-in: select customer and unit → Check in & send questions to kiosk. No staff issue text required. Customer answers fill Reported issue, preserving staff notes and printing on both work-order sheets. Long answers can span pages. Ordinary non-kiosk check-in still requires an issue.
 
-Five-minute unanswered timeout. Required/choice answers validated; no partial answers saved on cancel. Questionnaire follows unit category. Empty category cannot send. Unit/category changes require resend; closed tickets cannot take new submissions. Saved answers are included in database backups.
+Open an active ticket → Cancel work order → reason → confirm reserved parts can return to stock → Cancel work order. If parts are used/installed, bill the appropriate repair instead. No automatic printing/messages.
+
+Cancelled tickets remain in history under Cancelled, separate from Open/Picked Up. Parts release once, repair balance0, charges retained as history, and no reopening/checkout. Customer/unit/history stay linked. Paid estimate fees and recorded payments remain unchanged as requested; no automatic refund. Completed/invoiced repair checkouts cannot cancel this way. Pending kiosk intake ends; local estimates superseded immediately and website link invalidates on next successful approval sync.
 
 Publish after direct main check-in:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.73&target=main
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.74&target=main
 
-Wait for installer assets, then update.460 regression checks/typecheck/build passed; actual kiosk touchscreen/Windows interaction still to verify. Test one mower and handheld, Save/reopen settings, cancel/timeout, and successful answer review before store use.
+Wait for Windows installer assets before installing.475 regression checks/typecheck/build passed; actual Windows modal interaction remains to verify. Use a test ticket to confirm reason, inventory restoration, retry does not restore twice, Cancelled/customer history, no reopening, and original paid-fee receipt unchanged.
 
 ## Git commands
 
-Preserve local edits first; changes are already committed to main.
+Preserve local edits first; direct main check-in is already done.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -31,6 +30,6 @@ npm run build
 Only if publishing via Git instead of the release page:
 
 ```bash
-git tag v0.3.73
-git push origin v0.3.73
+git tag v0.3.74
+git push origin v0.3.74
 ```

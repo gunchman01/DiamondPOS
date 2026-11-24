@@ -1,3 +1,4 @@
+import {testWorkOrderCancellation} from './work-order-cancellation'
 import {testRepairIntake} from './repair-intake'
 import {testWarranty} from './warranty'
 import {testMechanicWorksheet} from './mechanic-worksheet'
@@ -169,7 +170,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 46)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 47)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })
@@ -794,6 +795,7 @@ async function main() {
   await testAccountsStock(check,dir)
   await testWarranty(check,dir)
   await testRepairIntake(check,dir)
+  await testWorkOrderCancellation(check,dir)
   console.log(`\n${checks} regression checks passed.`)
 }
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(() => fs.rmSync(dir, { recursive: true, force: true }))

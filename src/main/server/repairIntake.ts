@@ -1,6 +1,6 @@
 import {ValidationError} from './products'
 import type {DB} from './db'
-import {DEFAULT_INTAKE,type IntakeSettings,type IntakeQuestion,type IntakeResponse} from '../../shared/repairIntake'
+import {intakeIssueText,PENDING_REPAIR_ISSUE,DEFAULT_INTAKE,type IntakeSettings,type IntakeQuestion,type IntakeResponse} from '../../shared/repairIntake'
 import type {UnitCategory} from '../../shared/workorders'
 export function intakeSettings(db:DB):IntakeSettings{const row=db.prepare("SELECT value FROM settings WHERE key='repair_intake'").get() as {value:string}|undefined;return row?JSON.parse(row.value):JSON.parse(JSON.stringify(DEFAULT_INTAKE))}
 export function saveIntakeSettings(db:DB,b:unknown):IntakeSettings{
@@ -25,3 +25,13 @@ export function intakeAnswers(questions:IntakeQuestion[],input:unknown):Record<s
  for(const q of questions){const value=(input as any)[q.id]??'';if(typeof value!=='string'||value.length>2000)throw new ValidationError('Keep each answer under 2,000 characters');const answer=value.trim();if(q.required&&!answer)throw new ValidationError(`Please answer: ${q.label}`);if(answer&&q.type==='yesno'&&!['Yes','No','Not sure'].includes(answer))throw new ValidationError(`Choose an answer for: ${q.label}`);if(answer&&q.type==='choice'&&!q.choices.includes(answer))throw new ValidationError(`Choose an answer for: ${q.label}`);result[q.id]=answer}return result
 }
 export function workOrderIntakes(db:DB,id:number):IntakeResponse[]{return (db.prepare('SELECT * FROM work_order_intakes WHERE work_order_id=? ORDER BY submitted_at DESC,rowid DESC').all(id) as any[]).map(r=>({id:r.id,category:r.category,unitLabel:r.unit_label,submittedAt:r.submitted_at,questions:JSON.parse(r.questions_json),answers:JSON.parse(r.answers_json)}))}
+
+/** Preserve staff notes and ensure a stale notes save cannot erase the latest customer submission. */
+export function withLatestIntakeIssue(db:DB,id:number,proposed:string):string{
+ const response=workOrderIntakes(db,id)[0]
+ const base=proposed.trim()===PENDING_REPAIR_ISSUE?'':proposed.trim()
+ if(!response)return proposed
+ const text=intakeIssueText(response),result=base.includes(text)?base:[base,text].filter(Boolean).join('\n\n')
+ if(result.length>100000)throw new ValidationError('The reported issue is too long. Shorten staff notes before submitting more answers.')
+ return result
+}

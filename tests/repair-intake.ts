@@ -1,3 +1,8 @@
+import {PENDING_REPAIR_ISSUE,mergeIntakeProblemDraft} from '../src/shared/repairIntake'
+import {loadWorkOrder} from '../src/main/server/workorders'
+import {readSettings} from '../src/main/server'
+import {mechanicWorksheetHtml} from '../src/renderer/src/mechanicWorksheet'
+import {workOrderHtml} from '../src/renderer/src/printTemplates'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import vm from 'node:vm'
@@ -29,6 +34,11 @@ export async function testRepairIntake(check:(n:string,f:()=>void)=>void,dir:str
   check('question settings/dispatch require staff pairing and invalid choices cannot overwrite saved settings',()=>{assert.equal(unauth.status,401);assert.equal(denied.status,401);assert.equal(invalid.status,400);assert.deepEqual(intakeSettings(db),settings)})
   const legacyAbort=new AbortController(),legacy=await fetch(base+'/kiosk/api/events?review=2&token=repair-token',{signal:legacyAbort.signal}),legacyReader=legacy.body!.getReader();await legacyReader.read()
   try{const old=await call(`/api/workorders/${id}/intake-kiosk`,{tillName:'Repair till'});check('older kiosk pages block repair dispatch with reload guidance',()=>{assert.equal(old.status,409);assert.match(old.data.error,/Reload the kiosk browser/)})}finally{legacyAbort.abort();await legacyReader.cancel().catch(()=>{});await new Promise<void>(r=>setTimeout(r,20))}
+  const blank=await call('/api/workorders',{customerId:customer,unitId:unit,problem:'',awaitingIntake:true,feeCents:0,by:'Test staff'}),ordinaryBlank=await call('/api/workorders',{customerId:customer,unitId:unit,problem:'',feeCents:0,by:'Test staff'})
+  check('kiosk check-in accepts no staff issue description while ordinary check-in still requires one',()=>{assert.equal(blank.status,201);assert.equal(blank.data.problem,PENDING_REPAIR_ISSUE);assert.equal(ordinaryBlank.status,400)})
+  const blankSession=await start(blank.data.id);await submit(blankSession,{starts:'No',symptom:'Stalls',details:'Customer supplied the issue'})
+  const completedBlank=await call(`/api/workorders/${blank.data.id}`)
+  check('answers replace the awaiting-customer placeholder on a ticket checked in without a staff issue',()=>{assert.ok(!completedBlank.data.problem.includes(PENDING_REPAIR_ISSUE));assert.match(completedBlank.data.problem,/Customer supplied the issue/);assert.match(completedBlank.data.problem,/Does it start/);assert.equal(completedBlank.data.intakes.length,1)})
   const session=await start(),data=await form(session),wrong=await form(session,'other-token'),wrongSubmit=await submit(session,{starts:'Yes',symptom:'Stalls'},'other-token')
   check('repair form exposes only the selected unit/question snapshot to its assigned kiosk',()=>{assert.equal(data.data.mode,'repair');assert.equal(data.data.repair.questions.length,3);assert.match(data.data.repair.unitLabel,/eXmark/);assert.equal(wrong.status,409);assert.equal(wrongSubmit.status,409);assert.ok(!JSON.stringify(data.data).includes('PRIVATE STAFF NOTE'));assert.ok(!JSON.stringify(data.data).includes('12345'))})
   const missing=await submit(session,{}),badChoice=await submit(session,{starts:'Yes',symptom:'Unknown'}),extra=await submit(session,{starts:'Yes',symptom:'Stalls',fake:'x'}),signup=await call('/kiosk/api/submit',{token:'repair-token',sessionId:session,firstName:'Fake'},false)
@@ -36,6 +46,11 @@ export async function testRepairIntake(check:(n:string,f:()=>void)=>void,dir:str
   const changed=JSON.parse(JSON.stringify(settings));changed.mower[0].label='New wording';saveIntakeSettings(db,changed)
   const answers={starts:'No',symptom:'No movement',details:'Customer reports <b>noise</b>'},done=await submit(session,answers),retry=await submit(session,answers),staffWo=await call(`/api/workorders/${id}`)
   check('submission snapshots original wording and answers on the work order with exactly-once replay',()=>{assert.equal(done.status,200);assert.equal(retry.status,200);assert.equal(workOrderIntakes(db,id).length,1);assert.equal(staffWo.data.intakes[0].questions[0].label,'Does it start?');assert.deepEqual(staffWo.data.intakes[0].answers,answers);assert.equal(staffWo.data.status,'needs_estimate');assert.equal(staffWo.data.lines.length,0);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM customers').get().n,1)})
+  const printed=loadWorkOrder(db,id,readSettings(db).taxRate)!
+  check('customer answers populate reported issue and appear escaped on both printed work-order sheets',()=>{assert.match(printed.problem,/Does it start\?/);assert.match(printed.problem,/No movement/);assert.ok(printed.problem.includes('Customer reports <b>noise</b>'));for(const html of [mechanicWorksheetHtml(printed,readSettings(db)),workOrderHtml(printed,readSettings(db),null,null)]){assert.match(html,/No movement/);assert.ok(html.includes('&lt;b&gt;noise&lt;/b&gt;'))}})
+  const staleSave=await call(`/api/workorders/${id}`,{problem:'Staff added a note\n'+'x'.repeat(9000),diagnosis:'Keep this diagnosis'},true,'PUT')
+  check('saving stale staff notes cannot erase the most recent kiosk answers',()=>{assert.equal(staleSave.status,200);assert.ok(staleSave.data.problem.startsWith('Staff added a note'));assert.ok(staleSave.data.problem.includes('No movement'));assert.equal(staleSave.data.diagnosis,'Keep this diagnosis');assert.ok(staleSave.data.problem.length>9000)})
+  check('refresh after kiosk preserves staff drafts and imports answers without duplicating unchanged issue text',()=>{assert.equal(mergeIntakeProblemDraft(PENDING_REPAIR_ISSUE,PENDING_REPAIR_ISSUE,'Answers'),'Answers');assert.equal(mergeIntakeProblemDraft('Draft','Old','Old\n\nAnswers'),'Draft\n\nAnswers');assert.equal(mergeIntakeProblemDraft('Draft','Old','Old'),'Draft');assert.equal(mergeIntakeProblemDraft('Draft\n\nAnswers','Old','Old\n\nAnswers'),'Draft\n\nAnswers')})
   const submittedStatus=await call(`/api/kiosk-sessions/${session}`),after=await form(session)
   check('staff sees submitted status while customer cannot retrieve completed answers',()=>{assert.equal(submittedStatus.data.status,'submitted');assert.equal(after.status,409)})
   const replaced=await start(),replacement=await start(),stale=await submit(replaced,answers)

@@ -4,7 +4,7 @@ import {customerWarrantyView} from '../../shared/warranty'
 import { smsPhone,smsLength } from '../../shared/serviceSms'
 import { groupInfo,relatedOrders,linkOrders,unlinkOrder } from './workOrderGroups'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
-import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
+import { estimateIsSending,approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,syncApprovals,estimateInfo,estimateHash,sendEstimate,applyDecision,approvalRequest } from './approvals'
 /**
  * WORK ORDERS (repairs) and CUSTOMER UNITS (equipment).
  *
@@ -13,7 +13,10 @@ import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,s
  * the stock match the stage every time a ticket or its parts change, so the
  * numbers can never drift.
  */
-import {workOrderIntakes} from './repairIntake'
+import {cancelWorkOrderKioskSessions} from './kiosk'
+import {cancelWorkOrder,workOrderCancellation} from './workOrderCancellation'
+import {PENDING_REPAIR_ISSUE} from '../../shared/repairIntake'
+import {workOrderIntakes,withLatestIntakeIssue} from './repairIntake'
 import type express from 'express'
 import type { DB } from './db'
 import { customerDisplayName, taxExemptState, type StoreSettings } from '../../shared/types'
@@ -184,7 +187,7 @@ export function customerEquipment(db: DB, customerId: number): CustomerEquipment
   if (!db.prepare('SELECT 1 FROM customers WHERE id=?').get(customerId)) throw new WoError(404, 'Customer not found')
   const units = db.prepare('SELECT * FROM customer_units WHERE customer_id=? ORDER BY active DESC,id DESC').all(customerId) as UnitRow[]
   const tickets = db.prepare('SELECT id,status,created_at,updated_at,problem FROM work_orders WHERE customer_id=? AND unit_id=? ORDER BY id DESC')
-  return units.map((u) => ({ unit: toUnit(u), workOrders: (tickets.all(customerId,u.id) as {id:number;status:WoStatus;created_at:string;updated_at:string;problem:string}[]).map((w)=>({id:w.id,number:woNumber(w.id),status:w.status,createdAt:iso(w.created_at)!,updatedAt:iso(w.updated_at)!,problem:w.problem})) }))
+  return units.map((u) => ({ unit: toUnit(u), workOrders: (tickets.all(customerId,u.id) as {id:number;status:WoStatus;created_at:string;updated_at:string;problem:string}[]).map((w)=>({id:w.id,cancelled:!!workOrderCancellation(db,w.id),number:woNumber(w.id),status:w.status,createdAt:iso(w.created_at)!,updatedAt:iso(w.updated_at)!,problem:w.problem})) }))
 }
 
 export function getUnit(db: DB, id: number): CustomerUnit | null {
@@ -363,6 +366,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       }[]
     ).map((h) => ({ at: iso(h.at)!, status: h.status, note: h.note, by: h.by_name }))
     const result: WorkOrder = {
+      cancellation:workOrderCancellation(db,id),
       intakes:workOrderIntakes(db,id),
       relatedOrders: relatedOrders(db,id),
       id: r.id,
@@ -397,7 +401,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       history
     }
     const enriched=enrichWarranty(db,result,taxRate)
-    return {...enriched,estimate:estimateInfo(db,enriched)}
+    return {...enriched,balanceDueCents:enriched.cancellation?0:enriched.balanceDueCents,estimate:estimateInfo(db,enriched)}
   }
 
 
@@ -480,6 +484,8 @@ export function finishWorkOrderSale(db: DB, prep: PreparedWoSale, saleId: number
   )
 }
 
+const notifying=new Set<number>()
+
 export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettings: (db: DB) => StoreSettings) {
   const linesFor = (woId: number) => woLines(db, woId)
   const getWo = (id: number) => loadWorkOrder(db, id, readSettings(db).taxRate)
@@ -544,7 +550,15 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     res.json(need(wo.id))
   }))
 
-  app.get('/api/workorders/settings', (_req, res) => res.json(getWoSettings(db)))
+  app.post('/api/workorders/:id/cancel',wrap((req,res)=>{
+    const wo=need(Number(req.params.id))
+    if(estimateIsSending(wo.id)||notifying.has(wo.id))throw new WoError(409,'Wait for the work-order notification to finish before cancelling.')
+    try{cancelWorkOrder(db,wo.id,req.body??{})}catch(e){throw new WoError(409,(e as Error).message)}
+    cancelWorkOrderKioskSessions(wo.id)
+    res.json(need(wo.id))
+  }))
+
+  app.get('/api/workorders/settings' , (_req, res) => res.json(getWoSettings(db)))
   app.put(
     '/api/workorders/settings',
     wrap((req, res) => res.json(saveWoSettings(db, req.body ?? {})))
@@ -618,6 +632,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     const params: (string | number)[] = []
     let where = '1=1'
     if (status === 'open') where += " AND w.status <> 'closed'"
+    else if(status==='cancelled')where+=' AND EXISTS(SELECT 1 FROM work_order_cancellations x WHERE x.work_order_id=w.id)'
+    else if(status==='closed')where+=" AND w.status='closed' AND NOT EXISTS(SELECT 1 FROM work_order_cancellations x WHERE x.work_order_id=w.id)"
     else if (status === 'needs_call') where += " AND w.status='waiting_customer'"
     else if (status !== 'all') {
       where += ' AND w.status = ?'
@@ -647,6 +663,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         taxExemptState({ taxExempt: true, taxExemptExpires: (r.tax_exempt_expires as string) ?? null }, today()).kind !== 'expired'
       return {
         id: r.id,
+        cancelled:!!workOrderCancellation(db,r.id),
         number: woNumber(r.id),
         status: r.status,
       group: groupInfo(db,r.id),
@@ -667,7 +684,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         shortParts: lines.filter((l) => l.short).length,
         feeCents: r.fee_cents,
         feeStatus: r.fee_status,
-        balanceDueCents: Math.max(0, woTotals((r.status==='not_fixed'&&r.fee_status==='billed')||r.fee_status==='billed_only'?lines.filter(l=>l.kind==='fee'):lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
+        balanceDueCents: workOrderCancellation(db,r.id)?0:Math.max(0, woTotals((r.status==='not_fixed'&&r.fee_status==='billed')||r.fee_status==='billed_only'?lines.filter(l=>l.kind==='fee'):lines, rate, exempt).totalCents - (r.fee_status === 'paid' ? r.fee_cents : 0))
       }
     })
     res.json(status === 'needs_call' ? list.filter(w=>w.estimate?.due).slice(0,500) : list)
@@ -675,7 +692,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
 
   app.get('/api/workorders/counts', (_req, res) => {
     const rows = db.prepare('SELECT status, COUNT(*) AS n FROM work_orders GROUP BY status').all() as { status: WoStatus; n: number }[]
-    res.json(Object.fromEntries(STAGES.map((s) => [s.status, rows.find((r) => r.status === s.status)?.n ?? 0])))
+    const cancelled=(db.prepare('SELECT COUNT(*) AS n FROM work_order_cancellations').get() as {n:number}).n
+    res.json({...Object.fromEntries(STAGES.map(s=>[s.status,(rows.find(r=>r.status===s.status)?.n??0)-(s.status==='closed'?cancelled:0)])),cancelled})
   })
 
   app.get(
@@ -696,7 +714,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         hoursIn = Number(b.hoursIn)
         if (!Number.isFinite(hoursIn) || hoursIn < 0) throw new WoError(400, 'Hours must be a positive number')
       }
-      const problem = String(b.problem ?? '').trim().slice(0, 4000)
+      const problem = String(b.problem ?? '').trim().slice(0, 4000)||(b.awaitingIntake===true?PENDING_REPAIR_ISSUE:'')
       if (!problem) throw new WoError(400, "Describe what's wrong with the unit")
       const settings = getWoSettings(db)
       const defaultFee = settings.estimateFee.cents[unit.category]
@@ -734,7 +752,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     wrap((req, res) => {
       const wo = need(Number(req.params.id))
       const b = (req.body ?? {}) as Record<string, unknown>
-      const txt = (k: string, cur: string) => (b[k] === undefined ? cur : String(b[k] ?? '').slice(0, 8000))
+      const txt = (k: string, cur: string) => {if(k==='problem'){const text=b[k]===undefined?cur:String(b[k]??'');if(text.length>100000)throw new WoError(400,'Reported issue must be at most 100,000 characters');return withLatestIntakeIssue(db,wo.id,text)}return b[k]===undefined?cur:String(b[k]??'').slice(0,8000)}
       let hoursIn = wo.hoursIn
       if (b.hoursIn !== undefined) {
         hoursIn = b.hoursIn === null || b.hoursIn === '' ? null : Number(b.hoursIn)
@@ -772,6 +790,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     '/api/workorders/:id/status',
     wrap((req, res) => {
       const wo = need(Number(req.params.id))
+      if(wo.cancellation)throw new WoError(409,'Cancelled work orders cannot be reopened. Create a new ticket for additional service.')
       const to = String((req.body as Record<string, unknown>)?.status ?? '') as WoStatus
       if (!STAGES.some((s) => s.status === to)) throw new WoError(400, 'Unknown stage')
       if (to === wo.status) return res.json(wo)
@@ -968,10 +987,11 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       // Preserve the approval link when a channel may have accepted it; do not invalidate a link already sent through the other channel.
       if(!Object.values(results).some(r=>r.status!=='failed'))throw Error('No selected channel accepted the notification')
     }
+    notifying.add(wo.id)
     try{
       if(estimate)await sendEstimate(db,wo,by(req),link=>deliver(link),approvalRequest,()=>{const accepted=Object.entries(results).filter(([,r])=>r.status==='accepted').map(([channel])=>channel);return accepted.length?'sent via '+accepted.join(' and '):'delivery uncertain; check provider before resending'})
       else {await deliver();if(results.email?.status==='accepted')db.prepare("UPDATE work_orders SET last_emailed_at=datetime('now'),last_emailed_status=? WHERE id=?").run(wo.status,wo.id)}
-    }catch(e){results.error={status:'failed',detail:(e as Error).message}}
+    }catch(e){results.error={status:'failed',detail:(e as Error).message}}finally{notifying.delete(wo.id)}
     for(const [channel,result] of Object.entries(results))hist(wo.id,`${channel} notification: ${result.status}. ${result.detail}`,by(req))
     db.prepare('UPDATE work_order_notifications SET result_json=? WHERE request_id=?').run(JSON.stringify({results}),id)
     res.json({workOrder:need(wo.id),results})
@@ -1035,7 +1055,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
         return res.json(need(wo.id))
       }
       const mail = buildEmail(wo)
-      await sendEmail(db, readSettings(db), { to: wo.customerEmail, ...mail })
+      notifying.add(wo.id)
+      try{await sendEmail(db, readSettings(db), { to: wo.customerEmail, ...mail })}finally{notifying.delete(wo.id)}
       db.prepare("UPDATE work_orders SET last_emailed_at = datetime('now'), last_emailed_status = ? WHERE id = ?").run(wo.status, wo.id)
       hist(wo.id, `Emailed customer: ${stage(wo.status).label} (${wo.customerEmail})`, by(req), wo.status)
       res.json(need(wo.id))

@@ -84,7 +84,7 @@ export function runAudience(db: DB, input: unknown, limit = Infinity): AudienceR
                  FROM customers c WHERE c.active = 1 ${typeFilter()}`
     rows = db.prepare(sql).all(...params) as Row[]
   } else if(a.source==='service') {
-    let where="w.status NOT IN ('not_fixed','cancelled') AND NOT(w.status='closed' AND COALESCE((SELECT h.status FROM work_order_history h WHERE h.work_order_id=w.id AND h.status IS NOT NULL AND h.status<>'closed' ORDER BY h.id DESC LIMIT 1),'')='not_fixed')"
+    let where="NOT EXISTS(SELECT 1 FROM work_order_cancellations x WHERE x.work_order_id=w.id) AND w.status NOT IN ('not_fixed','cancelled') AND NOT(w.status='closed' AND COALESCE((SELECT h.status FROM work_order_history h WHERE h.work_order_id=w.id AND h.status IS NOT NULL AND h.status<>'closed' ORDER BY h.id DESC LIMIT 1),'')='not_fixed')"
     if(a.serviceCompletedOnly)where+=" AND w.status IN ('ready_pickup','closed')"
     if(a.serviceCategory!=='any'){where+=' AND u.category=?';params.push(a.serviceCategory!)}
     if(a.withinMonths){where+=" AND datetime(w.created_at)>=datetime('now',?)";params.push(`-${a.withinMonths} months`)}

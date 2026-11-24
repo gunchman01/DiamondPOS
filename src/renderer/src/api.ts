@@ -189,6 +189,7 @@ export const api = {
   repairIntakeSettings:()=>request<import('../../shared/repairIntake').IntakeSettings>('GET','/api/repair-intake/settings'),
   saveRepairIntakeSettings:(b:import('../../shared/repairIntake').IntakeSettings)=>request<import('../../shared/repairIntake').IntakeSettings>('PUT','/api/repair-intake/settings',b),
   startRepairIntake:(id:number,tillName:string)=>request<KioskSession>('POST',`/api/workorders/${id}/intake-kiosk`,{tillName}),
+  woCancel:(id:number,reason:string,by:string,stockConfirmed=false)=>request<WorkOrder>('POST',`/api/workorders/${id}/cancel`,{reason,by,stockConfirmed}),
   woSettings: () => request<WoSettings>('GET', '/api/workorders/settings'),
   woSaveSettings: (st: Partial<WoSettings>) => request<WoSettings>('PUT', '/api/workorders/settings', st),
   units: (customerId: number) => request<CustomerUnit[]>('GET', `/api/customers/${customerId}/units`),
@@ -201,7 +202,7 @@ export const api = {
   warrantyReport: (from='',to='')=>request<import('../../shared/warranty').WarrantyReportRow[]>('GET',`/api/reports/warranty?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   woWarranty:(id:number,b:{revision:string;vendorId:number|null;payerId:number|null;claimReference:string;coverage:Record<number,number>;by:string})=>request<WorkOrder>('POST',`/api/workorders/${id}/warranty`,b),
   wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
-  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean; feeCents?: number; linkToId?:number }) =>
+  woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; awaitingIntake?:boolean; noFee?: boolean; feeCents?: number; linkToId?:number }) =>
     request<WorkOrder>('POST', '/api/workorders', b),
   woUpdate: (id: number, b: Partial<Pick<WorkOrder, 'problem' | 'diagnosis' | 'workDone' | 'internalNotes' | 'hoursIn'>>) =>
     request<WorkOrder>('PUT', `/api/workorders/${id}`, b),

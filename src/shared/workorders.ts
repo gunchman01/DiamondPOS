@@ -151,6 +151,7 @@ export interface WarrantyBilling {
  providerExempt:boolean;customerExempt:boolean;providerNetCents:number;customerNetCents:number;providerTotalCents:number;customerTotalCents:number;customerBalanceCents:number;taxRate:number
 }
 export interface WorkOrder {
+  cancellation?:{reason:string;by:string;at:string;feeStatus:string;feeCents:number;feeSaleId:number|null}|null
   intakes?:import('./repairIntake').IntakeResponse[]
   warranty?:WarrantyBilling|null
   warrantyRevision?:string
@@ -193,6 +194,7 @@ export interface WorkOrder {
 }
 
 export interface WoSummary {
+  cancelled?:boolean
   estimate?: EstimateInfo | null
   id: number
   number: string
@@ -446,4 +448,4 @@ export interface EquipmentMatch {
 export interface Mechanic { id: number; name: string; active: boolean }
 
 export interface WorkOrderGroup { id: number; position: number; count: number }
-export interface RelatedWorkOrder { id:number; number:string; status:WoStatus; unitLabel:string; serial:string; linked:boolean; group:WorkOrderGroup|null }
+export interface RelatedWorkOrder { cancelled?:boolean; id:number; number:string; status:WoStatus; unitLabel:string; serial:string; linked:boolean; group:WorkOrderGroup|null }

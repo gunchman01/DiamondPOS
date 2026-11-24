@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 24 November 2026 (category-specific kiosk repair intake)_
+_Last updated: 24 November 2026 (audited work-order cancellation)_
 
 ---
 
@@ -70,6 +70,18 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.74 — 24 November 2026: cancel work orders without deleting history
+
+Follow-up included in same unreleased74: user stopped check-in before any Git mutation, then requested kiosk questionnaire availability without staff problem entry and automatic reported-issue/printed-sheet answers. User explicitly reauthorized checking in after this fix. NewWO sends awaitingIntake flag and removes only kiosk button's problem prerequisite; backend permits blank only for that explicit flag, using Awaiting customer repair questionnaire placeholder. Successful public questionnaire submit transaction now also appends timestamped full Q/A into problem, replacing placeholder and retaining staff text; replay does not duplicate. Reported-issue note updates preserve latest canonical intake block even on stale staff saves. Limit100k with clear error instead of earlier8k silent truncation. Ticket kiosk-close refresh merges into staff draft without discarding diagnosis/work/internal notes, or reverting issue on cancel. Full print preserves Q/A line breaks; worksheet issue section may flow across pages for long responses. Added5 meaningful regression checks covering API blank/ordinary reject, placeholder completion, escaped print content on both sheets, stale/large staff-note retention and draft merging. No additional migration beyond47; shared version74 includes both changes.
+
+User requested cancel WO. Asked paid-estimate-fee disposition; user said leave it for now. Explicitly acknowledged leaving paid fees/payment unchanged, no automatic refund. Baseline main87e2d61de1d4884d7d69a87e3b5def0be3995ac8/version73/tree96134e241bf86c9c389c5cec8f0ac3a06eeb5e71. Schema47 cancellation audit (WO primary key, reason/by/time, original fee status/amount/receipt and released stock JSON). Internal status closed plus cancellation metadata, distinct Cancelled list/filter/count/labels; no new stage enum or reinterpretation of old picked-up records.
+
+Cancellation transaction rejects completed/checkout/warranty-invoiced repairs, validates reason/staff and explicit reserved-stock confirmation, restores original stock_taken once, zeroes reservation, preserves lines/unit/customer/history, supersedes pending/prepared estimates, closes ticket and waives only unpaid/billed fee status. Paid fees, sale/payment/account/QB rows untouched. Cancellation retry returns original audit and cannot restore stock twice. WO balance0; old charges retained and clearly historical. Cancelled status changes blocked at API, line edits/checkout/kiosk submit already closed guards. Active estimate or current notification sends block cancellation; dead historical uncertain sends don't permanently block. Pending repair kiosk sessions cancelled/idle immediately after commit. Approval sync later invalidates website link; local superseded state rejects late decision immediately. No cancellation email/SMS auto-send.
+
+UI modal asks reason and review of reserved parts; saves dirty ticket notes first, preserves on modal cancel/error, polling paused during cancellation. Banner/read-only fee controls/disabled stage dropdown, cancelled labels in main/customer/related history and printed WO. Service marketing excludes cancellation records; cancelled unbilled warranty amount0. Completed financial corrections remain through existing receipts/QB; estimate-fee refund flow deliberately not introduced. Server-first/all-till update, verified backup. Minimum client70 unchanged; older clients may label internally closed cancellations Picked Up, so update all tills for correct presentation.
+
+Validation:475 regression checks, typecheck and production build passed. Added real API/SQLite checks for pairing/reason/stock acknowledgement, exact-once stock release and retry, original unit/charges/history, locked reopening/checkout, cancelled vs open/picked-up counts, customer label, cancelled printed page, marketing exclusion, paid-fee payment/receipt immutability/no new sale, pending estimate supersession/late approval, completed-sale rejection, already-returned parts, kiosk cancellation and durable audit reopen. Windows interactive modal not physically tested here. No actual messages/QB sync/printing/deployment. Next: user publishes74, backs up/updates server then tills, tests cancellation on unneeded test ticket including reserved stock; fees remain unchanged as requested.
 
 ### v0.3.73 — 24 November 2026: category-specific repair intake on kiosk
 
@@ -747,6 +759,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Verify v0.3.74 cancellation reason/parts acknowledgement on Windows; check Cancelled filter/history and unchanged paid estimate receipt. No fee refund automation added.
 
 - Verify v0.3.73 mower and handheld intake on actual kiosk after server/till update and kiosk reload; confirm saved Q/A and fee collection from existing checked-in ticket.
 

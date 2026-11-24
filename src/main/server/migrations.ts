@@ -722,6 +722,9 @@ export const migrations: Migration[] = [
  CREATE TABLE work_order_intakes(id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),unit_id INTEGER NOT NULL REFERENCES customer_units(id),customer_id INTEGER NOT NULL REFERENCES customers(id),category TEXT NOT NULL,unit_label TEXT NOT NULL,questions_json TEXT NOT NULL,answers_json TEXT NOT NULL,submitted_at TEXT NOT NULL);
  CREATE INDEX work_order_intakes_ticket ON work_order_intakes(work_order_id,submitted_at);
  `}
+ ,{version:47,name:'audited work order cancellation',up:`
+ CREATE TABLE work_order_cancellations(work_order_id INTEGER PRIMARY KEY REFERENCES work_orders(id),reason TEXT NOT NULL,by_name TEXT NOT NULL,cancelled_at TEXT NOT NULL,fee_status TEXT NOT NULL,fee_cents INTEGER NOT NULL,fee_sale_id INTEGER REFERENCES sales(id),stock_json TEXT NOT NULL);
+ `}
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

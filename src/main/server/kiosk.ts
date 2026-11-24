@@ -17,7 +17,7 @@
  * but can only show the logo and submit a form for an open session. They never
  * return customer data except a limited, staff-initiated contact verification form, scoped to the assigned active kiosk session. Till endpoints live under /api and need the pairing code.
  */
-import {intakeSettings,saveIntakeSettings,intakeAnswers} from './repairIntake'
+import {intakeSettings,saveIntakeSettings,intakeAnswers,withLatestIntakeIssue} from './repairIntake'
 import type {IntakeQuestion} from '../../shared/repairIntake'
 import type express from 'express'
 import type { Response } from 'express'
@@ -313,10 +313,12 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     if(s.status==='submitted')return res.json({ok:true})
     const repair=s.repair,answers=intakeAnswers(repair.questions,b.answers)
     db.transaction(()=>{
-      const w=db.prepare('SELECT w.customer_id,w.unit_id,w.status,u.category FROM work_orders w JOIN customer_units u ON u.id=w.unit_id WHERE w.id=?').get(repair.workOrderId) as any
+      const w=db.prepare('SELECT w.customer_id,w.unit_id,w.status,w.problem,u.category FROM work_orders w JOIN customer_units u ON u.id=w.unit_id WHERE w.id=?').get(repair.workOrderId) as any
       if(!w||w.status==='closed'||w.customer_id!==repair.customerId||w.unit_id!==repair.unitId||w.category!==repair.category)throw new HttpErr(409,'This work order changed. Ask staff to resend the questions.')
       db.prepare('INSERT INTO work_order_intakes(id,work_order_id,unit_id,customer_id,category,unit_label,questions_json,answers_json,submitted_at) VALUES (?,?,?,?,?,?,?,?,?)').run(s.id,repair.workOrderId,repair.unitId,repair.customerId,repair.category,repair.unitLabel,JSON.stringify(repair.questions),JSON.stringify(answers),new Date().toISOString())
-      db.prepare('INSERT INTO work_order_history(work_order_id,note,by_name) VALUES (?,?,?)').run(repair.workOrderId,'Customer completed repair intake questions on kiosk. Staff review required.',s.kioskName)
+      const problem=withLatestIntakeIssue(db,repair.workOrderId,w.problem)
+      db.prepare("UPDATE work_orders SET problem=?,updated_at=datetime('now') WHERE id=?").run(problem,repair.workOrderId)
+      db.prepare('INSERT INTO work_order_history(work_order_id,note,by_name) VALUES (?,?,?)').run(repair.workOrderId,'Customer completed repair intake questions on kiosk; answers added to reported issue for printing. Staff review required.',s.kioskName)
     })()
     finish(s,'submitted');send(k.id,{type:'thanks',firstName:'',taxExempt:false});res.json({ok:true})
   }))
@@ -559,3 +561,5 @@ function localToday(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+export function cancelWorkOrderKioskSessions(workOrderId:number){for(const s of sessions.values()){if(s.status==='waiting'&&s.repair?.workOrderId===workOrderId){finish(s,'cancelled');try{send(s.kioskId,{type:'idle'})}catch{/* Closed stream; the next kiosk request will also be rejected. */}}}}

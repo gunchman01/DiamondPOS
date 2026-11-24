@@ -8,3 +8,15 @@ export const DEFAULT_INTAKE: IntakeSettings={
  handheld:[question('starts','Does it start and run?','yesno'),question('stalls','Does it stall or lose power?','yesno'),question('operation','Describe any cutting, feeding or blowing problems.'),question('when','When did the problem begin?')],
  other:[question('problem','Describe the problem with this equipment.'),question('when','When did the problem begin?'),question('other','Is there anything else the mechanic should know?')]
 }
+
+export const PENDING_REPAIR_ISSUE='Awaiting customer repair questionnaire.'
+export function intakeIssueText(response:IntakeResponse):string{
+ return ['Customer repair questionnaire ('+response.submittedAt+')',...response.questions.map(q=>q.label+'\n'+(response.answers[q.id]||'Not answered'))].join('\n\n')
+}
+export function mergeIntakeProblemDraft(draft:string,previous:string,fresh:string):string{
+ if(draft===previous)return fresh
+ if(fresh===previous)return draft
+ const addition=fresh.startsWith(previous)&&previous!==PENDING_REPAIR_ISSUE?fresh.slice(previous.length).trim():fresh
+ const base=draft===PENDING_REPAIR_ISSUE?'':draft
+ return !addition||base.includes(addition)?base:[base,addition].filter(Boolean).join('\n\n')
+}

@@ -132,13 +132,14 @@ export function workOrderHtml(original: WorkOrder, store: StoreSettings, custome
     .join('')
   const t = wo.totals
   return `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}</style></head><body>
-    ${header(store, logoUrl, 'WORK ORDER', `<div><b>${esc(wo.number)}</b></div>${wo.group?`<div>Work order ${wo.group.position} of ${wo.group.count}</div>`:''}<div>Checked in ${dateTime(wo.createdAt)}</div><div>Status: <b>${esc(stage(wo.status).label)}</b></div>`)}
+    ${header(store, logoUrl, wo.cancellation?'CANCELLED WORK ORDER':'WORK ORDER', `<div><b>${esc(wo.number)}</b></div>${wo.group?`<div>Work order ${wo.group.position} of ${wo.group.count}</div>`:''}<div>Checked in ${dateTime(wo.createdAt)}</div><div>Status: <b>${esc(wo.cancellation?'Cancelled':stage(wo.status).label)}</b></div>`)}
     <div class="boxes">${customerBlock(customer, wo.customerName)}
       <div class="box"><h3>Unit</h3><b>${esc(unitLabel(wo.unit))}</b>${wo.unit.serial ? `<br>Serial # <span class="sn">${esc(wo.unit.serial)}</span>` : ''}${
         wo.hoursIn !== null && wo.hoursIn !== undefined ? `<br>Hours: ${wo.hoursIn}` : ''
       }</div></div>
+    ${wo.cancellation?`<div class="note"><b>CANCELLED — NO REPAIR BALANCE DUE.</b> ${esc(wo.cancellation.reason)} · ${esc(wo.cancellation.by)} · ${esc(dateTime(wo.cancellation.at))}<br>Charges below are historical only. Paid estimate fees/payments remain unchanged; no automatic refund.</div>`:''}
     ${original.warranty?`<div class="note"><b>Warranty provider:</b> ${esc(original.warranty.vendorName)} · Claim ${esc(original.warranty.claimReference||'not entered')} · Provider billed separately ${money(original.warranty.providerTotalCents)}. Charges below are the customer's share.</div>`:''}
-    ${wo.problem ? `<div class="note"><b>Customer says:</b> ${esc(wo.problem)}</div>` : ''}
+    ${wo.problem ? `<div class="note" style="white-space:pre-wrap"><b>Customer says:</b> ${esc(wo.problem)}</div>` : ''}
     ${wo.diagnosis ? `<div class="note"><b>Diagnosis:</b> ${esc(wo.diagnosis)}</div>` : ''}
     ${wo.workDone ? `<div class="note"><b>Work done:</b> ${esc(wo.workDone)}</div>` : ''}
     <table class="lines"><thead><tr><th>Description</th><th>Type</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${

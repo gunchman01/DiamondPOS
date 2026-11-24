@@ -1,3 +1,4 @@
+import {workOrderCancellation} from './workOrderCancellation'
 import type { DB } from './db'
 import { unitLabel, type WorkOrderGroup, type RelatedWorkOrder } from '../../shared/workorders'
 
@@ -11,7 +12,7 @@ export function relatedOrders(db:DB,id:number):RelatedWorkOrder[] {
  const row=db.prepare('SELECT customer_id,group_id FROM work_orders WHERE id=?').get(id) as {customer_id:number;group_id:number|null}|undefined
  if(!row)return []
  return (db.prepare(`SELECT w.id,w.status,w.group_id,u.brand,u.model,u.unit_type,u.serial FROM work_orders w JOIN customer_units u ON u.id=w.unit_id
- WHERE w.customer_id=? ORDER BY w.id`).all(row.customer_id) as any[]).map(w=>({id:w.id,number:`WO-${String(w.id).padStart(6,'0')}`,status:w.status,unitLabel:unitLabel({brand:w.brand,model:w.model,unitType:w.unit_type}),serial:w.serial,linked:!!row.group_id&&w.group_id===row.group_id,group:groupInfo(db,w.id)}))
+ WHERE w.customer_id=? ORDER BY w.id`).all(row.customer_id) as any[]).map(w=>({id:w.id,cancelled:!!workOrderCancellation(db,w.id),number:`WO-${String(w.id).padStart(6,'0')}`,status:w.status,unitLabel:unitLabel({brand:w.brand,model:w.model,unitType:w.unit_type}),serial:w.serial,linked:!!row.group_id&&w.group_id===row.group_id,group:groupInfo(db,w.id)}))
 }
 /** Caller runs this inside its mutation transaction. Groups are explicit visits, never automatic customer-wide merges. */
 export function linkOrders(db:DB,id:number,otherId:number,by:string):void {

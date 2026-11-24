@@ -65,6 +65,7 @@ export default function NewWorkOrder(props: {
         linkToId: props.linkToId,
         unitId: unit.id,
         problem,
+        awaitingIntake:sendQuestions,
         hoursIn: unit.category === 'mower' && hours.trim() ? Number(hours) : null,
         by: props.by,
         feeCents
@@ -137,7 +138,7 @@ export default function NewWorkOrder(props: {
 
         <div className={unit ? 'wo-step col' : 'wo-step col disabled'}>
           <span>
-            <span className="step-no">3</span> <b>What's wrong with it?</b>
+            <span className="step-no">3</span> <b>What's wrong with it? (optional when sending questions to kiosk)</b>
           </span>
           <textarea
             className="comments"
@@ -171,7 +172,7 @@ export default function NewWorkOrder(props: {
         {error && <div className="error-text">{error}</div>}
         <div className="row gap end">
           <button disabled={busy} onClick={props.onCancel}>Cancel</button>
-          <button disabled={!unit||!settings||!validFee||!problem.trim()||busy} onClick={()=>void create(false,true)}>Check in &amp; send questions to kiosk</button>
+          <button disabled={!unit||!settings||!validFee||busy} onClick={()=>void create(false,true)}>Check in &amp; send questions to kiosk</button>
           {validFee && feeCents > 0 ? (
             <>
               <button disabled={!unit || !settings || !validFee || !problem.trim() || busy} onClick={() => create(false)}>

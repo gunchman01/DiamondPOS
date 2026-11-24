@@ -36,7 +36,7 @@ export default function WorkOrders({
   const [colors, setColors] = useState(DEFAULT_STAGE_COLORS)
   const [view, setView] = useState<View>({ kind: 'list' })
   useEffect(()=>{if(ticketToOpen){setView({kind:'ticket',id:ticketToOpen});onTicketOpened?.()}},[ticketToOpen])
-  const [filter, setFilter] = useState<WoStatus | 'open' | 'all' | 'needs_call'>('open')
+  const [filter, setFilter] = useState<WoStatus | 'open' | 'all' | 'needs_call' | 'cancelled'>('open')
   const [search, setSearch] = useState('')
   const [list, setList] = useState<WoSummary[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -90,6 +90,7 @@ export default function WorkOrders({
           All open <b>{openCount}</b>
         </button>
         <button className={filter==='needs_call'?'chip active':'chip'} onClick={()=>setFilter('needs_call')}>Needs customer call</button>
+        <button className={filter==='cancelled'?'chip active':'chip'} onClick={()=>setFilter('cancelled')}>Cancelled <b>{counts.cancelled??0}</b></button>
         {STAGES.map((s) => (
           <button
             key={s.status}
@@ -143,7 +144,7 @@ export default function WorkOrders({
               <td className="muted">{w.serial}</td>
               <td>
                 <span className="stage-badge" style={stageStyle(w.status, colors)}>
-                  {stage(w.status).label}
+                  {w.cancelled?'Cancelled':stage(w.status).label}
                 </span>
               </td>
               <td>{w.mechanicName || 'Unassigned'}</td>

@@ -1,3 +1,5 @@
+import {mergeIntakeProblemDraft} from '../../../shared/repairIntake'
+import CancelWorkOrder from './CancelWorkOrder'
 import RepairKiosk from './RepairKiosk'
 import UnitEditor from './UnitEditor'
 import WarrantyPanel from './WarrantyPanel'
@@ -22,6 +24,7 @@ export default function WorkOrderTicket(props: {
   onBack: () => void
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [cancelling,setCancelling]=useState(false)
   const [intakeOpen,setIntakeOpen]=useState(false)
   const [editingUnit,setEditingUnit]=useState(false),[unitBrands,setUnitBrands]=useState<string[]>([])
   useEffect(()=>{let live=true;api.mkOptions().then(o=>{if(live)setUnitBrands(o.manufacturers)}).catch(()=>{});return()=>{live=false}},[])
@@ -79,14 +82,14 @@ export default function WorkOrderTicket(props: {
 
   const notesDirty = !!wo && (notes.problem!==wo.problem||notes.diagnosis!==wo.diagnosis||notes.workDone!==wo.workDone||notes.internalNotes!==wo.internalNotes)
   useEffect(()=>{
-    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated||editingUnit||intakeOpen)return
+    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated||editingUnit||intakeOpen||cancelling)return
     let live=true
     const timer=setInterval(()=>{
       if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName??''))return
       api.wo(props.id).then(fresh=>{if(live)show(fresh)}).catch(e=>{if(live)setError(e.message)})
     },30000)
     return()=>{live=false;clearInterval(timer)}
-  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,editingUnit,intakeOpen,wo?.status])
+  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,editingUnit,intakeOpen,cancelling,wo?.status])
 
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
@@ -124,7 +127,7 @@ export default function WorkOrderTicket(props: {
         <div>
           <div className="ticket-no">{wo.number}</div>{wo.group&&<b>Work order {wo.group.position} of {wo.group.count}</b>}
           <span className="stage-badge big" style={stageStyle(wo.status, colors)}>
-            {st.label}
+            {wo.cancellation?'Cancelled':st.label}
           </span>
         </div>
         <div className="ticket-who">
@@ -138,6 +141,7 @@ export default function WorkOrderTicket(props: {
           </span>
         </div>
         <div className="ticket-actions">
+          {!closed&&!wo.saleId&&<button type="button" className="danger" disabled={busy} onClick={()=>setCancelling(true)}>Cancel work order</button>}
           <button disabled={busy} title="Print a blank mechanic estimate worksheet on Letter paper" onClick={()=>run(async()=>{await printMechanicWorksheet({...wo,problem:notes.problem});return undefined},'Estimate worksheet sent to the selected printer')}>Print estimate worksheet</button>
           <button
             disabled={busy}
@@ -176,7 +180,9 @@ export default function WorkOrderTicket(props: {
       </div>
 
       {editingUnit&&<UnitEditor key={wo.unit.id} unit={wo.unit} customerId={wo.customerId} brands={unitBrands} onCancel={()=>setEditingUnit(false)} onSaved={u=>{setEditingUnit(false);setWo(w=>w?{...w,unit:u}:w);setMsg('Unit updated on this work order and the customer equipment record');api.wo(props.id).then(setWo).catch(e=>setError('Unit saved, but ticket refresh failed: '+e.message))}}/>}
-      {intakeOpen&&<RepairKiosk id={wo.id} tillName={props.by} onClose={()=>{setIntakeOpen(false);api.wo(props.id).then(setWo).catch(e=>setError(e.message))}}/>}
+      {cancelling&&<CancelWorkOrder wo={wo} by={props.by} onClose={()=>setCancelling(false)} beforeCancel={async()=>{if(notesDirty)await api.woUpdate(wo.id,notes)}} onDone={w=>{setCancelling(false);show(w);setMsg('Work order cancelled. Paid estimate fees and recorded payments unchanged.')}}/>}
+      {wo.cancellation&&<section className="msg error"><h3>Cancelled · {dateTime(wo.cancellation.at)}</h3><p>{wo.cancellation.reason}</p><p>By {wo.cancellation.by}. Reserved parts released; no repair balance due. Charges below are historical only. Paid estimate fees and recorded payments remain unchanged; no automatic refund. This ticket cannot be reopened.</p>{wo.cancellation.feeSaleId&&<p>Original estimate fee receipt #{wo.cancellation.feeSaleId} retained.</p>}</section>}
+      {intakeOpen&&<RepairKiosk id={wo.id} tillName={props.by} onClose={()=>{setIntakeOpen(false);const old=wo.problem;api.wo(props.id).then(fresh=>{setWo(fresh);setNotes(n=>({...n,problem:mergeIntakeProblemDraft(n.problem,old,fresh.problem)}))}).catch(e=>setError(e.message))}}/>}
       <section className="card form"><div className="row between"><h3>Customer repair intake</h3>{!closed&&<button type="button" disabled={busy} onClick={()=>setIntakeOpen(true)}>Send intake to kiosk</button>}</div><p className="muted small">Customer-reported answers for staff to review. These do not approve repair charges.</p>{!wo.intakes?.length&&<p>No customer questionnaire submitted yet.</p>}{wo.intakes?.map((response,index)=><details key={response.id} open={index===0}><summary>{dateTime(response.submittedAt)} · {response.category} · {response.unitLabel}</summary><dl>{response.questions.map(q=><div key={q.id}><dt><b>{q.label}</b></dt><dd className="pre-line">{response.answers[q.id]||'Not answered'}</dd></div>)}</dl></details>)}</section>
       <WarrantyPanel wo={wo} by={props.by} onSaved={show}/>
       <div className="card row gap"><label>Assigned mechanic <select disabled={busy||closed} value={wo.mechanicId??''} onChange={e=>{const id=e.target.value?Number(e.target.value):null;void run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);return api.woAssignMechanic(wo.id,id,props.by)},'Mechanic assigned')}}>
@@ -186,22 +192,22 @@ export default function WorkOrderTicket(props: {
       <section className="card form"><h3>Customer visit · {wo.group?`${wo.group.count} work orders`:'Single work order'}</h3>
         <p className="muted small">Group equipment brought in together. Each unit keeps its own estimate, status, mechanic and payment.</p>
         <div className="row gap"><button disabled={busy} onClick={()=>run(async()=>{if(notesDirty)show(await api.woUpdate(wo.id,notes));setAddingRelated(true)})}>+ Add another unit for this visit</button>
-        <select aria-label="Work order to link" value={linkId} disabled={busy} onChange={e=>setLinkId(e.target.value)}><option value="">Choose an existing ticket for this customer</option>{wo.relatedOrders.filter(w=>w.id!==wo.id&&!w.linked).map(w=><option key={w.id} value={w.id}>{w.number} · {w.unitLabel} · {w.serial} · {stage(w.status).label}{w.group?` (group of ${w.group.count})`:''}</option>)}</select>
+        <select aria-label="Work order to link" value={linkId} disabled={busy} onChange={e=>setLinkId(e.target.value)}><option value="">Choose an existing ticket for this customer</option>{wo.relatedOrders.filter(w=>w.id!==wo.id&&!w.linked).map(w=><option key={w.id} value={w.id}>{w.number} · {w.unitLabel} · {w.serial} · {w.cancelled?'Cancelled':stage(w.status).label}{w.group?` (group of ${w.group.count})`:''}</option>)}</select>
         <button disabled={busy||!linkId} onClick={()=>run(async()=>{const other=wo.relatedOrders.find(w=>w.id===Number(linkId));if(!await confirmAction(`Group ${wo.number} with ${other?.number}?${other?.group?' All tickets in that visit group will also be joined.':''}`))return;if(notesDirty)await api.woUpdate(wo.id,notes);const fresh=await api.woGroup(wo.id,Number(linkId),props.by);setLinkId('');return fresh},'Customer visit updated')}>Link existing ticket</button>
         {wo.group&&<button disabled={busy} onClick={()=>run(async()=>{if(!await confirmAction('Remove this ticket from the customer visit group? Its repair and charges will stay intact.'))return;if(notesDirty)await api.woUpdate(wo.id,notes);return api.woUngroup(wo.id,props.by)},'Ticket removed from group')}>Remove this ticket from group</button>}</div>
-        {wo.group&&wo.relatedOrders.filter(w=>w.linked).map(w=><div key={w.id} className="row gap"><button disabled={busy||w.id===wo.id} onClick={()=>run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);props.onOpenRelated(w.id)})}>{w.number} · {w.group?.position} of {w.group?.count}</button><span>{w.unitLabel} {w.serial&&`· S/N ${w.serial}`} · {stage(w.status).label}</span></div>)}
+        {wo.group&&wo.relatedOrders.filter(w=>w.linked).map(w=><div key={w.id} className="row gap"><button disabled={busy||w.id===wo.id} onClick={()=>run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);props.onOpenRelated(w.id)})}>{w.number} · {w.group?.position} of {w.group?.count}</button><span>{w.unitLabel} {w.serial&&`· S/N ${w.serial}`} · {w.cancelled?'Cancelled':stage(w.status).label}</span></div>)}
       </section>
       {addingRelated&&<NewWorkOrder initialCustomerId={wo.customerId} linkToId={wo.id} by={props.by} onCancel={()=>setAddingRelated(false)} onCreated={(created,collectFee)=>{setAddingRelated(false);if(collectFee)props.onPayAtTill(created.id,'fee');else props.onOpenRelated(created.id)}}/>}
       {/* ---------------- Stage flow ---------------- */}
       <div className="stage-flow">
         {FLOW.map((s) => (
           <span key={s} className={s === wo.status ? 'flow-step current' : 'flow-step'} style={s === wo.status ? stageStyle(s, colors) : undefined}>
-            {stage(s).label}
+            {s==='closed'&&wo.cancellation?'Cancelled':stage(s).label}
           </span>
         ))}
         {wo.status === 'not_fixed' && wo.feeStatus!=='billed' && (
           <span className="flow-step current" style={stageStyle(wo.status, colors)}>
-            {st.label}
+            {wo.cancellation?'Cancelled':st.label}
           </span>
         )}
       </div>
@@ -241,7 +247,7 @@ export default function WorkOrderTicket(props: {
           ))}
         <label className="inline small">
           or move to
-          <select value="" onChange={(e) => e.target.value && move(e.target.value as WoStatus)} disabled={busy}>
+          <select value="" onChange={(e) => e.target.value && move(e.target.value as WoStatus)} disabled={busy||!!wo.cancellation}>
             <option value="">choose a stage…</option>
             {STAGES.filter((s) => s.status !== wo.status).map((s) => (
               <option key={s.status} value={s.status}>
@@ -253,7 +259,7 @@ export default function WorkOrderTicket(props: {
       </div>
       {msg && <div className="ok-text">{msg}</div>}
       {error && <div className="error-text">{error}</div>}
-      <FeeBar wo={wo} busy={busy} onCollect={() => props.onPayAtTill(wo.id, 'fee')} onBill={()=>void run(async()=>{if(!await confirmAction(`Add the unpaid ${money(wo.feeCents)} estimate fee as a separate charge on this bill? It will be added to the repair total and will not be credited back.`))return;if(notesDirty)await api.woUpdate(wo.id,notes);return api.woBillEstimateFee(wo.id,props.by)},'Estimate fee added to bill')}/>
+      {!wo.cancellation&&<FeeBar wo={wo} busy={busy} onCollect={() => props.onPayAtTill(wo.id, 'fee')} onBill={()=>void run(async()=>{if(!await confirmAction(`Add the unpaid ${money(wo.feeCents)} estimate fee as a separate charge on this bill? It will be added to the repair total and will not be credited back.`))return;if(notesDirty)await api.woUpdate(wo.id,notes);return api.woBillEstimateFee(wo.id,props.by)},'Estimate fee added to bill')}/>}
       {wo.status === 'needs_estimate' && (
         <div className="info-bar">Inventory parts are taken from stock as soon as they are added to this ticket. Removing them or declining the repair returns them to stock.</div>
       )}
@@ -354,7 +360,7 @@ export default function WorkOrderTicket(props: {
                 <span className="muted">{money(wo.totals.taxCents)}</span>
               </>
             )}
-            <b>Total</b>
+            <b>{wo.cancellation?'Cancelled charges (history only)':'Total'}</b>
             <b>{money(wo.totals.totalCents)}</b>
             {wo.feeStatus === 'paid' && (
               <>

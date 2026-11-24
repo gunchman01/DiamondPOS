@@ -141,6 +141,7 @@ export function estimateInfo(db: DB, wo: WorkOrder, now = Date.now()): EstimateI
   }
 }
 const sending = new Set<number>()
+export const estimateIsSending=(id:number)=>sending.has(id)
 export async function sendEstimate(
   db: DB,
   wo: WorkOrder,

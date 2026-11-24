@@ -1,0 +1,10 @@
+import {useState} from 'react'
+import {createPortal} from 'react-dom'
+import type {WorkOrder} from '../../../shared/workorders'
+import {api} from '../api'
+export default function CancelWorkOrder({wo,by,onDone,onClose,beforeCancel}:{wo:WorkOrder;by:string;onDone:(w:WorkOrder)=>void;onClose:()=>void;beforeCancel:()=>Promise<void>}){
+ const [reason,setReason]=useState(''),[checked,setChecked]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ const stock=wo.lines.some(l=>l.stockTaken!==0)
+ async function cancel(){if(busy)return;setBusy(true);setError('');try{await beforeCancel();onDone(await api.woCancel(wo.id,reason,by,checked))}catch(e){setError((e as Error).message);setBusy(false)}}
+ return createPortal(<div className="modal-backdrop unit-editor-backdrop"><form className="modal" role="dialog" aria-modal="true" aria-label="Cancel work order" onSubmit={e=>{e.preventDefault();e.stopPropagation();void cancel()}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'&&!busy)onClose()}}><h2>Cancel {wo.number}</h2><p>This stops the repair, releases reserved parts and keeps the ticket in history. It cannot be reopened. Start a new ticket for future repairs.</p><p><b>Paid estimate fees and recorded payments stay unchanged. No refund is issued automatically.</b> Unpaid repair charges will no longer be due.</p><fieldset disabled={busy} style={{border:0,padding:0,margin:0,minWidth:0}}><label>Reason<textarea autoFocus required maxLength={500} rows={3} value={reason} onChange={e=>setReason(e.target.value)}/></label>{stock&&<label className="check"><input required type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/> I reviewed the parts and confirm their reserved quantities can return to inventory. If parts have been installed or used, complete and bill the repair instead.</label>}{error&&<p className="error-text">{error}</p>}<div className="row gap end"><button type="button" onClick={onClose}>Keep work order</button><button type="submit" className="danger" disabled={!reason.trim()||(stock&&!checked)}>{busy?'Cancelling…':'Cancel work order'}</button></div></fieldset></form></div>,document.body)
+}
