@@ -1,2 +1,2 @@
-# v0.3.74
-Combined update: work-order cancellation (paid fees unchanged) plus kiosk check-in without a staff issue and customer Q/A copied into reported issue for printing. User explicitly authorized check-in after this kiosk fix. See START-HERE.md. Schema47: backup/update Store Server first, then tills. No release tag/deployment performed.
+# v0.3.75
+Compact printed Question / Answer tables on mechanic/full work-order sheets. See START-HERE.md. No new migration or stored-answer changes. No release tag/deployment performed.

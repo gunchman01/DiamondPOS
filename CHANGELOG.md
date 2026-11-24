@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.75 - 24 November 2026
+- Customer questionnaire answers now print in a compact two-column Question / Answer table on the mechanic worksheet and full work order, saving space on short and Yes/No responses.
+- Staff issue notes remain separate, and questionnaire text is not repeated. Long answers wrap without being cut off.
+
 ## v0.3.74 - 24 November 2026
 - Fixed: send the repair questionnaire as soon as the customer and unit are selected; staff no longer have to type the issue first.
 - Customer answers now populate Reported issue and print on the mechanic worksheet and full work order. Staff notes are preserved; stale saves cannot erase the latest answers.

@@ -1014,3 +1014,7 @@ Pending kiosk repair questionnaires are stopped immediately. Local pending estim
 With customer and unit selected, **Check in & send questions to kiosk** is available without typing in What's wrong with it. The work order initially says it is awaiting the customer's questionnaire. Ordinary check-in without the kiosk still needs a staff-entered issue.
 
 When the customer submits, all questions and answers are added to **Reported issue / customer concern**. Existing staff issue notes remain. Both **Print estimate worksheet** and the full **Print** work order include that issue text, so the mechanic receives the customer's information. Long answers can require additional pages; they are not clipped to fit one sheet. Additional submissions remain in intake history and append to the issue, with a submission timestamp. Staff can review and add notes; saving an older draft cannot remove the latest customer answers. Cancellation or timeout before submission leaves the existing ticket waiting for information.
+
+
+### Compact printed questionnaire
+The mechanic worksheet and full work order print customer intake as a two-column **Question / Answer** table with compact row spacing. Staff issue notes stay separate, and the generated questionnaire is not printed twice. Original question/answer history and the Reported issue field are unchanged. Edited or older issue text that no longer matches a saved questionnaire prints as ordinary text so edits are preserved. Long answers wrap and may still use additional pages.

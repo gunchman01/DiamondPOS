@@ -1,3 +1,4 @@
+import {reportedIssueHtml} from './reportedIssue'
 import {customerWarrantyView} from '../../shared/warranty'
 import { paymentLabel } from '../../shared/types'
 /**
@@ -139,7 +140,7 @@ export function workOrderHtml(original: WorkOrder, store: StoreSettings, custome
       }</div></div>
     ${wo.cancellation?`<div class="note"><b>CANCELLED — NO REPAIR BALANCE DUE.</b> ${esc(wo.cancellation.reason)} · ${esc(wo.cancellation.by)} · ${esc(dateTime(wo.cancellation.at))}<br>Charges below are historical only. Paid estimate fees/payments remain unchanged; no automatic refund.</div>`:''}
     ${original.warranty?`<div class="note"><b>Warranty provider:</b> ${esc(original.warranty.vendorName)} · Claim ${esc(original.warranty.claimReference||'not entered')} · Provider billed separately ${money(original.warranty.providerTotalCents)}. Charges below are the customer's share.</div>`:''}
-    ${wo.problem ? `<div class="note" style="white-space:pre-wrap"><b>Customer says:</b> ${esc(wo.problem)}</div>` : ''}
+    ${wo.problem ? `<div class="note"><b>Customer says:</b> ${reportedIssueHtml(wo)}</div>` : ''}
     ${wo.diagnosis ? `<div class="note"><b>Diagnosis:</b> ${esc(wo.diagnosis)}</div>` : ''}
     ${wo.workDone ? `<div class="note"><b>Work done:</b> ${esc(wo.workDone)}</div>` : ''}
     <table class="lines"><thead><tr><th>Description</th><th>Type</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${

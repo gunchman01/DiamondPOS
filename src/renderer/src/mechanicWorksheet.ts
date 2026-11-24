@@ -1,3 +1,4 @@
+import {reportedIssueHtml} from './reportedIssue'
 import type {StoreSettings} from '../../shared/types'
 import type {WorkOrder} from '../../shared/workorders'
 import {dateTime,escapeHtml} from './format'
@@ -10,7 +11,7 @@ export function mechanicWorksheetHtml(wo:WorkOrder,store:StoreSettings):string{
  </style></head><body><header><div><div class="store">${esc(store.storeName)}</div><h1>WORK ORDER ESTIMATE WORKSHEET</h1></div><div><div class="number">${esc(wo.number)}</div>${wo.group?`<div>Unit ${esc(wo.group.position)} of ${esc(wo.group.count)}</div>`:''}<div>Checked in: ${esc(dateTime(wo.createdAt))}</div></div></header>
  <div class="meta"><div class="box"><h2>Customer</h2><div class="field"><b>${esc(wo.customerName)}</b></div><div class="field">Phone: ${esc(wo.customerPhone||'Not on file')}</div><div class="field">Email: ${esc(wo.customerEmail||'Not on file')}</div><div class="field">Mechanic: ${esc(wo.mechanicName||'Unassigned')}</div></div>
  <div class="box"><h2>Unit details</h2><div class="unit-grid"><div>Type: <b>${esc(wo.unit.unitType||wo.unit.category)}</b></div><div>Brand: <b>${esc(wo.unit.brand||'Not on file')}</b></div><div>Model: <b>${esc(wo.unit.model||'Not on file')}</b></div><div>Serial: <b>${esc(wo.unit.serial||'Not on file')}</b></div><div>Hours at check-in: <b>${esc(wo.hoursIn??'Not recorded')}</b></div></div></div></div>
- <section style="break-inside:auto"><h2>Reported issue / customer concern</h2><div class="box issue">${esc(wo.problem||'No issue entered')}</div></section>
+ <section style="break-inside:auto"><h2>Reported issue / customer concern</h2><div class="box issue">${wo.problem?reportedIssueHtml(wo):'No issue entered'}</div></section>
  <section><h2>Mechanic findings / diagnosis / recommended work</h2><div class="write-box">${'<div class="write-line"></div>'.repeat(5)}</div></section>
  <section><h2>Parts needed</h2><table><thead><tr><th class="parts-no">Part number</th><th class="parts-name">Part name / description</th><th class="qty">Qty</th></tr></thead><tbody>${partRows}</tbody></table></section>
  <div class="mechanic"><span>Mechanic: </span><span>Date: </span><span>Estimated labor hours: </span></div>
