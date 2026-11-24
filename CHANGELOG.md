@@ -14,6 +14,10 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.76 - 24 November 2026
+- Mechanic estimate worksheet now has four smaller findings rows instead of five.
+- Parts needed now has ten compact rows instead of six, and the bottom disclaimer is removed to save space.
+
 ## v0.3.75 - 24 November 2026
 - Customer questionnaire answers now print in a compact two-column Question / Answer table on the mechanic worksheet and full work order, saving space on short and Yes/No responses.
 - Staff issue notes remain separate, and questionnaire text is not repeated. Long answers wrap without being cut off.

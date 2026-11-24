@@ -1018,3 +1018,7 @@ When the customer submits, all questions and answers are added to **Reported iss
 
 ### Compact printed questionnaire
 The mechanic worksheet and full work order print customer intake as a two-column **Question / Answer** table with compact row spacing. Staff issue notes stay separate, and the generated questionnaire is not printed twice. Original question/answer history and the Reported issue field are unchanged. Edited or older issue text that no longer matches a saved questionnaire prints as ordinary text so edits are preserved. Long answers wrap and may still use additional pages.
+
+
+### Mechanic worksheet spacing
+The estimate worksheet has four ruled findings lines and ten compact parts rows (part number, description and quantity). The bottom disclaimer has been removed. Customer questionnaire printing remains in its compact Question / Answer table. Long issue descriptions can still use extra pages.

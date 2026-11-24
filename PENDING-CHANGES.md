@@ -1,2 +1,2 @@
-# v0.3.75
-Compact printed Question / Answer tables on mechanic/full work-order sheets. See START-HERE.md. No new migration or stored-answer changes. No release tag/deployment performed.
+# v0.3.76
+Worksheet findings4rows, parts10compact rows, disclaimer removed. See START-HERE.md. No new migration or financial changes; no tag/deployment performed.

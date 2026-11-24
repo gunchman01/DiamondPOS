@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.76 — 24 November 2026: worksheet handwriting space and parts rows
+
+User requested one fewer findings row, smaller findings/parts rows to add more parts, and removal of bottom disclaimer. Changed findings5→4, line9.3→7.5mm and box48→31mm. Parts6→10, rowheight6mm with0.8mm vertical padding,9pt/1.15lineheight, table header padding1mm. Removed disclaimer paragraph and unused footer CSS. Compact questionnaire helper untouched; inline Q/A heightauto remains. No schema/backend/payment/notification changes. Baseline main77e421868210898611f255cbf38ade6bc063d3df/treeab7c92592faff267bfadb607e1ab74b4299c5c9c/version75.
+
+Validation:476 regression checks/typecheck/build passed; updated existing worksheet count/disclaimer assertions rather than new tests for layout-only change. Actual shop Letter printing remains user verification; no guarantee of one page for long customer answers. No physical printing/deployment performed. Next: user reprints same ticket and checks handwriting room and page count.
+
 ### v0.3.75 — 24 November 2026: compact printed intake Q/A
 
 User likes kiosk workflow but asks for canned questions/yes-no answers in2column table to save paper. New shared renderer reportedIssueHtml finds exact intact generated intakeIssueText blocks within wo.problem and prints each as55/45 Question/Answer table,9pt and1mm vertical cell padding, heightauto overriding worksheet7mm parts-cell height. Caption formatted submission time. Both mechanic worksheet and full priced WO use it; freeform staff text preserved separately, exact blocks replaced rather than duplicated, unmatched edited/legacy text remains plain and escaped. No stored issue/snapshot changes, schema47/minclient70 unchanged. Long answers still wrap/may span pages. Baseline mainb3eac56529e04210b05a84262945b187c1c84771/treebc13e3c5f4de62df519631b9cb372f82de9138ea/version74.

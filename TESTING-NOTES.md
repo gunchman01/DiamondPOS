@@ -1,2 +1,2 @@
-# v0.3.75 validation
-476 regression checks, typecheck and build passed. Actual generated mechanic/full work-order HTML checked for Question/Answer columns, one question occurrence and absence of duplicated plain generated blocks. Existing escaped answer, staff-note preservation, worksheet identity/parts-row and financial tests retained. No physical printer or Windows visual pass; reprint same ticket at shop to verify paper use and legibility. No database or notification changes.
+# v0.3.76 validation
+476 regression checks/typecheck/build passed. Existing worksheet assertions updated to4findings lines,10parts rows and absence of removed disclaimer; long issue preservation and all print/customer/financial coverage retained. No actual shop printer/Windows visual pass. Reprint same ticket to check page count and handwriting space. No schema, transaction or notification change.

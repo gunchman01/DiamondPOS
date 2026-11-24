@@ -1,11 +1,11 @@
-# DiamondPOS v0.3.75 — compact printed questionnaire
+# DiamondPOS v0.3.76 — smaller findings rows, more parts rows
 
-Customer intake now prints as Question / Answer columns on both Print estimate worksheet and the full Print work order. Staff notes remain separate; the plain generated Q/A block is not repeated. Long answers wrap and may still need additional pages. No new migration or website upload; stored answers unchanged.
+Print estimate worksheet now has4findings rows with smaller spacing,10compact parts rows instead of6, and no bottom disclaimer. Compact questionnaire table retained. Long issue descriptions may still span pages.
 
 Publish after direct main check-in:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.75&target=main
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.76&target=main
 
-Wait for Windows installer assets and update server/tills.476 regression checks, typecheck/build passed; reprint the same ticket on the shop printer to confirm actual layout/readability. If skipping74, back up and update Store Server first for its migration.
+Wait for installer assets and update server/tills. No new migration or website changes.476 regression checks/typecheck/build passed; reprint the same ticket at the shop to confirm page count and writing space.
 
 ## Git commands
 
@@ -20,9 +20,9 @@ npm run typecheck
 npm run build
 ```
 
-Only if publishing via Git instead of release page:
+Only if publishing via Git instead of the release page:
 
 ```bash
-git tag v0.3.75
-git push origin v0.3.75
+git tag v0.3.76
+git push origin v0.3.76
 ```
