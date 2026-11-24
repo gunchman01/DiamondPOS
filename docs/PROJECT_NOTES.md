@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.65 — 24 November 2026: read-only kiosk tax-exemption validation
+
+- User requested exemption status on kiosk review, then explicitly clarified customers must not edit it and must tell cashier about corrections. Existing-customer review endpoint now exposes a limited separate taxExemption snapshot (Yes/No, ID/expiry only when exempt). New read-only text panel remains shown in Accept and Update modes, with expiration warning and cashier instruction. Existing editable signup tax controls stay hidden for verification. No customer tax write paths added; contact allowlist still ignores forged tax fields, including card-copy flag.
+- Snapshot comparison includes customer-visible exemption data; cashier changes during the session require resend. Read-only panel text clears with contact fields on idle/thanks/cancel/local timeout. Existing new-customer signup behavior preserved. Tax information is rendered via textContent, not HTML.
+- Baseline main9d3190f5e41de1a12fc6f2230950942fb7e14b68; version0.3.65/schema43/minimum client0.3.59 unchanged. Direct main check-in authorized.401 regression checks passed, with real HTTP/SQLite tests for read-only display, forged edits rejected/ignored and cashier-change conflict, plus simulated-browser display/clearing. Typecheck/build checked before release. Actual tablet display remains shop verification. No live customer changes/messages/financial sync/deployment performed.
+
+
 ### v0.3.64 — 24 November 2026: one-line Sales History rows
 
 - User screenshot showed each transaction wrapping into a3x3 block under the first table heading. Root cause confirmed: shared .history-row sets display:grid/grid-template-columns for customer card history, but SalesHistory reused it on tr. Renamed to scoped sales-history-row, enforced table-row layout and fixed table columns with nowrap/ellipsis. Removed secondary On account / Original amount block lines; receipt/payment details retain information. Main table has1200px minimum with horizontal scrolling on narrow screens; full customer/till titles remain available.
@@ -682,6 +689,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.65 server first/tills and reload kiosk browser. Validate exempt and non-exempt customers: show Yes/No and applicable ID/expiry, expiry warning, no editable tax controls, cashier-correction message; Update contact details must leave exemption data unchanged. Staff change during review must require resend.
+
 
 - Install v0.3.64 and verify Sales History aligns all nine cells under headings in one compact row, including void and on-account work-order receipts. Click opens full details; test125% scale and horizontal scrolling in narrow windows.
 

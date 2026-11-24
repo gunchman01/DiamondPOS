@@ -30,7 +30,8 @@ const CONTACT_FIELDS = ['firstName','lastName','company','phone','mobile','email
 function contactDetails(c: Customer) {
   return Object.fromEntries(CONTACT_FIELDS.map(k=>[k,c[k] ?? ''])) as Record<(typeof CONTACT_FIELDS)[number],string>
 }
-type LiveSession = KioskSession & { created:number; timer:ReturnType<typeof setTimeout>; targetId?:number; originalContact?:ReturnType<typeof contactDetails> }
+function taxDetails(c:Customer){return {taxExempt:c.taxExempt,taxExemptId:c.taxExempt?c.taxExemptId:null,taxExemptExpires:c.taxExempt?c.taxExemptExpires:null}}
+type LiveSession = KioskSession & { created:number; timer:ReturnType<typeof setTimeout>; targetId?:number; originalContact?:ReturnType<typeof contactDetails>; originalTax?:ReturnType<typeof taxDetails> }
 
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000 // form returns to the logo after 5 minutes
 const PAIR_CODE_TTL_MS = 10 * 60 * 1000
@@ -175,7 +176,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     res.setHeader('Cache-Control','no-store')
     const k=kioskByToken(req.query.token),s=sessions.get(String(req.query.sessionId || ''))
     if(!s || s.kioskId!==k.id || s.status!=='waiting') throw new HttpErr(409,'This request has finished. Ask staff to send it again.')
-    res.json(s.targetId ? {mode:'verify',contact:s.originalContact} : {mode:'signup'})
+    res.json(s.targetId ? {mode:'verify',contact:s.originalContact,taxExemption:s.originalTax} : {mode:'signup'})
   }))
 
   // The customer submits the sign-up form
@@ -193,6 +194,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
           const current=getCustomer(db,s.targetId!)
           if(!current || !current.active)throw new HttpErr(409,'This customer is no longer available. Please see staff.')
           if(JSON.stringify(contactDetails(current))!==JSON.stringify(s.originalContact))throw new HttpErr(409,'Staff changed these details while you were reviewing them. Please ask staff to send them again.')
+          if(JSON.stringify(taxDetails(current))!==JSON.stringify(s.originalTax))throw new HttpErr(409,'The cashier changed your tax exemption while you were reviewing it. Please ask staff to send your information again.')
           const changes:Record<string,unknown>={}
           if(b.confirm!==true){
             for(const key of CONTACT_FIELDS){
@@ -202,7 +204,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
           }
           if(b.confirm!==true && String(changes.email || '').trim().toLowerCase()!==String(current.email || '').trim().toLowerCase())changes.okToEmail=false
           // Marketing, tax exemptions, account balances and all other staff-only fields are never accepted here.
-          changes.notes=`${new Date().toLocaleString()} - Customer ${b.confirm===true?'confirmed':'updated'} contact details at kiosk "${k.name}"\n${current.notes || ''}`
+          changes.notes=`${new Date().toLocaleString()} - Customer ${b.confirm===true?'confirmed':'updated'} contact details and reviewed tax exemption at kiosk "${k.name}"\n${current.notes || ''}`
           updateCustomer(db,current.id,validateCustomer(changes,current))
           return getCustomer(db,current.id)!
         })()
@@ -423,6 +425,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       const session: LiveSession = {
         targetId: target?.id,
         originalContact: target ? contactDetails(target) : undefined,
+        originalTax: target ? taxDetails(target) : undefined,
         id,
         kioskId: kiosk.id,
         kioskName: kiosk.name,

@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.65 - 24 Nov 2026
+- Customer kiosk validation now shows tax-exempt status and, when applicable, the exemption ID and expiration date. Expired dates are flagged.
+- Tax exemption information is read-only on the validation screen. Customers are directed to the cashier for corrections; they can still accept or edit contact details.
+- If the cashier changes tax exemption details during review, a fresh validation request is required.
+
 ## v0.3.64 - 24 Nov 2026
 - Fixed Sales History transactions breaking into multi-line cards under the first column. Each transaction now stays on one table row aligned with the headings.
 - Removed secondary lines from the list, kept long values on one line, and retained click-to-open details. Narrow windows can scroll horizontally.

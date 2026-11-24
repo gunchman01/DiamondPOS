@@ -126,6 +126,13 @@ export const kioskPageHtml = /* html */ `<!doctype html>
         <div class="card-note"><span class="icon">🪪</span><span>Please hand your tax-exempt card to the cashier so they can make a copy of it.</span></div>
       </div>
     </div>
+    <div class="tax-box" id="verificationTax" hidden>
+      <h2>Tax exemption</h2>
+      <p id="verificationTaxStatus"></p>
+      <p id="verificationTaxId"></p>
+      <p id="verificationTaxExpiry"></p>
+      <p><b>Please tell the cashier if your tax-exempt status or details need to be updated. Only the cashier can change this information.</b></p>
+    </div>
     <div class="privacy" id="privacy"></div>
     <div class="error" id="error"></div>
     <div class="buttons">
@@ -169,7 +176,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   }
 
   function show(id) {
-    if(id!=='form'){clearTimeout(formTimer);FIELDS.forEach(function(f){$(f).value='';});$('okToEmail').checked=false;$('taxExempt').checked=false;}
+    if(id!=='form'){['verificationTaxStatus','verificationTaxId','verificationTaxExpiry'].forEach(function(f){$(f).textContent='';});$('verificationTax').hidden=true;clearTimeout(formTimer);FIELDS.forEach(function(f){$(f).value='';});$('okToEmail').checked=false;$('taxExempt').checked=false;}
     ['pair', 'idle', 'form', 'thanks'].forEach(function (s) { $(s).hidden = s !== id; });
     if (id !== 'form' && document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
@@ -285,6 +292,11 @@ export const kioskPageHtml = /* html */ `<!doctype html>
       $('formTitle').textContent=verification?'Please verify your details':'Welcome! Tell us about you';
       $('formSub').textContent=verification?'Check your information below. Accept it as shown or choose Update details.':'Your details will be added to your purchase.';
       $('marketingChoice').hidden=verification;$('taxBox').hidden=verification;
+      $('verificationTax').hidden=!verification;
+      var tax=j.taxExemption;
+      $('verificationTaxStatus').textContent=tax ? 'Tax exempt: '+(tax.taxExempt?'Yes':'No') : 'Tax exemption: please check with the cashier';
+      $('verificationTaxId').textContent=tax&&tax.taxExempt?'Exemption ID: '+(tax.taxExemptId||'Not on file'):'';
+      $('verificationTaxExpiry').textContent=tax&&tax.taxExempt?'Expiration: '+(tax.taxExemptExpires||'Not on file')+(tax.taxExemptExpires&&tax.taxExemptExpires<todayIso()?' — EXPIRED; please see the cashier':''):'';
       $('confirmBtn').hidden=!verification;$('editBtn').hidden=!verification;$('submitBtn').hidden=verification;
       FIELDS.forEach(function(f){$(f).readOnly=verification;if(verification && j.contact){var key=f==='state'?'region':f==='zip'?'postcode':f;$(f).value=j.contact[key] || '';}});
       show('form');

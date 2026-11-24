@@ -891,9 +891,9 @@ Under **Income accounts**, choose the merchandise/parts Sales account and option
 
 ### Verify an existing customer's contact details at the kiosk (v0.3.61)
 
-Open a saved customer from **Customers**. Click **Validate on kiosk**. If you have pending edits, the button reads **Save & validate on kiosk** and saves them before sending. The paired, online kiosk for this till displays only that customer's name, company, address, phone/mobile and email. The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
+Open a saved customer from **Customers**. Click **Validate on kiosk**. If you have pending edits, the button reads **Save & validate on kiosk** and saves them before sending. The paired, online kiosk for this till displays that customer's name, company, address, phone/mobile, email and read-only tax-exempt status (including ID/expiration when applicable). The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
 
-No account balance, staff notes, tax exemption, discount or marketing controls are shown in this review. Staff-only fields remain unchanged. Changing the email address does not grant marketing permission to the new address. If staff change contact details during the review, resend the verification request. Cancelling, replacing, unpairing or the five-minute timeout ends access. Contact fields clear when the kiosk returns to its welcome screen. After updating, reload the kiosk browser page to get the new Accept/Update form.
+No account balance, staff notes, discount or marketing controls are shown in this review. Tax-exempt status, ID and expiration are shown read-only; customers must tell the cashier about corrections. Staff-only fields remain unchanged. Changing the email address does not grant marketing permission to the new address. If staff change contact details during the review, resend the verification request. Cancelling, replacing, unpairing or the five-minute timeout ends access. Contact fields clear when the kiosk returns to its welcome screen. After updating, reload the kiosk browser page to get the new Accept/Update form.
 
 
 ## Sales History
@@ -919,3 +919,8 @@ From **Customers**, open an existing customer and choose the prominent **Validat
 
 
 Sales History lists one transaction per horizontal row aligned with the column headings. Long customer/till names are shortened visually (hover to see the full name); opening the row shows full details. Use horizontal scrolling on narrower screens. Void original-amount explanation and on-account details remain available in the receipt window.
+
+
+### Tax exemption during kiosk validation (v0.3.65)
+
+The existing-customer validation screen shows **Tax exempt: Yes/No**, with exemption ID and expiration when applicable. An expired date is labelled EXPIRED. This section stays read-only even after choosing Update details. The message tells the customer to notify the cashier if anything needs correcting; only staff can change exemption information from the customer record. Kiosk submissions do not change exemption status, ID, expiry or the card-copy flag. If the cashier changes exemption details during review, send a fresh validation request. Reload the kiosk browser page after installing this update. New-customer signup keeps its existing intake process.

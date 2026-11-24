@@ -1,3 +1,3 @@
-# v0.3.64 direct update
+# v0.3.65 direct update
 
-Fix Sales History card/grid class collision; single aligned table row per transaction, no secondary block lines, nowrap/truncation and horizontal scrolling. Click-to-open details preserved. No schema/server/financial change. Typecheck/build validation; shop visual check remains. Direct main commit authorized; release publication via GitHub UI.
+Read-only tax-exempt status/ID/expiration on existing-customer kiosk validation, cashier-correction instruction and conflict protection. Contact updates cannot change exemption fields/card-copy flag. Server and kiosk page updated; reload browser after installing server/tills. No schema/financial behavior change.401 regressions passed plus typecheck/build checks. Direct main commit authorized; release via GitHub UI. No live messages or deployment.
