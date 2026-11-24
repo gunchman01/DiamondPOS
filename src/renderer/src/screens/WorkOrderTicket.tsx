@@ -5,7 +5,7 @@ import { PriceCell } from '../saleColumns'
 import type { Product } from '../../../shared/types'
 import { STAGES, stage, stageStyle, DEFAULT_STAGE_COLORS, unitLabel, type WoLine, type WoSaleMode, type WoStatus, type WorkOrder } from '../../../shared/workorders'
 import { api } from '../api'
-import { printWorkOrder, printWorkOrderLabel } from '../printing'
+import { printMechanicWorksheet, printWorkOrder, printWorkOrderLabel } from '../printing'
 import { dateTime, money, parseMoney } from '../format'
 
 const KIND_LABEL = { part: 'Part', labor: 'Labor', shop: 'Shop supplies', misc: 'Other', fee:'Estimate fee' } as const
@@ -128,6 +128,7 @@ export default function WorkOrderTicket(props: {
           </span>
         </div>
         <div className="ticket-actions">
+          <button disabled={busy} title="Print a blank mechanic estimate worksheet on Letter paper" onClick={()=>run(async()=>{await printMechanicWorksheet({...wo,problem:notes.problem});return undefined},'Estimate worksheet sent to the selected printer')}>Print estimate worksheet</button>
           <button
             disabled={busy}
             title="Print this work order on the full-page printer"

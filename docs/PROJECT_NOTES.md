@@ -71,6 +71,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.68 — 24 November 2026: leading-zero scan lookup and mechanic worksheet
+
+- User supplied raw scanner values049234 and025752 while saved item numbers49234/25752 lack leading zero; explicitly approved lookup tolerance with no saved ALU rewrite. New server productLookup checks exact active UPC/sku/ALU across distinct products, then unique numeric-only zero-normalized fallback across those fields. No Number conversion/precision loss, no internal-zero/alphanumeric/punctuation stripping, no all-zero fallback. Ambiguous exact/fallback matches409 rather than LIMIT1 arbitrary product. Original fields unchanged.
+- Renderer HTTP errors retain status; scanner stops on ambiguity/network/server errors instead of bypassing safeguards through broad search. Only404 invokes existing fallback search. Typing a new scan clears stale suggestion selection. Tests use supplied examples plus exact priority, inactive items, duplicate IDs, safety boundaries, paired endpoint and renderer error status.
+- User asked to hold Git for additional request, then explicitly authorized adding to Git. Added checked-in work-order Print estimate worksheet action, separate from existing priced work-order printing. Letter portrait black/white worksheet includes customer/contact, WO/check-in/group position, unit type/brand/model/serial/hour-at-intake, current reported issue, blank48mm ruled mechanic box,8parts rows (number/name/qty), mechanic/date/labor-hour spaces. No pricing/internal notes, no customer approval claim. Uses explicit full-page printer chooser and no auto-print. Current problem textbox may print unsaved text without writing/discarding notes or changing stage/approval/inventory.
+- Version0.3.68/schema43/minimum client0.3.59; no migration/website change. Baseline main817b59ada50d499234fad5e55d7cd0602b982d00.423 regression checks, typecheck and production build passed. Worksheet tests use actual loaded ticket and verify identity/escaping/blank areas/no private/pricing content, missing/group metadata, long issue preservation and no DB writes. Chromium visual/PDF probe failed due environment socket restrictions, so no actual layout/device pass claimed. Verify physical Letter sheet and scanner on shop Windows before live use. No real messages/financial sync/printing/deployment performed. User authorization now allows combined direct main check-in; no tag tool available.
+
+
 ### v0.3.67 — 24 November 2026: new-customer kiosk entry from work order, sale and customer add
 
 - User requested blank new-customer intake from new work order/new sale/just adding a customer. Added explicit New customer on kiosk action to no-selected-customer sale header and Add Customer editor; labelled picker callback consistently. NewWorkOrder now wires its customer-picker kiosk action and reuses KioskSignup, selecting returned customer then continuing unit selection without automatically creating WO/collecting fee. Existing props.by is the till name from WorkOrders/WorkOrderTicket, used for kiosk routing like current sale flow.
@@ -703,6 +711,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Release/install v0.3.68 server first/tills: scan025752→item25752 and049234→49234, ensure exact barcode priority and no ALU rewrite. Open checked-in WO → Print estimate worksheet; choose laser printer and verify room for handwritten diagnosis/8parts rows plus exact unit/issue details. Confirm print cancellation/notes unchanged and normal approval workflow remains separate.
+
 
 - Install v0.3.67 then verify New customer on kiosk from sale header, new work-order customer picker and Customers → Add customer. Submission should attach/select customer in originating flow, cancellation should retain draft, and no partial/duplicate records should appear. Verify tax-card staff step and existing-customer validation remain separate. Kiosk must be paired/online and browser current.
 

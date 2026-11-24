@@ -1,3 +1,4 @@
+import {lookupProduct,ProductLookupError} from './productLookup'
 import {registerTransactionHistoryRoutes} from './transactionHistory'
 import { resumeSmtpSockets } from '../lifecycle/smtpSockets'
 import { pauseBackgroundIO, resumeBackgroundIO } from '../lifecycle/backgroundIO'
@@ -278,12 +279,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // Scanner / item # lookup: UPC (barcode), Item No. (sku) or ALU
   app.get('/api/products/lookup/:code', (req, res) => {
-    const c = req.params.code
-    const row = db
-      .prepare('SELECT * FROM products WHERE active = 1 AND (barcode = ? OR sku = ? OR alu = ?) LIMIT 1')
-      .get(c, c, c) as ProductRow | undefined
-    if (!row) throw new HttpError(404, 'Item not found')
-    res.json(toProduct(row))
+    try{res.json(lookupProduct(db,req.params.code))}catch(e){if(e instanceof ProductLookupError)return res.status(e.status).json({error:e.message});throw e}
   })
 
   app.get('/api/products/:id', (req,res) => { const p=getProduct(db,Number(req.params.id)); if(!p)throw new HttpError(404,'Item not found');res.json(p) })

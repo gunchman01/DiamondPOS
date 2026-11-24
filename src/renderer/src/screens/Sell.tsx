@@ -688,7 +688,8 @@ export default function Sell({
       const product=await api.lookupProduct(value)
       if(generation!==draftGeneration.current)return
       addToCart(product)
-    } catch {
+    } catch (error) {
+      if((error as Error & {status?:number}).status!==404){if(generation===draftGeneration.current)setMessage({kind:'error',text:(error as Error).message});return}
       if(generation!==draftGeneration.current)return
       try {
         const matches = await api.listProducts(value)
@@ -894,7 +895,7 @@ export default function Sell({
               autoComplete="off"
               placeholder="Scan or enter item information"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => {setCode(e.target.value);setSugs([]);setSugIdx(-1)}}
               onBlur={() => setTimeout(() => setSugs([]), 150)}
               onKeyDown={(e) => {
                 if (!sugs.length) return

@@ -1,3 +1,4 @@
+import {mechanicWorksheetHtml} from './mechanicWorksheet'
 /**
  * Where things print (Settings → Printing, saved on this computer):
  *  - receipts → receipt printer, unless the sale has a serial-numbered unit or is a work order payment
@@ -68,6 +69,12 @@ export async function printWorkOrder(wo: WorkOrder): Promise<void> {
   const { store, logo } = await storeAndLogo()
   const customer = await api.getCustomer(wo.customerId).then((d) => d.customer).catch(() => null)
   await printWithChoice({ html: workOrderHtml(wo, store, customer, logo), printer: s.fullPagePrinter, letter: true }, 'Print work order')
+}
+
+/** Manual Letter worksheet for a mechanic to complete beside the unit. */
+export async function printMechanicWorksheet(wo:WorkOrder):Promise<void>{
+  const [settings,{store}]=await Promise.all([currentPrintSettings(),storeAndLogo()])
+  await printWithChoice({html:mechanicWorksheetHtml(wo,store),printer:settings.fullPagePrinter,letter:true},'Print estimate worksheet')
 }
 
 /** What a work order label shows */

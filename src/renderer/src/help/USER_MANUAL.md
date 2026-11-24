@@ -942,3 +942,16 @@ Use **New customer on kiosk** from any of these entry points:
 - **Customers → Add customer:** click New customer on kiosk. After submission, the saved/matched customer returns to the customer list. No need to save a blank customer first.
 
 These actions send a blank new-customer form rather than saved-customer validation. Existing matching phone/email may return a customer already on file instead of duplicating it. Staff receive the existing tax-card copy prompt when needed. Cancelling leaves the originating draft/picker available and creates no partial customer. Unsaved staff entries in Add Customer are not sent to the kiosk; the customer fills in the blank form. The kiosk must be paired and online for that till.
+
+
+### Leading zeros when scanning (v0.3.68)
+
+Exact UPC / Barcode, Item Number and ALU matches are checked first. If none exists, numeric-only codes can match with leading zeros ignored: a tag reading **025752** finds item number **25752**, and **049234** finds **49234**. Saved UPC/item number/ALU values are not edited and the ALU column does not gain a zero. Letters, punctuation and internal zeros are not removed. If more than one item matches, the POS stops rather than choosing one; use Find item/name to select the correct product. Only a genuine not-found result falls back to broad item search. Inactive items remain excluded.
+
+### Mechanic estimate worksheet (v0.3.68)
+
+After check-in, open the work order and click **Print estimate worksheet** near Print and Label. Choose your full-page/laser printer in the printer chooser (the configured full-page printer is preselected). Printing is manual; no worksheet prints automatically.
+
+The Letter portrait sheet contains customer name/phone/email, work-order number/check-in date, unit type/brand/model/serial and recorded hours, and the reported issue. A large blank findings/diagnosis/recommended-work box, eight blank rows for part number/name/quantity, and mechanic/date/estimated-labor spaces let the mechanic work beside the unit. The issue text uses the current text shown on screen, including an unsaved edit; printing does not save or discard it. Blank worksheet sections do not copy existing bill lines, diagnosis or internal notes.
+
+After filling it out, enter findings, parts and labor into the actual POS work order, review the total, then send the estimate for customer approval using the existing process. This worksheet is internal and is not a customer authorization, invoice or approval record. The existing Print action still prints the normal work order. Long reported issues can continue onto additional pages instead of being cut off.

@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.68 - 24 Nov 2026
+- Scanning can now find numeric UPCs, item numbers and alternate lookup codes that differ only by leading zeros. Exact matches take priority; ambiguous matches require staff selection. Stored codes and displayed ALU are unchanged.
+- Added Print estimate worksheet to checked-in work orders. The Letter-size sheet shows customer, work-order number, unit details and reported issue, plus a blank mechanic findings box, part-number/name/quantity rows and labor/date spaces.
+- Worksheet printing is manual and uses the full-page printer chooser. It does not send an estimate, record approval or change the work order.
+
 ## v0.3.67 - 24 Nov 2026
 - New customer on kiosk is available directly from Make a Sale when no customer is selected, the customer picker for a new work order, and the Add Customer screen.
 - Submitted customers return to the initiating sale, work-order check-in or customer list. No partial customer is created when a kiosk signup is cancelled.
