@@ -1,4 +1,5 @@
 import { backgroundRequest } from '../lifecycle/backgroundIO'
+import {customerWarrantyView} from '../../shared/warranty'
 import crypto from 'node:crypto'
 import type { DB } from './db'
 import type { WorkOrder } from '../../shared/workorders'
@@ -98,7 +99,8 @@ export async function testApprovalConnection(db: DB, transport: Transport = appr
   write(db, { ...c, serviceId: r.serviceId, error: null })
   return approvalView(db)
 }
-export function snapshot(wo: WorkOrder): EstimateSnapshot {
+export function snapshot(original: WorkOrder): EstimateSnapshot {
+  const wo=original.warranty?customerWarrantyView(original,original.warranty.taxRate):original
   return {
     number: wo.number,
     customer: wo.customerName.split(' ')[0] || 'Customer',
@@ -108,7 +110,7 @@ export function snapshot(wo: WorkOrder): EstimateSnapshot {
     totalCents: wo.totals.totalCents,
     taxCents: wo.totals.taxCents,
     balanceDueCents: wo.balanceDueCents,
-    partsNotice: partsOrderingNotice('waiting_customer', wo.lines)
+    partsNotice: [partsOrderingNotice('waiting_customer', original.lines),original.warranty?`Warranty provider ${original.warranty.vendorName} covers $${(original.warranty.providerTotalCents/100).toFixed(2)} separately. The amount shown is your share only.`:''].filter(Boolean).join(' ')
   }
 }
 // Stock/parts notice is informative, so arrivals do not invalidate an otherwise identical estimate.
@@ -116,7 +118,7 @@ export function estimateHash(wo: WorkOrder) {
   const { partsNotice: _, balanceDueCents: __, ...s } = snapshot(wo)
   return crypto
     .createHash('sha256')
-    .update(JSON.stringify({ ...s, customerId: wo.customerId, unitId: wo.unit.id }))
+    .update(JSON.stringify({ ...s, customerId: wo.customerId, unitId: wo.unit.id, ...(wo.warranty?{warranty:{vendorId:wo.warranty.vendorId,payerId:wo.warranty.payerId,claim:wo.warranty.claimReference,coverage:wo.warranty.coverage,providerExempt:wo.warranty.providerExempt,customerExempt:wo.warranty.customerExempt}}:{}) }))
     .digest('hex')
 }
 export function estimateInfo(db: DB, wo: WorkOrder, now = Date.now()): EstimateInfo | null {

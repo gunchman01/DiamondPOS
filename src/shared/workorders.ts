@@ -146,7 +146,14 @@ export interface WoHistory {
 /** none = no fee; unpaid; paid = held as a credit; applied = credited on a sale; kept = customer declined */
 export type FeeStatus = 'none' | 'unpaid' | 'paid' | 'applied' | 'kept' | 'billed' | 'billed_only'
 
+export interface WarrantyBilling {
+ vendorId:number;payerId:number;vendorName:string;payerName:string;claimReference:string;coverage:Record<number,number>
+ providerExempt:boolean;customerExempt:boolean;providerNetCents:number;customerNetCents:number;providerTotalCents:number;customerTotalCents:number;customerBalanceCents:number;taxRate:number
+}
 export interface WorkOrder {
+  warranty?:WarrantyBilling|null
+  warrantyRevision?:string
+  warrantySales?:{customerSaleId:number|null;providerSaleId:number}|null
   estimate?: EstimateInfo | null
   id: number
   number: string // WO-000123
@@ -356,6 +363,7 @@ export type WoSaleMode = 'fee' | 'repair' | 'credit'
 export const WO_DEPARTMENTS = { labor: 'Service Labor', shop: 'Shop Supplies', misc: 'Service Other', fee: 'Estimate Fees' } as const
 
 export interface WoSaleLine {
+  workOrderLineId?:number
   description: string
   productId: number | null
   department: string | null
@@ -400,6 +408,7 @@ export function workOrderSaleLines(
     const whole = Number.isInteger(l.qty)
     const label = l.kind === 'labor' ? `${l.description} (${l.qty} hr)` : l.description
     return {
+      workOrderLineId:l.id,
       description: `${label} - ${wo.number}`,
       productId: l.kind === 'part' ? l.productId : null,
       department: l.kind === 'part' ? (wo.partDepartments?.[l.id] ?? null) : WO_DEPARTMENTS[l.kind as 'labor' | 'shop' | 'misc' | 'fee'],

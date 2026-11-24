@@ -1,3 +1,4 @@
+import {customerWarrantyView} from '../../shared/warranty'
 import { paymentLabel } from '../../shared/types'
 /**
  * Printable pages: full-page (Letter) sales receipt / invoice, full-page work order, and item price tags.
@@ -93,7 +94,7 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
     .join('')
   const serials = sale.items.filter((i) => i.serial && i.kind !== 'return')
   return `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}</style></head><body>
-    ${voidBanner(sale)}${accountBanner(sale)}${header(store, logoUrl, title, `<div><b>Receipt #${sale.id}</b></div><div>${dateTime(sale.createdAt)}</div><div class="muted">${esc(sale.tillName)}</div>${
+    ${voidBanner(sale)}${accountBanner(sale)}${warrantyBanner(sale)}${header(store, logoUrl, title, `<div><b>Receipt #${sale.id}</b></div><div>${dateTime(sale.createdAt)}</div><div class="muted">${esc(sale.tillName)}</div>${
       woNumber ? `<div><b>${esc(woNumber)}</b></div>` : ''
     }`)}
     <div class="boxes">${customerBlock(customer, sale.customerName,sale.customerAddress)}${
@@ -119,7 +120,8 @@ export function fullPageSaleHtml(sale: Sale, store: StoreSettings, customer: Cus
 }
 
 /** Letter-size work order (estimate / repair ticket) */
-export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Customer | null, logoUrl: string | null): string {
+export function workOrderHtml(original: WorkOrder, store: StoreSettings, customer: Customer | null, logoUrl: string | null): string {
+  const wo=original.warranty?customerWarrantyView(original,original.warranty.taxRate):original
   const billLines=(wo.status==='not_fixed'&&wo.feeStatus==='billed')||wo.feeStatus==='billed_only'?wo.lines.filter(l=>l.kind==='fee'):wo.lines
   const rows = billLines
     .map(
@@ -135,6 +137,7 @@ export function workOrderHtml(wo: WorkOrder, store: StoreSettings, customer: Cus
       <div class="box"><h3>Unit</h3><b>${esc(unitLabel(wo.unit))}</b>${wo.unit.serial ? `<br>Serial # <span class="sn">${esc(wo.unit.serial)}</span>` : ''}${
         wo.hoursIn !== null && wo.hoursIn !== undefined ? `<br>Hours: ${wo.hoursIn}` : ''
       }</div></div>
+    ${original.warranty?`<div class="note"><b>Warranty provider:</b> ${esc(original.warranty.vendorName)} · Claim ${esc(original.warranty.claimReference||'not entered')} · Provider billed separately ${money(original.warranty.providerTotalCents)}. Charges below are the customer's share.</div>`:''}
     ${wo.problem ? `<div class="note"><b>Customer says:</b> ${esc(wo.problem)}</div>` : ''}
     ${wo.diagnosis ? `<div class="note"><b>Diagnosis:</b> ${esc(wo.diagnosis)}</div>` : ''}
     ${wo.workDone ? `<div class="note"><b>Work done:</b> ${esc(wo.workDone)}</div>` : ''}
@@ -202,3 +205,5 @@ export function tagsHtml(
     svg { display: block; }
   </style></head><body>${labels.join('')}</body></html>`
 }
+
+export function warrantyBanner(sale:Sale){const w=sale.warrantyBilling;return w?`<div style="border:1px solid #000;padding:4px;overflow-wrap:anywhere"><b>Warranty ${w.provider?'provider invoice':'customer share'}</b><br>Owner: ${escapeHtml(w.ownerName)}<br>Provider: ${escapeHtml(w.providerName)}<br>Claim: ${escapeHtml(w.claimReference||'Not entered')}<br>Provider receipt #${w.providerSaleId}${w.customerSaleId?` · Customer receipt #${w.customerSaleId}`:''}</div>`:''}

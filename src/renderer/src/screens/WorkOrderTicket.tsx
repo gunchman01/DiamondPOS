@@ -1,3 +1,4 @@
+import WarrantyPanel from './WarrantyPanel'
 import NewWorkOrder from './NewWorkOrder'
 import { confirmAction } from '../dialogs'
 import { useEffect, useState } from 'react'
@@ -165,6 +166,7 @@ export default function WorkOrderTicket(props: {
         </div>
       </div>
 
+      <WarrantyPanel wo={wo} by={props.by} onSaved={show}/>
       <div className="card row gap"><label>Assigned mechanic <select disabled={busy||closed} value={wo.mechanicId??''} onChange={e=>{const id=e.target.value?Number(e.target.value):null;void run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);return api.woAssignMechanic(wo.id,id,props.by)},'Mechanic assigned')}}>
         <option value="">Unassigned</option>
         {mechanics.filter(m=>m.active||m.id===wo.mechanicId).map(m=><option key={m.id} value={m.id} disabled={!m.active}>{m.name}{!m.active?' (removed)':''}</option>)}

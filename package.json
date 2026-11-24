@@ -1,7 +1,7 @@
 {
   "name": "diamondpos",
   "productName": "DiamondPOS",
-  "version": "0.3.69",
+  "version": "0.3.70",
   "description": "DiamondPOS - multi-till point of sale for a single location (Electron + React + TypeScript)",
   "author": "Your Company",
   "private": true,

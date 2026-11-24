@@ -291,6 +291,9 @@ export default function QuickBooks({ boot, onBootChange }: { boot: BootInfo; onB
         <table className="table qb-table"><thead><tr><th>POS tax location / rate</th><th>QuickBooks sales tax item</th></tr></thead><tbody>
           {(st.taxRates ?? []).map(t => <tr key={t.key}><td>{t.name} — {Number((t.rate*100).toFixed(5))}%</td><td><Select value={draft.taxMappings?.[t.key] ?? ''} placeholder="— no explicit mapping —" options={lists.salesTaxItems.filter(i=>i.rate!==null && Math.abs(i.rate/100-t.rate)<0.00000001).map(i=>i.name)} onChange={v=>set({taxMappings:{...draft.taxMappings,[t.key]:v}})}/></td></tr>)}
         </tbody></table>
+        <h4>Accounts Receivable</h4>
+        <p className="small muted">On-account customer purchases and manufacturer/vendor warranty reimbursement are unpaid invoices. Choose A/R accounts here; sales and labor income still use the income mappings below. Blank uses QuickBooks default (Warranty blank uses the customer A/R selection). Existing invoices keep their original A/R account, including later payments.</p>
+        <div className="qb-map"><label>Customer purchases on account<Select value={draft.accountsReceivable??''} onChange={v=>set({accountsReceivable:v})} options={lists.accounts.filter(a=>a.type==='AccountsReceivable').map(a=>a.name)} placeholder="— QuickBooks default —"/></label><label>Warranty reimbursement receivable<Select value={draft.warrantyReceivable??''} onChange={v=>set({warrantyReceivable:v})} options={lists.accounts.filter(a=>a.type==='AccountsReceivable').map(a=>a.name)} placeholder="— use customer A/R selection —"/></label></div>
         <h4>Income accounts</h4>
         <p className="muted small">Merchandise, parts and fees use POS General. Work-order labor and items in the Service Labor department use POS Labor when a labor income account is selected. Blank keeps the general income mapping. Vendor account rows are not needed.</p>
         <table className="table qb-table">

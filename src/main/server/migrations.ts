@@ -704,6 +704,15 @@ export const migrations: Migration[] = [
  `},
  {version:43,name:'customer billing address on saved receipts',up:`
  ALTER TABLE sales ADD COLUMN customer_address_snapshot TEXT;
+ `},
+ {version:44,name:'receivable mappings and split warranty billing',up:`
+ ALTER TABLE account_invoices ADD COLUMN ar_account TEXT;
+ ALTER TABLE account_invoices ADD COLUMN receivable_kind TEXT NOT NULL DEFAULT 'customer';
+ ALTER TABLE work_orders ADD COLUMN warranty_vendor_id INTEGER REFERENCES vendors(id);
+ ALTER TABLE work_orders ADD COLUMN warranty_payer_id INTEGER REFERENCES customers(id);
+ ALTER TABLE work_orders ADD COLUMN warranty_claim TEXT NOT NULL DEFAULT '';
+ ALTER TABLE work_order_lines ADD COLUMN warranty_cents INTEGER NOT NULL DEFAULT 0 CHECK(warranty_cents>=0);
+ CREATE TABLE warranty_checkouts(work_order_id INTEGER PRIMARY KEY REFERENCES work_orders(id),request_id TEXT NOT NULL UNIQUE,customer_sale_id INTEGER REFERENCES sales(id),provider_sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id),vendor_id INTEGER NOT NULL REFERENCES vendors(id),payer_id INTEGER NOT NULL REFERENCES customers(id),claim_reference TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT (datetime('now')));
  `}
 ]
 

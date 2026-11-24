@@ -1,3 +1,4 @@
+import {customerWarrantyView} from '../../shared/warranty'
 import type {WorkOrder} from '../../shared/workorders'
 import {unitLabel} from '../../shared/workorders'
 import {partsOrderingNotice} from '../../shared/workOrderEmail'
@@ -30,6 +31,7 @@ export async function sendServiceText(config:TextSettings,to:string,message:stri
  },20000)}catch{return {status:'unknown',detail:'Text result uncertain after a connection error. Check Mobile Text Alerts before resending.'}}
 }
 
-export function serviceText(wo:WorkOrder,storeName:string,config:TextSettings,estimate:boolean,link?:string){
- return [storeName,`${wo.number}: ${unitLabel(wo.unit)}`,estimate?`Your estimate is $${(wo.totals.totalCents/100).toFixed(2)}. Review and approve or decline: ${link||'[approval link added when sent]'}`:`Ready for pickup. Balance due: $${(wo.balanceDueCents/100).toFixed(2)}.`,estimate?partsOrderingNotice('waiting_customer',wo.lines):'',`Replies are not monitored. Questions? Call ${config.callbackNumber||'[store callback number]'}. Reply STOP to opt out.`].filter(Boolean).join('\n\n')
+export function serviceText(original:WorkOrder,storeName:string,config:TextSettings,estimate:boolean,link?:string){
+ const wo=original.warranty?customerWarrantyView(original,original.warranty.taxRate):original
+ return [storeName,`${wo.number}: ${unitLabel(wo.unit)}`,estimate?`Your estimate is $${(wo.totals.totalCents/100).toFixed(2)}. Review and approve or decline: ${link||'[approval link added when sent]'}`:`Ready for pickup. Balance due: $${(wo.balanceDueCents/100).toFixed(2)}.`,estimate?partsOrderingNotice('waiting_customer',original.lines):'',original.warranty?`Warranty provider billed separately: $${(original.warranty.providerTotalCents/100).toFixed(2)}. Amount above is your share.`:'',`Replies are not monitored. Questions? Call ${config.callbackNumber||'[store callback number]'}. Reply STOP to opt out.`].filter(Boolean).join('\n\n')
 }

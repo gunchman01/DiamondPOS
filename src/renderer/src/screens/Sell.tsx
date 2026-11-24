@@ -7,6 +7,7 @@ import { saleTimeFromLocal, localSaleTime } from '../../../shared/saleDates'
 import CustomerAccountDialog from './CustomerAccount'
 import { CARD_TYPES, type CardBrand } from '../../../shared/types'
 import { useEffect, useRef, useState } from 'react'
+import {warrantySaleLines,warrantyPrices} from '../../../shared/warranty'
 import { customerDisplayName, taxExemptState, taxRateLabel, type BootInfo, type Customer, type PaymentMethod, type Product, type Sale, type SaleRequest, type StoreSettings } from '../../../shared/types'
 import { api } from '../api'
 import { money, parseMoney, today } from '../format'
@@ -311,7 +312,10 @@ export default function Sell({
   const canExempt = !!customer?.taxExempt && !!customer.taxExemptId && exemptState.kind !== 'expired'
   const applyExempt = exempt && canExempt
   // Work order lines (locked) come after the scanned items, then the estimate fee credit, same order as the server
-  const woLines = wo ? workOrderSaleLines(wo.order, wo.mode, wo.fee) : []
+  const warranty=wo?.mode==='repair'?wo.order.warranty:null
+  const warrantyPrice=wo&&warranty?warrantyPrices(wo.order,rate,applyExempt):null
+  const fullWoLines = wo ? workOrderSaleLines(wo.order, wo.mode, wo.fee) : []
+  const woLines=wo&&warranty?warrantySaleLines(fullWoLines,wo.order,'customer'):fullWoLines
   const creditAvailable = wo && wo.mode !== 'fee' && wo.order.feeStatus === 'paid' ? wo.order.feeCents : 0
   // Same pricing function the server uses, so the total shown is exactly what's charged
   const priced = priceWithFeeCredit(
@@ -346,7 +350,7 @@ export default function Sell({
   const isRefund = total < 0
   const shelfTotal =
     cart.reduce((s, l) => s + unitOf(l) * l.qty, 0) + woLines.reduce((s, l) => s + l.unitPriceCents * l.qty, 0)
-  const hasLines = cart.length > 0 || woLines.length > 0 || returns.length > 0
+  const hasLines = cart.length > 0 || woLines.length > 0 || returns.length > 0 || !!warrantyPrice?.provider.totalCents
   const gst = priced.taxCents - refundTax
   // How the original receipt(s) were paid: suggest refunding the same way
   const origMethods = [...new Set(Object.values(receipts).map((r) => r.method).filter(Boolean))] as PaymentMethod[]
@@ -643,6 +647,7 @@ export default function Sell({
 
   async function startPayment(method: PaymentMethod) {
     if (!hasLines) return
+    if(warranty && total===0){void completeSale(null,0,'').catch(e=>setMessage({kind:'error',text:e.message}));return}
     if (wo && returns.length) {
       setMessage({ kind: 'error', text: 'Returns go on their own sale, not on a work order payment' })
       return
@@ -718,6 +723,7 @@ export default function Sell({
     setCheckoutError('')
     try {
       if ((customSaleTime || pendingCheckout?.saleAt) && !(await api.health()).saleDates) throw new Error('Update the Store Server to v0.3.41 before choosing a sale date.')
+      if(warranty && !(await api.health()).warrantyBilling)throw new Error('Update the Store Server to v0.3.70 before warranty checkout.')
       const request: SaleRequest = pendingCheckout ?? {
         requestId: crypto.randomUUID(),
         onAccount,
@@ -732,6 +738,7 @@ export default function Sell({
             : { productId: l.productId!, qty: l.qty, serial: l.serial ?? undefined, reason: l.reason, restock: l.restock }
         ),
         payments: method ? [{ method, amountCents, reference: method === 'check' ? reference || undefined : undefined, ...(method === 'card' ? { cardBrand: cardBrand ?? 'unknown' } : {}) }] : [],
+        warrantyRevision: warranty ? wo?.order.warrantyRevision : undefined,
         workOrder: wo ? { id: wo.order.id, mode: wo.mode } : undefined,
         heldId: held?.id ?? null,
         taxRateId: taxChoice?.id ?? null
@@ -1063,7 +1070,7 @@ export default function Sell({
                   <b>Refund #{lastSale.id} complete · {money(-lastSale.totalCents)} back</b>
                 ) : (
                   <>
-                    <b>{lastSale.onAccount?'Account sale':'Sale'} #{lastSale.id} complete</b> · {money(lastSale.totalCents)}
+                    <b>{lastSale.onAccount?'Account sale':'Sale'} #{lastSale.id} complete</b>{lastSale.warrantyBilling&&<span> · Warranty provider receipt #{lastSale.warrantyBilling.providerSaleId}</span>} · {money(lastSale.totalCents)}
                   </>
                 )}
               </div>
@@ -1149,6 +1156,7 @@ export default function Sell({
               </span>
             </label>
           )}
+          {warranty&&<div className="msg info"><b>Warranty: {warranty.vendorName}</b><br/>Provider invoice: {money(warrantyPrice?.provider.totalCents??0)} · Claim: {warranty.claimReference||'not entered'}<br/>Only the customer share is due below. Warranty checkout must be separate from scanned items or returns.</div>}
           {priced.creditCents > 0 && (
             <div className="tline exempt-line">
               <span>Estimate fee credit</span>
@@ -1157,7 +1165,7 @@ export default function Sell({
           )}
           {priced.creditKeptCents > 0 && wo?.mode !== 'fee' && (
             <div className="tline muted small">
-              <span>Fee not used (kept)</span>
+              <span>{warranty?'Unused customer deposit — resolve before checkout':'Fee not used (kept)'}</span>
               <span>{money(priced.creditKeptCents)}</span>
             </div>
           )}
@@ -1174,6 +1182,7 @@ export default function Sell({
       </div>
       <section className="sale-paymentbar" aria-label="Payment methods">
           <div className="tender">
+            {warranty&&total===0?<button disabled={checkoutWaiting||!!pendingCheckout} className="primary" onClick={()=>void completeSale(null,0,'').catch(e=>setMessage({kind:'error',text:e.message}))}>Bill warranty provider</button>:<>
 
             <button
               className={isRefund && suggestMethod === 'card' ? '' : 'primary'}
@@ -1198,6 +1207,7 @@ export default function Sell({
               </button>
             )}
             {!isRefund&&<button disabled={!hasLines||!customer?.accountEnabled||returns.length>0||total<=0||checkoutWaiting} title="Select a customer enabled for account sales. The entire sale is charged as an unpaid invoice." onClick={async ()=>{if(customer&&(await confirmAction(`Charge ${money(total)} to ${customerDisplayName(customer)}'s account? No payment is being collected now.`)))void completeSale(null,0,'',undefined,true).catch(e=>setMessage({kind:'error',text:e.message}))}}>Charge to account</button>}
+            </>}
           </div>
         <div className="sale-amount-due"><span>{isRefund?'Refund Due':'Amount Due'}</span><strong>{money(Math.abs(total))}</strong></div>
       </section>

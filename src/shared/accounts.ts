@@ -9,6 +9,8 @@ export interface AccountInvoice {
   status: string
   error: string | null
   qbCheckedAt: string | null
+  arAccount?:string|null
+  receivableKind?:string
 }
 export interface AccountPayment {
   id: number

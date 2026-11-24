@@ -195,6 +195,8 @@ export const api = {
   woList: (status: string, search = '') =>
     request<WoSummary[]>('GET', `/api/workorders?status=${status}&search=${encodeURIComponent(search)}`),
   woCounts: () => request<Record<WoStatus, number>>('GET', '/api/workorders/counts'),
+  warrantyReport: (from='',to='')=>request<import('../../shared/warranty').WarrantyReportRow[]>('GET',`/api/reports/warranty?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  woWarranty:(id:number,b:{revision:string;vendorId:number|null;payerId:number|null;claimReference:string;coverage:Record<number,number>;by:string})=>request<WorkOrder>('POST',`/api/workorders/${id}/warranty`,b),
   wo: (id: number) => request<WorkOrder>('GET', `/api/workorders/${id}`),
   woCreate: (b: { customerId: number; unitId: number; problem: string; hoursIn: number | null; by: string; noFee?: boolean; feeCents?: number; linkToId?:number }) =>
     request<WorkOrder>('POST', '/api/workorders', b),

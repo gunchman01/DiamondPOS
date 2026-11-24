@@ -1,3 +1,5 @@
+import {registerWarrantyRoutes} from './warranty'
+import {warrantySaleLines,warrantyPrices} from '../../shared/warranty'
 import {lookupProduct,ProductLookupError} from './productLookup'
 import {registerTransactionHistoryRoutes} from './transactionHistory'
 import { resumeSmtpSockets } from '../lifecycle/smtpSockets'
@@ -62,6 +64,7 @@ import {
   feeCreditLine,
   finishWorkOrderSale,
   prepareWorkOrderSale,
+  loadWorkOrder,
   registerWorkOrderRoutes,
   type PreparedWoSale
 } from './workorders'
@@ -199,6 +202,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       serverVersion: opts.appVersion,
       saleDates: true,
       kioskVerification:true,
+      warrantyBilling:true,
       schemaVersion: getSchemaVersion(db),
       minClientVersion: MIN_CLIENT_VERSION
     }
@@ -374,6 +378,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
 
   // ----- Work orders (repairs) + customer units -----------------------------
   registerWorkOrderRoutes(app, db, readSettings)
+  registerWarrantyRoutes(app,db,readSettings,id=>loadWorkOrder(db,id,readSettings(db).taxRate))
 
   // ----- Label templates + receipt layout (shared by every till) -------------
   app.get('/api/print-designs', (_req, res) => {
@@ -586,13 +591,42 @@ export function createSale(db: DB, req: SaleRequest): Sale {
       if (previous.request_hash !== requestHash) throw new HttpError(409, 'Checkout ID was reused for a different sale')
       return getSale(db, previous.sale_id)!
     }
-    const sale = createSaleOnce(db, req)
+    const warranty=req.workOrder?.mode==='repair' && (db.prepare('SELECT warranty_payer_id AS id FROM work_orders WHERE id=?').get(req.workOrder.id) as {id:number|null}|undefined)?.id
+    if(req.workOrder?.mode==='credit'&&(db.prepare('SELECT warranty_payer_id FROM work_orders WHERE id=?').get(req.workOrder.id) as any)?.warranty_payer_id)throw new HttpError(400,'Remove warranty coverage before crediting this work order toward another purchase.')
+    if(req.warrantyRevision&&!warranty)throw new HttpError(409,'Warranty coverage was removed. Reload the work order before checkout.')
+    const sale = warranty ? createWarrantyCheckout(db,req) : createSaleOnce(db, req)
     db.prepare('INSERT INTO checkout_requests (request_id, request_hash, sale_id) VALUES (?, ?, ?)').run(req.requestId, requestHash, sale.id)
     return sale
   })()
 }
 
-function createSaleOnce(db: DB, req: SaleRequest): Sale {
+interface InternalSaleContext {prep:PreparedWoSale;customerId:number;deferFinish:boolean;onCredit?:(cents:number)=>void}
+function createWarrantyCheckout(db:DB,req:SaleRequest):Sale{
+ const store=readSettings(db),tax=req.taxRateId?store.taxRates?.find(t=>t.id===req.taxRateId):store.taxRates?.find(t=>t.id===store.defaultTaxRateId)
+ if(req.taxRateId&&!tax)throw new HttpError(400,'Choose a valid tax rate')
+ const rate=tax?.rate??store.taxRate,prep=prepareWorkOrderSale(db,req.workOrder!.id,'repair',rate),wo=prep.wo,w=wo.warranty
+ if(!w||!req.warrantyRevision||req.warrantyRevision!==wo.warrantyRevision)throw new HttpError(409,'Warranty details changed. Reload the work order and review both payer amounts before checkout.')
+ if(wo.status!=='ready_pickup')throw new HttpError(400,'Warranty checkout requires Ready for Pickup')
+ if(req.items.length||req.returns?.length||req.heldId)throw new HttpError(400,'Warranty work must be checked out separately from store items, returns and held sales')
+ if(req.customerId!==wo.customerId)throw new HttpError(400,'Warranty checkout must keep the original equipment owner selected')
+ const provider=getCustomer(db,w.payerId)
+ if(!provider?.active||!provider.accountEnabled||provider.id===wo.customerId)throw new HttpError(400,'Choose an active manufacturer/vendor billing account enabled for account sales')
+ for(const line of wo.lines)if((w.coverage[line.id]??0)>Math.round(line.qty*line.unitPriceCents))throw new HttpError(400,'Warranty coverage exceeds the current line amount')
+ const providerLines=warrantySaleLines(prep.lines,wo,'provider'),customerLines=warrantySaleLines(prep.lines,wo,'customer')
+ if(!providerLines.length)throw new HttpError(400,'Enter the manufacturer/vendor coverage amounts before warranty checkout')
+ const prices=warrantyPrices(wo,rate,req.taxExempt===true)!
+ if(prep.creditAvailableCents>0&&prices.customer.creditKeptCents>0)throw new HttpError(400,'The paid estimate fee exceeds the customer share. Resolve the unused customer deposit before warranty checkout; it will not be kept or charged to the provider automatically.')
+ let credit=0
+ const providerSale=createSaleOnce(db,{...req,customerId:provider.id,onAccount:true,taxExempt:w.providerExempt,payments:[]},{prep:{...prep,lines:providerLines,creditAvailableCents:0},customerId:provider.id,deferFinish:true})
+ const customerSale=customerLines.length||prep.creditAvailableCents>0?createSaleOnce(db,req,{prep:{...prep,lines:customerLines},customerId:wo.customerId,deferFinish:true,onCredit:c=>{credit=c}}):null
+ if(!customerSale&&(req.payments.length||req.onAccount))throw new HttpError(400,'The customer owes zero. Use Bill warranty provider without customer payment or account charge.')
+ db.prepare("UPDATE account_invoices SET receivable_kind='warranty' WHERE sale_id=?").run(providerSale.id)
+ db.prepare('INSERT INTO warranty_checkouts(work_order_id,request_id,customer_sale_id,provider_sale_id,vendor_id,payer_id,claim_reference) VALUES (?,?,?,?,?,?,?)').run(wo.id,req.requestId,customerSale?.id??null,providerSale.id,w.vendorId,provider.id,w.claimReference)
+ finishWorkOrderSale(db,prep,customerSale?.id??providerSale.id,credit,req.tillName)
+ db.prepare('INSERT INTO work_order_history(work_order_id,note,by_name) VALUES (?,?,?)').run(wo.id,`Warranty billed to ${w.vendorName}: receipt #${providerSale.id}; customer receipt ${customerSale?'#'+customerSale.id:'none (zero share)'}. Claim ${w.claimReference||'not provided'}.`,req.tillName)
+ return getSale(db,customerSale?.id??providerSale.id)!
+}
+function createSaleOnce(db: DB, req: SaleRequest,context?:InternalSaleContext): Sale {
   if (!req || !Array.isArray(req.items)) throw new HttpError(400, 'Sale has no items')
   if (!Array.isArray(req.payments)) throw new HttpError(400, 'Sale has no payment')
   let saleAt: string | null
@@ -606,14 +640,14 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   const taxRate = taxInfo.rate
 
   // Paying for a work order (estimate fee, repair pick-up, or fee credited on a new purchase)
-  let woSale: PreparedWoSale | null = null
+  let woSale: PreparedWoSale | null = context?.prep??null
   if (req.workOrder) {
     try {
-      woSale = prepareWorkOrderSale(db, Number(req.workOrder.id), req.workOrder.mode, taxRate)
+      woSale = context?.prep??prepareWorkOrderSale(db, Number(req.workOrder.id), req.workOrder.mode, taxRate)
     } catch (e) {
       throw new HttpError(400, (e as Error).message)
     }
-    if (req.customerId && Number(req.customerId) !== woSale.wo.customerId)
+    if (req.customerId && Number(req.customerId) !== (context?.customerId??woSale.wo.customerId))
       throw new HttpError(400, `${woSale.wo.number} belongs to a different customer`)
     if (woSale.mode === 'credit' && req.items.length === 0)
       throw new HttpError(400, 'Add the new item(s) the estimate fee is being credited toward')
@@ -624,7 +658,7 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
   if (req.items.length === 0 && !woSale && returnReq.length === 0) throw new HttpError(400, 'Sale has no items')
   const returns: PreparedReturns | null = returnReq.length ? prepareReturns(db, returnReq, taxRate) : null
 
-  let customerId: number | null = woSale ? woSale.wo.customerId : null
+  let customerId: number | null = context?.customerId??(woSale ? woSale.wo.customerId : null)
   let customer: ReturnType<typeof getCustomer> = null
   if (!woSale && req.customerId !== undefined && req.customerId !== null) customerId = Number(req.customerId)
   if (returns?.customerId) {
@@ -827,7 +861,8 @@ function createSaleOnce(db: DB, req: SaleRequest): Sale {
     finishReturns(db, retLines)
     const addPay = db.prepare('INSERT INTO payments (sale_id, method, amount_cents, reference, card_brand,card_type) VALUES (?, ?, ?, ?, ?,?)')
     for (const p of payments) {const type=p.cardBrand==='credit'||p.cardBrand==='debit'?p.cardBrand:null;addPay.run(saleId,p.method,p.amountCents,p.reference??null,type?null:p.cardBrand??null,type)}
-    if (woSale) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
+    context?.onCredit?.(creditCents)
+    if (woSale && !context?.deferFinish) finishWorkOrderSale(db, woSale, saleId, creditCents, tillName)
     if (req.heldId) completeHeld(db, Number(req.heldId), saleId)
     return saleId
   })()
@@ -899,6 +934,7 @@ export function getSale(db: DB, id: number): Sale | null {
     id: s.id,
     status: s.status,
     onAccount: s.on_account === 1,
+    warrantyBilling:(()=>{const x=db.prepare('SELECT * FROM warranty_checkouts WHERE customer_sale_id=? OR provider_sale_id=?').get(id,id) as any;if(!x)return null;const original=loadWorkOrder(db,x.work_order_id,0)!;const provider=getCustomer(db,x.payer_id)!;return {providerSaleId:x.provider_sale_id,customerSaleId:x.customer_sale_id,providerName:customerDisplayName(provider),ownerName:original.customerName,claimReference:x.claim_reference,provider:id===x.provider_sale_id}})(),
     void: saleVoid(db,s.id),
     createdAt: sqliteToIso(s.created_at),
     recordedAt: sqliteToIso(s.recorded_at ?? s.created_at),

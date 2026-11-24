@@ -2,7 +2,7 @@ import { paymentLabel } from '../../shared/types'
 import type { Sale, StoreSettings } from '../../shared/types'
 import { defaultDesigns, type ReceiptBlock, type ReceiptElement, type ReceiptLayout, type ReceiptZone } from '../../shared/printDesigns'
 import { code128Svg } from './code128'
-import { taxName, voidBanner, accountBanner } from './printTemplates'
+import { taxName, voidBanner, accountBanner, warrantyBanner } from './printTemplates'
 import { dateTime, escapeHtml, money } from './format'
 
 const esc = escapeHtml
@@ -170,7 +170,7 @@ export function receiptHtml(
     .sig { margin-top: 18px; border-top: 1px solid #000; padding-top: 2px; }
     .bc { height: 12mm; }
     img { max-width: 100%; }
-  </style></head><body>${voidBanner(sale)}${accountBanner(sale)}
+  </style></head><body>${voidBanner(sale)}${accountBanner(sale)}${warrantyBanner(sale)}
     ${layout.header ? zoneHtml(layout.header, sale, settings, logoUrl) : ''}
     ${layout.blocks
       .filter((b) => b.on)

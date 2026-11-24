@@ -1,5 +1,5 @@
-DiamondPOS v0.3.69 direct check-in
-Baseline main 8230f0efae041dded5ae46f42613c0cb7c394db1
+DiamondPOS v0.3.70 direct check-in
+Baseline main 98a01523bc7e267fa18ff108467b03da5c48fed7
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,6 +9,36 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
+src/main/server/accounts.ts
+src/main/server/approvals.ts
+src/main/server/deleting.ts
+src/main/server/index.ts
+src/main/server/migrations.ts
+src/main/server/quickbooks/accountSync.ts
+src/main/server/quickbooks/qbwc.ts
+src/main/server/quickbooks/store.ts
+src/main/server/serviceNotifications.ts
+src/main/server/warranty.ts
+src/main/server/workorders.ts
+src/renderer/src/App.tsx
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/mechanicWorksheet.ts
-tests/mechanic-worksheet.ts
+src/renderer/src/printTemplates.ts
+src/renderer/src/receipt.ts
+src/renderer/src/screens/CustomerAccount.tsx
+src/renderer/src/screens/QuickBooks.tsx
+src/renderer/src/screens/Reports.tsx
+src/renderer/src/screens/SaleDialog.tsx
+src/renderer/src/screens/Sell.tsx
+src/renderer/src/screens/WarrantyPanel.tsx
+src/renderer/src/screens/WarrantyReport.tsx
+src/renderer/src/screens/WorkOrderTicket.tsx
+src/shared/accounts.ts
+src/shared/constants.ts
+src/shared/quickbooks.ts
+src/shared/types.ts
+src/shared/warranty.ts
+src/shared/workorders.ts
+tests/accounts-stock.ts
+tests/regressions.ts
+tests/warranty.ts

@@ -1,4 +1,6 @@
 import { serviceText,textSettings,textSettingsView,saveTextSettings,sendServiceText,type ChannelResult } from './serviceNotifications'
+import {enrichWarranty} from './warranty'
+import {customerWarrantyView} from '../../shared/warranty'
 import { smsPhone,smsLength } from '../../shared/serviceSms'
 import { groupInfo,relatedOrders,linkOrders,unlinkOrder } from './workOrderGroups'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
@@ -392,7 +394,8 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       lastEmailedStatus: r.last_emailed_status,
       history
     }
-    return {...result,estimate:estimateInfo(db,result)}
+    const enriched=enrichWarranty(db,result,taxRate)
+    return {...enriched,estimate:estimateInfo(db,enriched)}
   }
 
 
@@ -857,6 +860,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       if(line.kind==='fee'&&qty!==1)throw new WoError(400,'The estimate fee must have quantity 1; edit its price instead')
       if (line.kind === 'part' && !Number.isInteger(qty)) throw new WoError(400, 'Part quantity must be a whole number')
       if (!Number.isInteger(price) || price < 0) throw new WoError(400, 'Price must be a positive amount')
+      const covered=(db.prepare('SELECT warranty_cents AS n FROM work_order_lines WHERE id=?').get(line.id) as {n:number}).n
+      if(covered>Math.round(qty*price))throw new WoError(400,'Reduce warranty coverage before reducing this line below its covered amount')
       const description = b.description === undefined ? line.description : String(b.description).trim().slice(0, 200) || line.description
       const taxable = b.taxable === undefined ? line.taxable : b.taxable === true
       db.transaction(() => {
@@ -971,7 +976,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
   }))
 
   // ----- Email the customer the current stage -----
-  function buildEmail(wo: WorkOrder, approvalLink?:string) {
+  function buildEmail(original: WorkOrder, approvalLink?:string) {
+    const wo=original.warranty?customerWarrantyView(original,original.warranty.taxRate):original
     if (!isEmailable(wo.status)) throw new WoError(400, `There is no customer email for "${stage(wo.status).label}"`)
     const store = readSettings(db)
     const t = getWoSettings(db).templates[wo.status]
@@ -994,8 +1000,8 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
       estimatePreview: wo.status==='waiting_customer'&&!approvalLink,
       storeName: store.storeName,
       storeAddress: store.storeAddress,
-      body: fillTemplate(t.body, values),
-      partsNotice: partsOrderingNotice(wo.status, wo.lines),
+      body: fillTemplate(t.body, values)+(original.warranty?`\n\nWarranty provider ${original.warranty.vendorName} is billed $${(original.warranty.providerTotalCents/100).toFixed(2)} separately. Your amount above is only the customer share.`:''),
+      partsNotice: partsOrderingNotice(original.status, original.lines),
       bill: t.includeBill
         ? {
             lines: wo.lines,

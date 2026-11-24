@@ -28,6 +28,8 @@ export interface QbConfig {
   departmentAccounts: Record<string, string>
   /** Income account for all new POS General sales/work-order lines. */
   defaultIncomeAccount: string
+  accountsReceivable?:string
+  warrantyReceivable?:string
   /** Where each payment type is deposited, and the QuickBooks payment method name */
   methods: Record<QbMethod, { depositAccount: string; paymentMethod: string }>
   /** Pull lists (accounts, tax items…) from QuickBooks on the next sync */

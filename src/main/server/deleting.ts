@@ -63,7 +63,7 @@ export function deleteCustomers(db: DB, idList: number[]): DeleteResult {
   const out: DeleteResult = { deleted: 0, deactivated: 0, notFound: 0, results: [] }
   const get = db.prepare('SELECT * FROM customers WHERE id = ?')
   const sales = db.prepare('SELECT COUNT(*) AS n FROM sales WHERE customer_id = ?')
-  const wos = db.prepare('SELECT COUNT(*) AS n FROM work_orders WHERE customer_id = ?')
+  const wos = db.prepare('SELECT COUNT(*) AS n FROM work_orders WHERE customer_id = ? OR warranty_payer_id = ?')
   const holds = db.prepare("SELECT COUNT(*) AS n FROM held_sales WHERE customer_id=? AND status='held'")
   const off = db.prepare("UPDATE customers SET active = 0, updated_at = datetime('now') WHERE id = ?")
   db.transaction(() => {
@@ -81,7 +81,7 @@ export function deleteCustomers(db: DB, idList: number[]): DeleteResult {
         trackAsCompany: c.track_as_company === 1
       })
       const s = (sales.get(id) as { n: number }).n
-      const w = (wos.get(id) as { n: number }).n
+      const w = (wos.get(id,id) as { n: number }).n
       const h = (holds.get(id) as {n: number}).n
       if (s || w || h) {
         off.run(id)

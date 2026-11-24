@@ -41,6 +41,8 @@ export function getQbConfig(db: DB): QbConfig {
     nonTaxableCode: saved.nonTaxableCode ?? 'Non',
     departmentAccounts: saved.departmentAccounts ?? {},
     defaultIncomeAccount: saved.defaultIncomeAccount ?? '',
+    accountsReceivable:saved.accountsReceivable ?? '',
+    warrantyReceivable:saved.warrantyReceivable ?? '',
     methods: {
       cash: { depositAccount: 'Undeposited Funds', paymentMethod: 'Cash', ...(saved.methods?.cash ?? {}) },
       card: { depositAccount: 'Undeposited Funds', paymentMethod: '', ...(saved.methods?.card ?? {}) },

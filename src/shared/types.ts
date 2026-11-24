@@ -131,6 +131,7 @@ export interface PaymentInput {
 }
 
 export interface SaleRequest {
+  warrantyRevision?:string
   /** Business date/time in canonical UTC ISO; omitted uses actual checkout time. */
   saleAt?: string | null
   onAccount?: boolean
@@ -179,6 +180,7 @@ export interface SaleItem {
 }
 
 export interface Sale {
+  warrantyBilling?:{providerSaleId:number;customerSaleId:number|null;providerName:string;ownerName:string;claimReference:string;provider:boolean}|null
   /** Actual time entered, retained separately from createdAt (business sale time). */
   recordedAt?: string
   dateOverridden?: boolean
@@ -397,6 +399,7 @@ export interface KioskSession {
 }
 
 export interface Health {
+  warrantyBilling?:boolean
   kioskVerification?:boolean
   saleDates?: boolean
   ok: boolean

@@ -394,7 +394,7 @@ export async function testAccountsStock(check: Check, dir: string) {
     }
     dropInvoice = true
     await sync()
-    assert.equal(db.prepare('SELECT status FROM account_invoices WHERE sale_id=?').get(sale.id).status, 'pending')
+    assert.equal(db.prepare('SELECT status FROM account_invoices WHERE sale_id=?').get(sale.id).status, 'pending',JSON.stringify(db.prepare('SELECT error FROM account_invoices WHERE sale_id=?').get(sale.id)))
     await sync()
     check('lost invoice response recovers the same invoice and applies the waiting account payment', () => {
       assert.equal(invoiceAdds, 1)

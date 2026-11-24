@@ -1,3 +1,2 @@
-# v0.3.69 direct update
-
-Mechanic worksheet parts rows8→6 to reduce length14mm. Existing worksheet test/manual updated. Four focused checks plus typecheck/build. No schema/server/financial change. User explicitly requested Git check-in; release via GitHub UI. Shop one-page print confirmation remains.
+# v0.3.70
+Split warranty/provider-customer billing, vendor report and Accounts Receivable mappings. Direct main check-in authorized. See START-HERE.md for server-first update and release commands. No release tag, deployment, real messages or QuickBooks-company writes performed here. Physical numbered outdoor tags are a proposed workflow, not implemented in this update.

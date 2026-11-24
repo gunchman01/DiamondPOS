@@ -16,7 +16,7 @@ export function invoiceQuery(value: string, byId = false) {
 export function paymentQuery(value: string) {
   return `<ReceivePaymentQueryRq requestID="1"><RefNumber>${esc(value)}</RefNumber><IncludeLineItems>true</IncludeLineItems></ReceivePaymentQueryRq>`
 }
-export function invoiceAdd(s: QbDailySummary, cfg: QbConfig, due: string) {
+export function invoiceAdd(s: QbDailySummary, cfg: QbConfig, due: string, arAccount=cfg.accountsReceivable??'',warrantyMemo='') {
   if(s.taxMappingError) throw new Error(s.taxMappingError)
   const lines = s.lines
     .map(
@@ -24,12 +24,12 @@ export function invoiceAdd(s: QbDailySummary, cfg: QbConfig, due: string) {
         `<InvoiceLineAdd>${ref('ItemRef', l.itemName)}<Desc>${esc(l.description ?? l.itemName)}</Desc><Amount>${money(l.amountCents)}</Amount>${ref('SalesTaxCodeRef', l.taxable ? cfg.taxableCode : cfg.nonTaxableCode)}</InvoiceLineAdd>`
     )
     .join('')
-  return `<InvoiceAddRq requestID="1"><InvoiceAdd>${ref('CustomerRef', s.customerName!)}<TxnDate>${s.saleDate}</TxnDate><RefNumber>${esc(s.refNumber)}</RefNumber><DueDate>${due}</DueDate>${ref('ItemSalesTaxRef', s.salesTaxItem ?? cfg.salesTaxItem)}<Memo>${esc(`DiamondPOS account sale #${s.saleId}; unpaid invoice`)}</Memo><IsToBePrinted>false</IsToBePrinted><IsToBeEmailed>false</IsToBeEmailed>${lines}</InvoiceAdd></InvoiceAddRq>`
+  return `<InvoiceAddRq requestID="1"><InvoiceAdd>${ref('CustomerRef', s.customerName!)}${arAccount?ref('ARAccountRef',arAccount):''}<TxnDate>${s.saleDate}</TxnDate><RefNumber>${esc(s.refNumber)}</RefNumber><DueDate>${due}</DueDate>${ref('ItemSalesTaxRef', s.salesTaxItem ?? cfg.salesTaxItem)}<Memo>${esc(`DiamondPOS account sale #${s.saleId}; unpaid invoice${warrantyMemo}`)}</Memo><IsToBePrinted>false</IsToBePrinted><IsToBeEmailed>false</IsToBeEmailed>${lines}</InvoiceAdd></InvoiceAddRq>`
 }
 export function receivePaymentAdd(p: any, allocations: any[], customer: string, cfg: QbConfig) {
   const m = cfg.methods[p.method as 'cash' | 'card' | 'check'],
     method = p.method === 'card' ? cfg.cardBrands?.[p.card_brand as keyof typeof cfg.cardBrands] || m.paymentMethod : m.paymentMethod
-  return `<ReceivePaymentAddRq requestID="1"><ReceivePaymentAdd>${ref('CustomerRef', customer)}<TxnDate>${p.date}</TxnDate><RefNumber>AP${p.id.toString(36).toUpperCase()}</RefNumber><TotalAmount>${money(p.amount_cents)}</TotalAmount>${method ? ref('PaymentMethodRef', method) : ''}<Memo>${esc(`DiamondPOS account payment #${p.id}; request ${p.request_id}${p.reference ? '; check/reference ' + p.reference : ''}`)}</Memo>${ref('DepositToAccountRef', m.depositAccount)}${allocations.map((a) => `<AppliedToTxnAdd><TxnID>${esc(a.txn_id)}</TxnID><PaymentAmount>${money(a.amount_cents)}</PaymentAmount></AppliedToTxnAdd>`).join('')}</ReceivePaymentAdd></ReceivePaymentAddRq>`
+  return `<ReceivePaymentAddRq requestID="1"><ReceivePaymentAdd>${ref('CustomerRef', customer)}${allocations[0]?.ar_account?ref('ARAccountRef',allocations[0].ar_account):''}<TxnDate>${p.date}</TxnDate><RefNumber>AP${p.id.toString(36).toUpperCase()}</RefNumber><TotalAmount>${money(p.amount_cents)}</TotalAmount>${method ? ref('PaymentMethodRef', method) : ''}<Memo>${esc(`DiamondPOS account payment #${p.id}; request ${p.request_id}${p.reference ? '; check/reference ' + p.reference : ''}`)}</Memo>${ref('DepositToAccountRef', m.depositAccount)}${allocations.map((a) => `<AppliedToTxnAdd><TxnID>${esc(a.txn_id)}</TxnID><PaymentAmount>${money(a.amount_cents)}</PaymentAmount></AppliedToTxnAdd>`).join('')}</ReceivePaymentAdd></ReceivePaymentAddRq>`
 }
 const cents = (n: XmlNode | undefined, key: string) => {
   const value = text(n, key)
@@ -43,6 +43,7 @@ function single(r: QbResult, tag: string) {
 }
 function invoiceValues(node: XmlNode) {
   return {
+    arAccount:text(child(node,'ARAccountRef'),'FullName'),
     id: text(node, 'TxnID'),
     customer: text(child(node, 'CustomerRef'), 'FullName'),
     memo: text(node, 'Memo'),
@@ -81,6 +82,8 @@ export function accountSteps(
       throw new Error(
         'Invoice identity, customer, amount or balance conflicts with the original POS invoice. Review in QuickBooks before retrying.'
       )
+    if(row.ar_account && value.arAccount!==row.ar_account)throw new Error('QuickBooks invoice A/R account differs from its original mapping. Reconcile before retrying.')
+    if(value.arAccount && row.sale_id)db.prepare("UPDATE account_invoices SET ar_account=? WHERE sale_id=? AND (ar_account IS NULL OR ar_account='')").run(value.arAccount,row.sale_id)
     return value
   }
   const invoices = db
@@ -117,12 +120,16 @@ export function accountSteps(
         recordQbBalance(db, row.sale_id, v.balance)
         qbLog(db, 'info', `Confirmed account invoice ${row.ref_number}`)
       }
-      const add = () =>
+      const add = () => {
+        const selected=row.ar_account ?? (row.receivable_kind==='warranty'?(cfg.warrantyReceivable||cfg.accountsReceivable||''):(cfg.accountsReceivable||''))
+        if(selected && !getQbLists(db).accounts.some(a=>a.name===selected&&a.type==='AccountsReceivable')){fail('Refresh QuickBooks lists and choose a valid Accounts Receivable mapping.');return}
+        row.ar_account=selected
+        db.prepare('UPDATE account_invoices SET ar_account=? WHERE sale_id=?').run(selected,row.sale_id)
         enqueue([
           {
             kind: 'rq',
             label: `Add Invoice ${row.ref_number}`,
-            xml: invoiceAdd(summary, cfg, row.due_date),
+            xml: invoiceAdd(summary, cfg, row.due_date,row.ar_account,(()=>{const w=db.prepare('SELECT x.claim_reference,w.id AS work_order_id,c.first_name,c.last_name,c.company,c.track_as_company FROM warranty_checkouts x JOIN work_orders w ON w.id=x.work_order_id JOIN customers c ON c.id=w.customer_id WHERE x.provider_sale_id=?').get(row.sale_id) as any;return w?`; Warranty WO-${String(w.work_order_id).padStart(6,'0')}; owner ${w.track_as_company?w.company:[w.first_name,w.last_name].filter(Boolean).join(' ')}; claim ${w.claim_reference}`:''})()),
             onOk: (r) => {
               const node = single(r, 'InvoiceRet')
               if (!node) throw new Error('QuickBooks returned no invoice')
@@ -131,6 +138,7 @@ export function accountSteps(
             onFail: fail
           }
         ])
+      }
       const check: AccountStep = {
         kind: 'rq',
         label: `Check Invoice ${row.ref_number}`,
@@ -203,12 +211,13 @@ export function accountSteps(
         run: () => {
           const allocations = db
             .prepare(
-              'SELECT a.*,i.txn_id,i.status,i.customer_name,i.ref_number,s.total_cents FROM account_allocations a JOIN account_invoices i ON i.sale_id=a.sale_id JOIN sales s ON s.id=i.sale_id WHERE a.payment_id=? ORDER BY a.sale_id'
+              'SELECT a.*,i.txn_id,i.status,i.ar_account,i.customer_name,i.ref_number,s.total_cents FROM account_allocations a JOIN account_invoices i ON i.sale_id=a.sale_id JOIN sales s ON s.id=i.sale_id WHERE a.payment_id=? ORDER BY a.sale_id'
             )
             .all(p.id) as any[]
           if (!allocations.length || allocations.some((a) => a.status !== 'sent' || !a.txn_id)) return
           const customer = allocations[0].customer_name,
             fail = (message: string) => error('account_payments', p.id, `Account payment #${p.id}: ${message}`)
+          if(new Set(allocations.map(a=>a.ar_account??'')).size>1){fail('Payment spans different Accounts Receivable accounts. Reconcile and record separate payments for each A/R account.');return}
           const mark = () => {
             db.prepare("UPDATE account_payments SET status='sent',error=NULL WHERE id=?").run(p.id)
             qbLog(db, 'info', `Confirmed account payment AP${p.id.toString(36).toUpperCase()}`)
@@ -222,6 +231,7 @@ export function accountSteps(
               if (existing) {
                 const applied = childrenNamed(existing, 'AppliedToTxnRet').filter((a) => Number(text(a, 'PaymentAmount')) !== 0)
                 if (
+                  (allocations[0].ar_account && text(child(existing,'ARAccountRef'),'FullName')!==allocations[0].ar_account) ||
                   !text(existing, 'TxnID') ||
                   !text(existing, 'Memo').startsWith(`DiamondPOS account payment #${p.id}; request ${p.request_id}`) ||
                   text(child(existing, 'CustomerRef'), 'FullName').toLowerCase() !== customer.toLowerCase() ||
@@ -251,6 +261,7 @@ export function accountSteps(
                     return
                   }
                   const value = checkInvoice({ ...a, customer_name: customer }, node)
+                  if(value.arAccount)a.ar_account=value.arAccount
                   if (value.balance < a.amount_cents) {
                     ok = false
                     fail(
@@ -267,6 +278,7 @@ export function accountSteps(
                 kind: 'plan',
                 label: 'Apply account payment',
                 run: () => {
+                  if(new Set(allocations.map(a=>a.ar_account??'')).size>1){fail('Invoice A/R accounts differ. Record separate payments.');return}
                   if (ok)
                     enqueue([
                       {

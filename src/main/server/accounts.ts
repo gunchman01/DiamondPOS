@@ -46,7 +46,7 @@ export function customerAccount(db: DB, id: number): CustomerAccount {
     balanceCents: invoiceDue(db, r.sale_id),
     status: r.status,
     error: r.error,
-    qbCheckedAt: r.qb_checked_at
+    qbCheckedAt: r.qb_checked_at,arAccount:r.ar_account,receivableKind:r.receivable_kind
   }))
   const payments = (db.prepare('SELECT * FROM account_payments WHERE customer_id=? ORDER BY id DESC').all(id) as any[]).map((r) => ({
     id: r.id,
@@ -118,6 +118,8 @@ export function receiveAccountPayment(db: DB, customerId: number, b: AccountPaym
       remaining -= part
       if (!remaining) break
     }
+    const arGroups=new Set(allocations.map(a=>(db.prepare('SELECT ar_account FROM account_invoices WHERE sale_id=?').get(a.id) as any).ar_account??''))
+    if(arGroups.size>1)throw new AccountError(409,'This payment spans different Accounts Receivable accounts. Record a separate payment for each account (oldest invoices first).')
     if (remaining) throw new AccountError(409, 'Account balance changed. Refresh before collecting the payment.')
     const id = Number(
       db

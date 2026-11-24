@@ -6,13 +6,14 @@ import { REPORT_FIELDS, REPORT_OPERATORS, REPORT_PRESETS, blankReport, reportCsv
 import { api } from '../api'
 import { dateTime, escapeHtml, money, today } from '../format'
 import { writeSpreadsheet } from '../spreadsheet'
+import WarrantyReport from './WarrantyReport'
 import DailyCloseout from './DailyCloseout'
 import SaleDialog from './SaleDialog'
 const labels:Record<ReportSource,string>={sales:'Sales',inventory:'Inventory',receiving:'Receiving'}
 const clone=(d:ReportDefinition):ReportDefinition=>JSON.parse(JSON.stringify(d))
 const display=(value:unknown,f:ReportField)=>value===null||value===undefined?'—':f.type==='money'?money(Number(value)):f.type==='boolean'?(value?'Yes':'No'):String(value)
-export default function Reports(){
-  const [mode,setMode]=useState<'library'|'builder'|'daily'>('library')
+export default function Reports({onOpenWorkOrder}:{onOpenWorkOrder?:(id:number)=>void}){
+  const [mode,setMode]=useState<'library'|'builder'|'daily'|'warranty'>('library')
   const [category,setCategory]=useState<ReportSource>('sales')
   const [saved,setSaved]=useState<SavedReport[]>([]),[savedId,setSavedId]=useState<string|null>(null)
   const [definition,setDefinition]=useState<ReportDefinition>(blankReport('sales'))
@@ -35,9 +36,9 @@ export default function Reports(){
   function toggleColumn(key:string){const columns=definition.columns.includes(key)?definition.columns.filter(k=>k!==key):[...definition.columns,key];change({columns,groupBy:definition.groupBy.filter(k=>columns.includes(k)),sort:columns.includes(definition.sort)?definition.sort:columns[0]??''})}
   function toggleGroup(key:string){const groupBy=definition.groupBy.includes(key)?definition.groupBy.filter(k=>k!==key):[...definition.groupBy,key];const columns=groupBy.length?[...new Set([...definition.columns,...groupBy])].filter(k=>groupBy.includes(k)||fields.find(f=>f.key===k)?.sum):definition.columns;change({groupBy,columns,sort:columns.includes(definition.sort)?definition.sort:columns[0]??''})}
   function filterChange(i:number,patch:Partial<ReportFilter>){change({filters:definition.filters.map((f,n)=>n===i?{...f,...patch}:f)})}
-  return <div className="page wide report-center"><div className="row between"><h2>Reports</h2><div className="row gap"><button onClick={()=>{version.current++;setMode('library');setBusy(false);void load()}}>Report library</button><button onClick={()=>{version.current++;setBusy(false);setMode('daily')}}>End of Day &amp; receipts</button></div></div>
+  return <div className="page wide report-center"><div className="row between"><h2>Reports</h2><div className="row gap"><button onClick={()=>{version.current++;setMode('library');setBusy(false);void load()}}>Report library</button><button onClick={()=>setMode('warranty')}>Warranty by vendor</button><button onClick={()=>{version.current++;setBusy(false);setMode('daily')}}>End of Day &amp; receipts</button></div></div>
     {error&&<div className="error-text" role="alert">{error}</div>}{notice&&<p role="status">{notice}</p>}
-    {mode==='daily'?<DailyCloseout/>:mode==='library'?<>
+    {mode==='warranty'?<WarrantyReport onOpenWorkOrder={onOpenWorkOrder}/>:mode==='daily'?<DailyCloseout/>:mode==='library'?<>
       <p className="muted">Run a ready-made report, customize it, or create your own. Saved reports are shared across tills.</p>
       <div className="row gap">{Object.entries(labels).map(([key,label])=><button key={key} className={category===key?'primary':''} onClick={()=>setCategory(key as ReportSource)}>{label}</button>)}<button onClick={()=>open(blankReport(category),`Custom ${labels[category].toLowerCase()} report`)}>+ Create custom report</button></div>
       <div className="report-cards">{REPORT_PRESETS.filter(p=>p.definition.source===category).map(p=><button key={p.id} className="report-card" onClick={()=>open(p.definition,p.name)}><b>{p.name}</b><span>{p.description}</span></button>)}</div>

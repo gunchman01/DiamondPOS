@@ -281,7 +281,7 @@ export default function App() {
           />
         )}
         {tab === 'endofday' && <DailyCloseout />}
-        {tab === 'reports' && <Reports />}
+        {tab === 'reports' && <Reports onOpenWorkOrder={id=>{setWorkOrderToOpen(id);setTab('workorders')}}/>}
         {tab === 'history' && <SalesHistory />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}

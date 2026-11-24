@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 20 November 2026 (pending receiving alerts and display fitting)_
+_Last updated: 24 November 2026 (split warranty billing and reporting)_
 
 ---
 
@@ -70,6 +70,16 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.70 — 24 November 2026: split warranty billing, A/R mapping and vendor report
+
+User requested ordinary account purchases and reimbursed warranty work mapped to QuickBooks A/R, clarified split provider/customer charges, and requested vendor-grouped warranty report. Baseline main98a01523bc7e267fa18ff108467b03da5c48fed7 v69. Schema44 adds invoice AR/kind, WO vendor/payer/claim, per-line covered cents and linked checkout record. Minimum client70: update server then all tills, verified backup first.
+
+Actual vendor for reporting plus separate active account-enabled company customer for provider A/R billing; equipment owner/unit unchanged. Per-line pre-tax allocations, payer-specific exemptions, customer-only deposit credit. Atomic provider invoice + customer receipt/account invoice, stock not deducted twice, checkout idempotency retains primary receipt and both links. Fully covered jobs create provider receipt only. Stale coverage/revision rejects, invalid tender rolls back both, unused customer deposit blocks; no automatic forfeiture or refund. No mixed items/returns/holds; warranty must be removed before declined-purchase credit. Coverage read-only after billed. Existing non-warranty workflows preserved.
+
+QuickBooks maps optional ordinary/warranty AccountsReceivable only, snapshots at add planning, learns actual A/R for legacy confirmations and uses matching invoice A/R for payments. Existing saved mappings cannot move through config edits; mixed-AR payments rejected before recording. Income mapping remains Sales/Labor. Provider invoice memo includes owner, WO and claim; query-before-add and confirmed-missing safeguards preserved. Customer-facing snapshot/hash/email/SMS/printed estimate use customer portion with separate warranty disclosure. Full/thermal receipts disclose both receipts, owner/provider/claim without changing print transport. Warranty report lists actual provider receipts and balances, separate unbilled estimates, grouping/date/vendor filters, receipt/WO links, Excel and Letter landscape print. Actual manufacturer claim submission/approval/payment is not automated.
+
+441 regression checks, typecheck and production build passed before check-in; details in TESTING-NOTES.md. No actual QuickBooks-company sync, messages, Windows visual/hardware printer or deployment performed. User then asked about outdoor mower tags: recommended reusable engraved/stamped numbered stainless tags with proposed POS assignment/release; NOT implemented/authorized as a feature yet. Next: test both invoices and provider payment reconciliation in QB test company, then store UI/printing; discuss numbered-tag assignment before adding it.
 
 ### v0.3.69 — 24 November 2026: shorten printed mechanic worksheet
 
@@ -717,6 +727,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Test v0.3.70 warranty split/reimbursement invoices and AR mapping in QuickBooks test company; confirm receipt/report printing on Windows.
+- Discuss reusable numbered outdoor unit-tag assignment/release/search; recommendation only, no implementation yet.
 
 - Install v0.3.69 and reprint same mechanic worksheet on Letter paper. Confirm six parts rows and footer fit one page with normal issue text; unusually long issues may still need extra pages.
 

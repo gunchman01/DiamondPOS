@@ -43,6 +43,7 @@ export default function SaleDialog({ saleId, onClose }: { saleId: number; onClos
         {sale && (
           <>
             {sale.status==='void'&&<div className="msg error"><b>VOID — original amounts below are retained for audit and are excluded from sales totals.</b>{sale.void&&<p>{sale.void.reason} · {sale.void.by} · {dateTime(sale.void.at)}<br/>Payment: {sale.void.paymentNote}<br/>QuickBooks: {sale.void.qbStatus==='not_needed'?'Not exported':sale.void.qbStatus}{sale.void.qbError&&' · '+sale.void.qbError}</p>}</div>}
+            {sale.warrantyBilling&&<div className="msg info">Warranty {sale.warrantyBilling.provider?'provider invoice':'customer share'} · Owner: {sale.warrantyBilling.ownerName} · Provider: {sale.warrantyBilling.providerName} · Claim: {sale.warrantyBilling.claimReference||'—'}<br/>Provider receipt #{sale.warrantyBilling.providerSaleId}{sale.warrantyBilling.customerSaleId&&` · Customer receipt #${sale.warrantyBilling.customerSaleId}`}</div>}
             {sale.onAccount&&<div className="msg info">Charged to customer account. This receipt represents an unpaid invoice; payments are recorded separately on the customer account.</div>}
             <div className="sale-head">
               <div>

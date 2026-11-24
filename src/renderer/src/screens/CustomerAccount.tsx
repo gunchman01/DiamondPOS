@@ -149,7 +149,7 @@ export default function CustomerAccount({ customer, onClose }: { customer: Custo
                         {i.dueDate}
                       </td>
                       <td>{money(i.totalCents)}</td>
-                      <td>{money(i.balanceCents)}</td>
+                      <td>{money(i.balanceCents)}<div className="muted small">{i.arAccount||'QuickBooks default A/R'}{i.receivableKind==='warranty'&&' · Warranty'}</div></td>
                       <td>
                         {i.status === 'sent' ? 'Invoice confirmed' : i.status}
                         {i.qbCheckedAt && <div className="muted small">Balance checked {dateTime(i.qbCheckedAt)}</div>}

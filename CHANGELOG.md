@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.70 - 24 November 2026
+> Update the Store Server PC first, then every till. Make a verified backup before updating.
+- Warranty work orders can split each parts/labor charge between the customer and a manufacturer/vendor billing account. Checkout saves separate linked receipts, keeps the unit under its owner, and charges the provider on account.
+- Reports → Warranty by vendor shows work orders, units, claims, amounts invoiced, unbilled estimates and outstanding reimbursement balances. Filter dates/vendor, open a ticket or receipt, print or export Excel.
+- QuickBooks settings now select Accounts Receivable for ordinary account purchases and optionally a separate warranty A/R account. Existing invoices and their payments keep their original A/R account. Sales/labor income mapping remains separate.
+- Customer estimates, notifications and printed work orders show the customer share with a separate warranty disclosure. Unused customer estimate deposits must be resolved before warranty checkout.
+
 ## v0.3.69 - 24 Nov 2026
 - Shortened the mechanic estimate worksheet from eight parts rows to six to help keep the standard sheet on one Letter page.
 

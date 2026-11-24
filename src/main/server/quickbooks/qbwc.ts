@@ -493,7 +493,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(b.startDate))) return res.status(400).json({ error: 'Start date must be a date' })
       clean.startDate = str(b.startDate)
     }
-    for (const k of ['customerName', 'salesTaxItem', 'taxableCode', 'nonTaxableCode', 'defaultIncomeAccount', 'laborIncomeAccount'] as const)
+    for (const k of ['customerName', 'salesTaxItem', 'taxableCode', 'nonTaxableCode', 'defaultIncomeAccount', 'laborIncomeAccount','accountsReceivable','warrantyReceivable'] as const)
       if (b[k] !== undefined) clean[k] = str(b[k]).slice(0, 159)
     if (b.taxMappings !== undefined) {
       if (!b.taxMappings || typeof b.taxMappings !== 'object' || Array.isArray(b.taxMappings) || Object.keys(b.taxMappings).length > 2000) return res.status(400).json({error:'Invalid tax mappings'})
@@ -521,6 +521,7 @@ export function registerQuickBooksRoutes(app: express.Express, db: DB, readSetti
         b.methods?.[k] ? { depositAccount: str(b.methods[k]!.depositAccount), paymentMethod: str(b.methods[k]!.paymentMethod) } : cur[k]
       clean.methods = { cash: m('cash'), card: m('card'), check: m('check') }
     }
+    for(const key of ['accountsReceivable','warrantyReceivable'] as const)if(clean[key] && !getQbLists(db).accounts.some(a=>a.name===clean[key]&&a.type==='AccountsReceivable'))return res.status(400).json({error:'Choose an active QuickBooks Accounts Receivable account'})
     saveQbConfig(db, clean)
     res.json(status())
   })
