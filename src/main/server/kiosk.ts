@@ -17,6 +17,8 @@
  * but can only show the logo and submit a form for an open session. They never
  * return customer data except a limited, staff-initiated contact verification form, scoped to the assigned active kiosk session. Till endpoints live under /api and need the pairing code.
  */
+import {intakeSettings,saveIntakeSettings,intakeAnswers} from './repairIntake'
+import type {IntakeQuestion} from '../../shared/repairIntake'
 import type express from 'express'
 import type { Response } from 'express'
 import crypto from 'crypto'
@@ -31,7 +33,8 @@ function contactDetails(c: Customer) {
   return Object.fromEntries(CONTACT_FIELDS.map(k=>[k,c[k] ?? ''])) as Record<(typeof CONTACT_FIELDS)[number],string>
 }
 function taxDetails(c:Customer){return {taxExempt:c.taxExempt,taxExemptId:c.taxExempt?c.taxExemptId:null,taxExemptExpires:c.taxExempt?c.taxExemptExpires:null}}
-type LiveSession = KioskSession & { created:number; timer:ReturnType<typeof setTimeout>; targetId?:number; originalContact?:ReturnType<typeof contactDetails>; originalTax?:ReturnType<typeof taxDetails> }
+type RepairSession={workOrderId:number;customerId:number;unitId:number;category:import('../../shared/workorders').UnitCategory;number:string;unitLabel:string;questions:IntakeQuestion[]}
+type LiveSession = KioskSession & { repair?:RepairSession; created:number; timer:ReturnType<typeof setTimeout>; targetId?:number; originalContact?:ReturnType<typeof contactDetails>; originalTax?:ReturnType<typeof taxDetails> }
 
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000 // form returns to the logo after 5 minutes
 const PAIR_CODE_TTL_MS = 10 * 60 * 1000
@@ -64,9 +67,9 @@ function openSessionFor(kioskId: number) {
   return [...sessions.values()].find((s) => s.kioskId === kioskId && s.status === 'waiting')
 }
 
-function publicSession(s: KioskSession & {targetId?:number}): KioskSession {
+function publicSession(s: KioskSession & {targetId?:number;repair?:RepairSession}): KioskSession {
   const { id, kioskId, kioskName, tillName, status, customer, matchedExisting } = s
-  return { id, kioskId, kioskName, tillName, status, customer, matchedExisting, verificationCustomerId:s.targetId }
+  return { id, kioskId, kioskName, tillName, status, customer, matchedExisting, verificationCustomerId:s.targetId,repairWorkOrderId:s.repair?.workOrderId }
 }
 
 function finish(s: KioskSession & { timer: ReturnType<typeof setTimeout> }, status: KioskSession['status']) {
@@ -153,6 +156,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     wrap((req, res) => {
       const k = kioskByToken(req.query.token)
       res.locals.kioskReviewVersion=req.query.review==='2'?2:0
+      res.locals.kioskIntakeVersion=req.query.intake==='1'?1:0
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -162,7 +166,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       if (!streams.has(k.id)) streams.set(k.id, new Set())
       streams.get(k.id)!.add(res)
       const open = openSessionFor(k.id)
-      res.write(`data: ${JSON.stringify(open && (!open.targetId || res.locals.kioskReviewVersion===2) ? { type: 'form', sessionId: open.id } : { type: 'idle' })}\n\n`)
+      res.write(`data: ${JSON.stringify(open && (!open.targetId || res.locals.kioskReviewVersion===2) && (!open.repair||res.locals.kioskIntakeVersion===1) ? { type: 'form', sessionId: open.id } : { type: 'idle' })}\n\n`)
       const ping = setInterval(() => res.write(': ping\n\n'), 20_000) // keeps Wi-Fi / proxies from closing it
       // Note: listen on the RESPONSE. req 'close' fires as soon as the request has been read.
       res.on('close', () => {
@@ -177,6 +181,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     res.setHeader('Cache-Control','no-store')
     const k=kioskByToken(req.query.token),s=sessions.get(String(req.query.sessionId || ''))
     if(!s || s.kioskId!==k.id || s.status!=='waiting') throw new HttpErr(409,'This request has finished. Ask staff to send it again.')
+    if(s.repair)return res.json({mode:'repair',repair:{number:s.repair.number,unitLabel:s.repair.unitLabel,questions:s.repair.questions}})
     res.json(s.targetId ? {mode:'verify',contact:s.originalContact,taxExemption:s.originalTax} : {mode:'signup'})
   }))
 
@@ -190,6 +195,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       if (!s || s.kioskId !== k.id || s.status !== 'waiting')
         throw new HttpErr(409, 'This sign-up has finished. Please ask the staff member to send it again.')
 
+      if(s.repair)throw new HttpErr(400,'Use the repair questionnaire to submit answers')
       if(s.targetId) {
         const customer=db.transaction(()=>{
           const current=getCustomer(db,s.targetId!)
@@ -301,6 +307,20 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     })
   )
 
+  app.post('/kiosk/api/repair-submit',wrap((req,res)=>{
+    const b=req.body??{},k=kioskByToken(b.token),s=sessions.get(String(b.sessionId??''))
+    if(!s||s.kioskId!==k.id||!s.repair||!['waiting','submitted'].includes(s.status))throw new HttpErr(409,'This repair request has finished. Ask staff to send it again.')
+    if(s.status==='submitted')return res.json({ok:true})
+    const repair=s.repair,answers=intakeAnswers(repair.questions,b.answers)
+    db.transaction(()=>{
+      const w=db.prepare('SELECT w.customer_id,w.unit_id,w.status,u.category FROM work_orders w JOIN customer_units u ON u.id=w.unit_id WHERE w.id=?').get(repair.workOrderId) as any
+      if(!w||w.status==='closed'||w.customer_id!==repair.customerId||w.unit_id!==repair.unitId||w.category!==repair.category)throw new HttpErr(409,'This work order changed. Ask staff to resend the questions.')
+      db.prepare('INSERT INTO work_order_intakes(id,work_order_id,unit_id,customer_id,category,unit_label,questions_json,answers_json,submitted_at) VALUES (?,?,?,?,?,?,?,?,?)').run(s.id,repair.workOrderId,repair.unitId,repair.customerId,repair.category,repair.unitLabel,JSON.stringify(repair.questions),JSON.stringify(answers),new Date().toISOString())
+      db.prepare('INSERT INTO work_order_history(work_order_id,note,by_name) VALUES (?,?,?)').run(repair.workOrderId,'Customer completed repair intake questions on kiosk. Staff review required.',s.kioskName)
+    })()
+    finish(s,'submitted');send(k.id,{type:'thanks',firstName:'',taxExempt:false});res.json({ok:true})
+  }))
+
   // The customer taps "Cancel" on the kiosk
   app.post(
     '/kiosk/api/cancel',
@@ -391,9 +411,18 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
   )
 
   // Send the sign-up form to the kiosk that belongs to this till
-  const startSession = (verificationOnly:boolean) => wrap((req, res) => {
+  const startSession = (verificationOnly:boolean|'intake') => wrap((req, res) => {
       const b = (req.body ?? {}) as Record<string, unknown>
-      if(verificationOnly && b.customerId===undefined)throw new ValidationError('Select the customer to validate')
+      if(verificationOnly===true && b.customerId===undefined)throw new ValidationError('Select the customer to validate')
+      let repair:RepairSession|undefined
+      if(verificationOnly==='intake'){
+        const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<=0)throw new ValidationError('Choose a valid work order')
+        const w=db.prepare('SELECT w.id,w.customer_id,w.unit_id,w.status,u.category,u.unit_type,u.brand,u.model,u.serial FROM work_orders w JOIN customer_units u ON u.id=w.unit_id WHERE w.id=?').get(id) as any
+        if(!w||w.status==='closed')throw new HttpErr(409,'Open an active work order before sending intake questions')
+        const questions=intakeSettings(db)[w.category as keyof ReturnType<typeof intakeSettings>]
+        if(!questions?.length)throw new ValidationError('Add questions for this equipment category in Work Order Settings first')
+        repair={workOrderId:id,customerId:w.customer_id,unitId:w.unit_id,category:w.category,number:'WO-'+String(id).padStart(6,'0'),unitLabel:[w.brand,w.model,w.unit_type,w.serial?'S/N '+w.serial:''].filter(Boolean).join(' '),questions}
+      }
       const tillName = String(b.tillName ?? '').trim()
       const all = db.prepare('SELECT * FROM kiosks WHERE active = 1 ORDER BY id').all() as KioskRow[]
       if (all.length === 0) throw new HttpErr(404, 'No kiosk is paired yet. Pair the iPad in Settings first.')
@@ -411,6 +440,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
 
       if(target && [...(streams.get(kiosk.id)??[])].some(r=>r.locals.kioskReviewVersion!==2))throw new HttpErr(409,'Reload the kiosk browser page and close any other kiosk tabs, then try Validate on kiosk again. The open page does not support customer validation.')
 
+      if(repair&&[...(streams.get(kiosk.id)??[])].some(r=>r.locals.kioskIntakeVersion!==1))throw new HttpErr(409,'Reload the kiosk browser page and close older kiosk tabs before sending repair questions.')
       // A newer request replaces an older unanswered one on the same kiosk
       const old = openSessionFor(kiosk.id)
       if (old) finish(old, 'cancelled')
@@ -425,6 +455,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       }, SESSION_TIMEOUT_MS)
       timer.unref()
       const session: LiveSession = {
+        repair,
         targetId: target?.id,
         originalContact: target ? contactDetails(target) : undefined,
         originalTax: target ? taxDetails(target) : undefined,
@@ -442,6 +473,9 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       send(kiosk.id, { type: 'form', sessionId: id })
       res.status(201).json(publicSession(session))
     })
+  app.get('/api/repair-intake/settings',wrap((_req,res)=>res.json(intakeSettings(db))))
+  app.put('/api/repair-intake/settings',wrap((req,res)=>res.json(saveIntakeSettings(db,req.body))))
+  app.post('/api/workorders/:id/intake-kiosk',startSession('intake'))
   app.post('/api/kiosk-sessions/verify',startSession(true))
   app.post('/api/kiosk-sessions',startSession(false))
 

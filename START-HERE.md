@@ -1,18 +1,22 @@
-# DiamondPOS v0.3.72 — edit customer units
+# DiamondPOS v0.3.73 — repair questions on the kiosk
 
-Work order: open ticket → Edit unit beside unit details.
-Customer: open customer → Customer Equipment → expand the unit → Edit unit.
+Back up the Store Server, update it first, then all tills (schema46). Reload the kiosk browser page and close older kiosk tabs. No website upload required.
 
-Serial number/model can be blank at check-in. Add them later, along with brand/type, current hours, purchase date and notes. Save unit updates the same equipment record everywhere, preserving owner/history. Original sale receipt serial and hour-at-intake remain historical records. No automatic printing. Unsaved ticket notes are preserved.
+1. Work Order Settings → Customer kiosk · Repair intake questions → Mowers / Handhelds / Other equipment. Edit starter questions, set type/required, then main Save settings.
+2. At new check-in, choose Check in & send questions to kiosk. This saves the ticket first; estimate fee is collected later. Closing the waiting window keeps the checked-in ticket, even on error/offline.
+3. Existing open ticket → Customer repair intake → Send intake to kiosk.
+4. Customer answers and taps Send answers. Staff select Review answers. Each submission keeps original wording; resending keeps prior responses. This is intake information, not repair approval.
 
-Publish the committed update:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.72&target=main
+Five-minute unanswered timeout. Required/choice answers validated; no partial answers saved on cancel. Questionnaire follows unit category. Empty category cannot send. Unit/category changes require resend; closed tickets cannot take new submissions. Saved answers are included in database backups.
 
-Wait for Windows installer assets. Update Store Server first, then tills, to keep versions consistent. No new migration or website upload in72; upgrades skipping70/71 include their migrations, so take a verified backup first.
+Publish after direct main check-in:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.73&target=main
+
+Wait for installer assets, then update.460 regression checks/typecheck/build passed; actual kiosk touchscreen/Windows interaction still to verify. Test one mower and handheld, Save/reopen settings, cancel/timeout, and successful answer review before store use.
 
 ## Git commands
 
-Preserve local edits first; direct main check-in is already done.
+Preserve local edits first; changes are already committed to main.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -27,8 +31,6 @@ npm run build
 Only if publishing via Git instead of the release page:
 
 ```bash
-git tag v0.3.72
-git push origin v0.3.72
+git tag v0.3.73
+git push origin v0.3.73
 ```
-
-Windows check: add mower with blank serial, check in, edit from work order, confirm customer equipment; edit again from customer and confirm ticket. Confirm Save/Cancel does not close or submit the customer form and unsaved ticket problem/diagnosis remains. Reprint label manually if needed.

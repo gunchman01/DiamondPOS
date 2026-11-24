@@ -151,6 +151,7 @@ export interface WarrantyBilling {
  providerExempt:boolean;customerExempt:boolean;providerNetCents:number;customerNetCents:number;providerTotalCents:number;customerTotalCents:number;customerBalanceCents:number;taxRate:number
 }
 export interface WorkOrder {
+  intakes?:import('./repairIntake').IntakeResponse[]
   warranty?:WarrantyBilling|null
   warrantyRevision?:string
   warrantySales?:{customerSaleId:number|null;providerSaleId:number}|null

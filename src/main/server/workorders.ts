@@ -13,6 +13,7 @@ import { approvalConfig,approvalView,saveApprovalConfig,testApprovalConnection,s
  * the stock match the stage every time a ticket or its parts change, so the
  * numbers can never drift.
  */
+import {workOrderIntakes} from './repairIntake'
 import type express from 'express'
 import type { DB } from './db'
 import { customerDisplayName, taxExemptState, type StoreSettings } from '../../shared/types'
@@ -362,6 +363,7 @@ export function loadWorkOrder(db: DB, id: number, taxRate: number): WorkOrder | 
       }[]
     ).map((h) => ({ at: iso(h.at)!, status: h.status, note: h.note, by: h.by_name }))
     const result: WorkOrder = {
+      intakes:workOrderIntakes(db,id),
       relatedOrders: relatedOrders(db,id),
       id: r.id,
       number: woNumber(r.id),

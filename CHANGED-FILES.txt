@@ -1,5 +1,5 @@
-DiamondPOS v0.3.72 direct check-in
-Baseline main f431441b358a834a2be96fbb5433790c76717913
+DiamondPOS v0.3.73 direct check-in
+Baseline main 6aa9f2718a96f38a564f1bd82be963345e7698f8
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,9 +9,20 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
+src/main/server/kiosk.ts
+src/main/server/kioskPage.ts
+src/main/server/migrations.ts
+src/main/server/repairIntake.ts
+src/main/server/workorders.ts
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/CustomerEquipmentPanel.tsx
-src/renderer/src/screens/UnitEditor.tsx
+src/renderer/src/screens/NewWorkOrder.tsx
+src/renderer/src/screens/RepairIntakeSettings.tsx
+src/renderer/src/screens/RepairKiosk.tsx
+src/renderer/src/screens/WorkOrderSettings.tsx
 src/renderer/src/screens/WorkOrderTicket.tsx
-src/renderer/src/styles.css
-tests/customer-equipment.ts
+src/shared/repairIntake.ts
+src/shared/types.ts
+src/shared/workorders.ts
+tests/regressions.ts
+tests/repair-intake.ts

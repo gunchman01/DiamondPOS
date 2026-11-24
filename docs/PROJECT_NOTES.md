@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 24 November 2026 (edit equipment from tickets and customers)_
+_Last updated: 24 November 2026 (category-specific kiosk repair intake)_
 
 ---
 
@@ -70,6 +70,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.73 — 24 November 2026: category-specific repair intake on kiosk
+
+User explicitly approved proposed mower/handheld/other questionnaires with customizable required/text/yes-no/multiple-choice questions, staff dispatch and saved original Q/A on WO. Baseline main6aa9f2718a96f38a564f1bd82be963345e7698f8 v72/tree80de8380e8a8e33fa69a7db08ec83849cea16adf. Schema46 adds work_order_intakes with immutable session-keyed question/answer/category/unit label/time snapshot and owner/unit/WO foreign keys. Questionnaire settings separate settings row, all3categories saved with the main WOSettings Save buttons; failures clearly report partial completion as existing multi-section behavior. Defaults shared and cloned;20questions/category;300char wording;2000char answers;choices2–10unique, stable validated IDs; no arbitrary HTML rendering.
+
+New check-in button creates WO first, then opens RepairKiosk wait modal; close always returns existing created ticket (fee collected later) so offline/cancel doesn't silently discard/check-in again. Existing open-ticket Send intake action uses same path, pauses background polling, refreshes WO without resetting unsaved notes. Questions selected from current unit.category. Kiosk SSE capability intake1 required on every open page, older tabs fail with reload guidance. Existing contact validation/signup remain separate; repair session cannot submit signup/create customer. Public GET returns only unit description/WO/question snapshot scoped assigned active kiosk, not owner contact/financial/staff data. Public submit validates required/choices/length/known questions and rechecks current WO/owner/unit/category/open status in transaction. Exactly-once same-session replay, history entry, staff-only Q/A read; cancel/replacement/timeout cannot write.5min timeout clears displayed form, blank/idle/thanks clears unit/questions, textContent only for question content. Re-sends append snapshots; settings edits preserve pending/completed wording. Responses do not approve repair/change stage/charges/stock/send email/SMS. Local kiosk only, no public website changes.
+
+Validation:460 regression checks, typecheck and production build passed. New tests exercise real HTTP/SSE/SQLite paired settings/dispatch/validation, old-page capability denial, kiosk isolation, signup crossover rejection, immutable pending snapshots, replay, cancelled/replaced/changed-category/closed guards, category selection and durable reopen. Executed actual kiosk JavaScript with DOM stubs for safe rendering, required input/endpoint, timeout retention and clear-on-completion; no actual phone/iPad/Windows visual test claimed. Next: backup, update server first then tills, reload kiosk/close old tabs, test one mower and one handheld with real touchscreen; existing warranty/QB/printer and outdoor numbered-tag checks remain. No real customer notifications, financial sync, physical prints or deployment performed here. Minimum client70 unchanged; older till clients can still use ordinary check-in, but need73 for the new questionnaire settings/actions.
 
 ### v0.3.72 — 24 November 2026: edit equipment from customer and work order
 
@@ -739,6 +747,8 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Verify v0.3.73 mower and handheld intake on actual kiosk after server/till update and kiosk reload; confirm saved Q/A and fee collection from existing checked-in ticket.
 
 - Test v0.3.70 warranty split/reimbursement invoices and AR mapping in QuickBooks test company; confirm receipt/report printing on Windows.
 - Discuss reusable numbered outdoor unit-tag assignment/release/search; recommendation only, no implementation yet.

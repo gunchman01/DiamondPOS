@@ -1,2 +1,2 @@
-# v0.3.72
-Edit unit from work order and customer equipment; serial optional at service intake. See START-HERE.md. Direct main check-in authorized; no tag/deployment or real store changes performed.
+# v0.3.73
+Category-specific customer repair questionnaires on kiosk. See START-HERE.md. Schema46: backup/update Store Server first, tills next, reload kiosk. Direct main check-in authorized; release tag/deployment not performed.

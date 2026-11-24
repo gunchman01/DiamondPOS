@@ -144,6 +144,8 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   </form>
 </section>
 
+<section id="repair" class="screen" hidden style="justify-content:flex-start;overflow:auto;text-align:left">
+<form id="repairForm" class="card" style="width:100%;max-width:760px"><h1>Tell us about your repair</h1><p id="repairUnit"></p><p>Please answer below. If you do not know, say “Not sure”. Staff will review your answers; this does not approve an estimate.</p><div id="repairQuestions"></div><p id="repairError" role="alert" style="color:#b00020"></p><button id="repairSubmit" class="primary" type="submit">Send answers</button><button id="repairCancel" type="button">Cancel</button></form></section>
 <section id="thanks" class="screen" hidden>
   <div class="tick">✓</div>
   <h1 id="thanksTitle">Thank you!</h1>
@@ -176,8 +178,9 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   }
 
   function show(id) {
-    if(id!=='form'){['verificationTaxStatus','verificationTaxId','verificationTaxExpiry'].forEach(function(f){$(f).textContent='';});$('verificationTax').hidden=true;clearTimeout(formTimer);FIELDS.forEach(function(f){$(f).value='';});$('okToEmail').checked=false;$('taxExempt').checked=false;}
-    ['pair', 'idle', 'form', 'thanks'].forEach(function (s) { $(s).hidden = s !== id; });
+    if(id!=='form'){['verificationTaxStatus','verificationTaxId','verificationTaxExpiry'].forEach(function(f){$(f).textContent='';});$('verificationTax').hidden=true;if(id!=='repair')clearTimeout(formTimer);FIELDS.forEach(function(f){$(f).value='';});$('okToEmail').checked=false;$('taxExempt').checked=false;}
+    ['pair', 'idle', 'form', 'repair', 'thanks'].forEach(function (s) { $(s).hidden = s !== id; });
+    if(id!=='repair'){$('repairQuestions').innerHTML='';$('repairUnit').textContent='';$('repairError').textContent='';}
     if (id !== 'form' && document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
   function api(method, path, body) {
@@ -240,7 +243,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
 
   function connect() {
     if (es) es.close();
-    es = new EventSource('/kiosk/api/events?review=2&token=' + encodeURIComponent(token));
+    es = new EventSource('/kiosk/api/events?review=2&intake=1&token=' + encodeURIComponent(token));
     es.onopen = function () { $('offline').hidden = true; };
     es.onmessage = function (e) { try { handle(JSON.parse(e.data)); } catch (x) {} };
     es.onerror = function () {
@@ -273,7 +276,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   // ---------- Sign-up form ----------
   var verification = false;
   function openForm(id) {
-    if (sessionId === id && !$('form').hidden) return;
+    if (sessionId === id && (!$('form').hidden||!$('repair').hidden)) return;
     sessionId = id;
     clearTimeout(thanksTimer);
     FIELDS.forEach(function (f) { $(f).value = ''; $(f).style.borderColor = ''; });
@@ -288,6 +291,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
     formTimer=setTimeout(function(){if(sessionId===id){sessionId=null;show('idle');api('POST','/kiosk/api/cancel',{token:token,sessionId:id}).catch(function(){});}},5*60*1000);
     api('GET','/kiosk/api/session?token='+encodeURIComponent(token)+'&sessionId='+encodeURIComponent(id)).then(function(j){
       if(sessionId!==id)return;
+      if(j.mode==='repair'){openRepair(j.repair);return;}
       verification=j.mode==='verify';
       $('signup').className=verification?'card verification':'card';
       $('formTitle').textContent=verification?'Please verify your details':'Welcome! Tell us about you';
@@ -314,6 +318,20 @@ export const kioskPageHtml = /* html */ `<!doctype html>
     clearTimeout(thanksTimer);
     thanksTimer = setTimeout(function () { show('idle'); }, taxExempt ? 9000 : 5000);
   }
+
+
+  var repairQuestions=[];
+  function openRepair(data){
+    repairQuestions=data.questions;show('repair');$('repairUnit').textContent=data.number+' — '+data.unitLabel;
+    $('repairSubmit').disabled=false;$('repairError').textContent='';
+    repairQuestions.forEach(function(q){var label=document.createElement('label');label.textContent=q.label+(q.required?' *':'');label.style.display='block';label.style.marginBottom='18px';var input;
+      if(q.type==='text'){input=document.createElement('textarea');input.rows=3;input.maxLength=2000;}
+      else{input=document.createElement('select');var blank=document.createElement('option');blank.value='';blank.textContent='Choose…';input.appendChild(blank);(q.type==='yesno'?['Yes','No','Not sure']:q.choices).forEach(function(value){var o=document.createElement('option');o.value=value;o.textContent=value;input.appendChild(o);});}
+      input.id='repair-q-'+q.id;input.required=q.required;input.style.width='100%';input.style.display='block';input.style.fontSize='20px';input.style.padding='12px';label.appendChild(input);$('repairQuestions').appendChild(label);
+    });
+  }
+  $('repairForm').addEventListener('submit',function(e){e.preventDefault();if(busy||!sessionId)return;var id=sessionId,answers={};repairQuestions.forEach(function(q){answers[q.id]=$('repair-q-'+q.id).value;});busy=true;$('repairSubmit').disabled=true;$('repairError').textContent='';api('POST','/kiosk/api/repair-submit',{token:token,sessionId:id,answers:answers}).then(function(){if(sessionId===id)showThanks('',false);}).catch(function(e){if(sessionId===id){busy=false;$('repairSubmit').disabled=false;$('repairError').textContent=e.message;}});});
+  $('repairCancel').addEventListener('click',function(){if(busy)return;var id=sessionId;sessionId=null;show('idle');if(id)api('POST','/kiosk/api/cancel',{token:token,sessionId:id}).catch(function(){});});
 
   $('signup').addEventListener('submit', function (e) {
     e.preventDefault();

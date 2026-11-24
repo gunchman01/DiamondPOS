@@ -3,6 +3,7 @@ import { customerDisplayName, type Customer } from '../../../shared/types'
 import { unitLabel, type CustomerUnit, type WoSettings, type WorkOrder } from '../../../shared/workorders'
 import { money, parseMoney } from '../format'
 import { api } from '../api'
+import RepairKiosk from './RepairKiosk'
 import CustomerPicker from './CustomerPicker'
 import KioskSignup from './KioskSignup'
 import UnitEditor from './UnitEditor'
@@ -16,6 +17,7 @@ export default function NewWorkOrder(props: {
   onCreated: (wo: WorkOrder, collectFee: boolean) => void
   onCancel: () => void
 }) {
+  const [intakeTicket,setIntakeTicket]=useState<WorkOrder|null>(null)
   const [kioskOpen,setKioskOpen]=useState(false)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [picking, setPicking] = useState(!props.initialCustomerId)
@@ -52,7 +54,7 @@ export default function NewWorkOrder(props: {
   const feeCents = parseMoney(feeText)
   const validFee = Number.isSafeInteger(feeCents) && feeCents >= 0
 
-  async function create(collectNow: boolean) {
+  async function create(collectNow: boolean,sendQuestions=false) {
     if (busy || !customer || !unit || !settings) return
     if (!validFee) {setError('Enter an estimate fee of $0.00 or more, or use No fee.');return}
     setBusy(true)
@@ -67,6 +69,7 @@ export default function NewWorkOrder(props: {
         by: props.by,
         feeCents
       })
+      if(sendQuestions){setIntakeTicket(created);return}
       props.onCreated(created, collectNow && created.feeCents > 0)
     } catch (e) {
       setError((e as Error).message)
@@ -74,6 +77,7 @@ export default function NewWorkOrder(props: {
     }
   }
 
+  if(intakeTicket)return <RepairKiosk id={intakeTicket.id} tillName={props.by} onClose={()=>props.onCreated(intakeTicket,false)}/>
   if (picking)
     return (
       <>
@@ -167,6 +171,7 @@ export default function NewWorkOrder(props: {
         {error && <div className="error-text">{error}</div>}
         <div className="row gap end">
           <button disabled={busy} onClick={props.onCancel}>Cancel</button>
+          <button disabled={!unit||!settings||!validFee||!problem.trim()||busy} onClick={()=>void create(false,true)}>Check in &amp; send questions to kiosk</button>
           {validFee && feeCents > 0 ? (
             <>
               <button disabled={!unit || !settings || !validFee || !problem.trim() || busy} onClick={() => create(false)}>

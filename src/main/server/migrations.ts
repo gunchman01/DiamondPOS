@@ -718,6 +718,10 @@ export const migrations: Migration[] = [
  UPDATE settings SET value=json_set(value,'$.afterDays',1)
  WHERE key='approval_config' AND json_valid(value) AND json_extract(value,'$.afterDays')=3;
  `}
+ ,{version:46,name:'work order customer repair questionnaires',up:`
+ CREATE TABLE work_order_intakes(id TEXT PRIMARY KEY,work_order_id INTEGER NOT NULL REFERENCES work_orders(id),unit_id INTEGER NOT NULL REFERENCES customer_units(id),customer_id INTEGER NOT NULL REFERENCES customers(id),category TEXT NOT NULL,unit_label TEXT NOT NULL,questions_json TEXT NOT NULL,answers_json TEXT NOT NULL,submitted_at TEXT NOT NULL);
+ CREATE INDEX work_order_intakes_ticket ON work_order_intakes(work_order_id,submitted_at);
+ `}
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

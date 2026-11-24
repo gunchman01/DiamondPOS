@@ -1,3 +1,4 @@
+import RepairKiosk from './RepairKiosk'
 import UnitEditor from './UnitEditor'
 import WarrantyPanel from './WarrantyPanel'
 import NewWorkOrder from './NewWorkOrder'
@@ -21,6 +22,7 @@ export default function WorkOrderTicket(props: {
   onBack: () => void
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [intakeOpen,setIntakeOpen]=useState(false)
   const [editingUnit,setEditingUnit]=useState(false),[unitBrands,setUnitBrands]=useState<string[]>([])
   useEffect(()=>{let live=true;api.mkOptions().then(o=>{if(live)setUnitBrands(o.manufacturers)}).catch(()=>{});return()=>{live=false}},[])
   const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
@@ -77,14 +79,14 @@ export default function WorkOrderTicket(props: {
 
   const notesDirty = !!wo && (notes.problem!==wo.problem||notes.diagnosis!==wo.diagnosis||notes.workDone!==wo.workDone||notes.internalNotes!==wo.internalNotes)
   useEffect(()=>{
-    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated||editingUnit)return
+    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated||editingUnit||intakeOpen)return
     let live=true
     const timer=setInterval(()=>{
       if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName??''))return
       api.wo(props.id).then(fresh=>{if(live)show(fresh)}).catch(e=>{if(live)setError(e.message)})
     },30000)
     return()=>{live=false;clearInterval(timer)}
-  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,editingUnit,wo?.status])
+  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,editingUnit,intakeOpen,wo?.status])
 
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
@@ -174,6 +176,8 @@ export default function WorkOrderTicket(props: {
       </div>
 
       {editingUnit&&<UnitEditor key={wo.unit.id} unit={wo.unit} customerId={wo.customerId} brands={unitBrands} onCancel={()=>setEditingUnit(false)} onSaved={u=>{setEditingUnit(false);setWo(w=>w?{...w,unit:u}:w);setMsg('Unit updated on this work order and the customer equipment record');api.wo(props.id).then(setWo).catch(e=>setError('Unit saved, but ticket refresh failed: '+e.message))}}/>}
+      {intakeOpen&&<RepairKiosk id={wo.id} tillName={props.by} onClose={()=>{setIntakeOpen(false);api.wo(props.id).then(setWo).catch(e=>setError(e.message))}}/>}
+      <section className="card form"><div className="row between"><h3>Customer repair intake</h3>{!closed&&<button type="button" disabled={busy} onClick={()=>setIntakeOpen(true)}>Send intake to kiosk</button>}</div><p className="muted small">Customer-reported answers for staff to review. These do not approve repair charges.</p>{!wo.intakes?.length&&<p>No customer questionnaire submitted yet.</p>}{wo.intakes?.map((response,index)=><details key={response.id} open={index===0}><summary>{dateTime(response.submittedAt)} · {response.category} · {response.unitLabel}</summary><dl>{response.questions.map(q=><div key={q.id}><dt><b>{q.label}</b></dt><dd className="pre-line">{response.answers[q.id]||'Not answered'}</dd></div>)}</dl></details>)}</section>
       <WarrantyPanel wo={wo} by={props.by} onSaved={show}/>
       <div className="card row gap"><label>Assigned mechanic <select disabled={busy||closed} value={wo.mechanicId??''} onChange={e=>{const id=e.target.value?Number(e.target.value):null;void run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);return api.woAssignMechanic(wo.id,id,props.by)},'Mechanic assigned')}}>
         <option value="">Unassigned</option>

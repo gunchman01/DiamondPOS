@@ -1,3 +1,5 @@
+import RepairIntakeSettings from './RepairIntakeSettings'
+import type {IntakeSettings} from '../../../shared/repairIntake'
 import ServiceTextSettings from './ServiceTextSettings'
 import ApprovalSettings, {type ApprovalSettingsHandle} from './ApprovalSettings'
 import { useEffect, useRef, useState } from 'react'
@@ -20,6 +22,8 @@ const centsText = (c: number) => (c / 100).toFixed(2)
 
 /** Work order setup: labor rate, default shop supplies, and the email template for each stage. */
 export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
+  const [intake,setIntake]=useState<IntakeSettings|null>(null)
+  useEffect(()=>{api.repairIntakeSettings().then(setIntake).catch(e=>setError(e.message))},[])
   const approvals=useRef<ApprovalSettingsHandle>(null)
   const [saving,setSaving]=useState(false)
   const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
@@ -78,9 +82,11 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
     setSaving(true)
     try {
       if(!approvals.current)throw new Error('Approval settings are not ready. Reload before saving.')
+      if(!intake)throw new Error('Repair questions have not loaded. Reload before saving.')
+      setIntake(await api.saveRepairIntakeSettings(intake))
       await approvals.current.save()
       show(await api.woSaveSettings({ ...s!, laborRateCents, shopSupplies, estimateFee: { ...s!.estimateFee, cents: feeCents } }))
-      setMsg('Work order and approval/reminder settings saved')
+      setMsg('Work order, repair questions and approval/reminder settings saved')
     } catch (e) {
       setError('Save did not complete: '+(e as Error).message+' Some sections may already be saved. Review and try again.')
     } finally {setSaving(false)}
@@ -100,6 +106,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         </button>
       </div>
       <h2>Work order settings</h2>
+      <RepairIntakeSettings value={intake} onChange={setIntake} disabled={saving}/>
       <ServiceTextSettings />
       <ApprovalSettings ref={approvals} disabled={saving}/>
       <div className="card form"><h3>Mechanics</h3><p className="muted">Removing a mechanic hides them from new assignments. Existing tickets and history keep their name. Adding the same name restores them.</p>

@@ -14,6 +14,13 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.73 - 24 November 2026
+> Update the Store Server PC first, then all tills. Reload the kiosk browser page after updating.
+- Work Order Settings now includes separate customer intake questionnaires for mowers, handhelds and other equipment, with starter questions you can customize.
+- Add written, Yes/No/Not sure or multiple-choice questions, mark them required, and save with the main Save settings button.
+- At check-in, choose Check in & send questions to kiosk. On an existing open ticket, use Send intake to kiosk.
+- Customer answers are saved with the work order for staff review. Original question wording is retained, and sending a revised questionnaire keeps earlier submissions. Answers do not approve repair charges.
+
 ## v0.3.72 - 24 November 2026
 - Added Edit unit beside the equipment details on a work order and under Customers → Customer Equipment.
 - Check a unit in without its serial number, then add or correct its type, brand, model, serial, hours, purchase date and notes later. Both screens update the same equipment record.
