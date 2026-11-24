@@ -1,5 +1,5 @@
-DiamondPOS v0.3.71 direct check-in
-Baseline main 1b3bb5d2dd8e689d809ca44341e34c7d0ae38903
+DiamondPOS v0.3.72 direct check-in
+Baseline main f431441b358a834a2be96fbb5433790c76717913
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,11 +9,9 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
-src/main/server/approvals.ts
-src/main/server/migrations.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/ApprovalSettings.tsx
-src/renderer/src/screens/WorkOrderSettings.tsx
+src/renderer/src/screens/CustomerEquipmentPanel.tsx
+src/renderer/src/screens/UnitEditor.tsx
 src/renderer/src/screens/WorkOrderTicket.tsx
-tests/approvals.ts
-tests/regressions.ts
+src/renderer/src/styles.css
+tests/customer-equipment.ts

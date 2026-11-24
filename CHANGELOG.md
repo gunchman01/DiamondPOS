@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.72 - 24 November 2026
+- Added Edit unit beside the equipment details on a work order and under Customers → Customer Equipment.
+- Check a unit in without its serial number, then add or correct its type, brand, model, serial, hours, purchase date and notes later. Both screens update the same equipment record.
+- Unit editing does not create a duplicate unit or discard unsaved work-order notes. Original purchase receipts retain their recorded sale information.
+
 ## v0.3.71 - 24 November 2026
 > Update the Store Server PC first, then all tills.
 - Fixed: the main Work Order Settings Save button now also saves approval and reminder settings. It previously saved only labor, fees, colors and templates.

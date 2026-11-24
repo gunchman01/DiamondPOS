@@ -1,3 +1,4 @@
+import UnitEditor from './UnitEditor'
 import WarrantyPanel from './WarrantyPanel'
 import NewWorkOrder from './NewWorkOrder'
 import { confirmAction } from '../dialogs'
@@ -20,6 +21,8 @@ export default function WorkOrderTicket(props: {
   onBack: () => void
   onPayAtTill: (id: number, mode: WoSaleMode) => void
 }) {
+  const [editingUnit,setEditingUnit]=useState(false),[unitBrands,setUnitBrands]=useState<string[]>([])
+  useEffect(()=>{let live=true;api.mkOptions().then(o=>{if(live)setUnitBrands(o.manufacturers)}).catch(()=>{});return()=>{live=false}},[])
   const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
   useEffect(()=>{api.woMechanics().then(setMechanics).catch(e=>setError(e.message))},[])
   const [addingRelated,setAddingRelated]=useState(false)
@@ -53,6 +56,7 @@ export default function WorkOrderTicket(props: {
     setNotes({ problem: w.problem, diagnosis: w.diagnosis, workDone: w.workDone, internalNotes: w.internalNotes })
   }
   useEffect(() => {
+    setEditingUnit(false)
     api.wo(props.id).then(show).catch((e) => setError(e.message))
   }, [props.id])
 
@@ -73,14 +77,14 @@ export default function WorkOrderTicket(props: {
 
   const notesDirty = !!wo && (notes.problem!==wo.problem||notes.diagnosis!==wo.diagnosis||notes.workDone!==wo.workDone||notes.internalNotes!==wo.internalNotes)
   useEffect(()=>{
-    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated)return
+    if(!wo||busy||preview||notesDirty||picking||miscOpen||addingRelated||editingUnit)return
     let live=true
     const timer=setInterval(()=>{
       if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName??''))return
       api.wo(props.id).then(fresh=>{if(live)show(fresh)}).catch(e=>{if(live)setError(e.message)})
     },30000)
     return()=>{live=false;clearInterval(timer)}
-  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,wo?.status])
+  },[props.id,busy,!!preview,notesDirty,picking,miscOpen,addingRelated,editingUnit,wo?.status])
 
   if (!wo) return <div className="page">{error || 'Loading…'}</div>
 
@@ -126,6 +130,8 @@ export default function WorkOrderTicket(props: {
           <span className="muted small">{[wo.customerPhone, wo.customerEmail ?? 'no email on file'].filter(Boolean).join(' · ')}</span>
           <span>
             <b>{unitLabel(wo.unit)}</b>
+            {!wo.unit.serial&&<span className="muted small"> · Serial not recorded</span>}
+            <button type="button" disabled={busy} onClick={()=>setEditingUnit(true)}>Edit unit</button>
             {wo.unit.serial && <span className="muted small"> · S/N {wo.unit.serial}</span>}
           </span>
         </div>
@@ -167,6 +173,7 @@ export default function WorkOrderTicket(props: {
         </div>
       </div>
 
+      {editingUnit&&<UnitEditor key={wo.unit.id} unit={wo.unit} customerId={wo.customerId} brands={unitBrands} onCancel={()=>setEditingUnit(false)} onSaved={u=>{setEditingUnit(false);setWo(w=>w?{...w,unit:u}:w);setMsg('Unit updated on this work order and the customer equipment record');api.wo(props.id).then(setWo).catch(e=>setError('Unit saved, but ticket refresh failed: '+e.message))}}/>}
       <WarrantyPanel wo={wo} by={props.by} onSaved={show}/>
       <div className="card row gap"><label>Assigned mechanic <select disabled={busy||closed} value={wo.mechanicId??''} onChange={e=>{const id=e.target.value?Number(e.target.value):null;void run(async()=>{if(notesDirty)await api.woUpdate(wo.id,notes);return api.woAssignMechanic(wo.id,id,props.by)},'Mechanic assigned')}}>
         <option value="">Unassigned</option>

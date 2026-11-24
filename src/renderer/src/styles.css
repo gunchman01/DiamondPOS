@@ -1111,3 +1111,5 @@ button.home-status-heading:hover { text-decoration: underline; background: trans
 
 /* Direct new-customer kiosk action beside sale customer search. */
 .qb-sale .cust-box:not(.set){flex-wrap:wrap}.qb-sale .cust-box:not(.set) .sale-customer-search{flex:1 0 100%}.qb-sale .cust-box:not(.set)>button{white-space:nowrap}
+
+.unit-editor-backdrop{z-index:140}

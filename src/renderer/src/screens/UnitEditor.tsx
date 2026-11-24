@@ -1,3 +1,4 @@
+import {createPortal} from 'react-dom'
 import { useState } from 'react'
 import { UNIT_TYPES, type CustomerUnit, type UnitCategory } from '../../../shared/workorders'
 import { api } from '../api'
@@ -19,6 +20,7 @@ export default function UnitEditor(props: {
   const [model, setModel] = useState(u?.model ?? '')
   const [serial, setSerial] = useState(u?.serial ?? '')
   const [hours, setHours] = useState(u?.hours === null || u?.hours === undefined ? '' : String(u.hours))
+  const [purchaseDate,setPurchaseDate]=useState(u?.purchaseDate??'')
   const [notes, setNotes] = useState(u?.notes ?? '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,10 +32,11 @@ export default function UnitEditor(props: {
   }
 
   async function save() {
+    if(busy)return
     setBusy(true)
     setError('')
     try {
-      const body = { category, unitType, brand, model, serial, hours: category === 'mower' && hours.trim() ? Number(hours) : null, notes }
+      const body = { category, unitType, brand, model, serial, hours: category === 'mower' && hours.trim() ? Number(hours) : null, notes, purchaseDate:purchaseDate||null }
       props.onSaved(u ? await api.updateUnit(u.id, body) : await api.addUnit(props.customerId, body))
     } catch (e) {
       setError((e as Error).message)
@@ -41,18 +44,20 @@ export default function UnitEditor(props: {
     }
   }
 
-  return (
-    <div className="modal-backdrop">
+  return createPortal(
+    <div className="modal-backdrop unit-editor-backdrop">
       <form
         className="modal unit-modal"
         onSubmit={(e) => {
           e.preventDefault()
+          e.stopPropagation()
           save()
         }}
-        onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
+        onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'&&!busy){e.preventDefault();props.onCancel()}}}
       >
         <h2>{u ? 'Edit unit' : 'Add a unit'}</h2>
-        <div className="unit-grid">
+        <p className="muted small">Serial number is optional at check-in. You can add it later. Changes update this unit on the customer record and all linked work orders.</p>
+        <fieldset disabled={busy} style={{border:0,padding:0,margin:0,minWidth:0}}><div className="unit-grid">
           <label>
             What is it?
             <input list="dl-unit-types" autoFocus value={unitType} placeholder="e.g. Blower" onChange={(e) => pickType(e.target.value)} />
@@ -76,8 +81,8 @@ export default function UnitEditor(props: {
             <input value={model} placeholder="e.g. BR 600" onChange={(e) => setModel(e.target.value)} />
           </label>
           <label>
-            Serial number
-            <input value={serial} placeholder="Type or scan" onChange={(e) => setSerial(e.target.value)} />
+            Serial number (optional)
+            <input value={serial} placeholder="Leave blank if not available yet" onChange={(e) => setSerial(e.target.value)} />
           </label>
           {category === 'mower' ? (
             <label>
@@ -88,6 +93,7 @@ export default function UnitEditor(props: {
             <span />
           )}
         </div>
+        <label>Purchase date (optional)<input type="date" value={purchaseDate} onChange={e=>setPurchaseDate(e.target.value)}/></label>
         <label>
           Notes (colour, attachments, condition…)
           <input value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -111,7 +117,8 @@ export default function UnitEditor(props: {
             <option key={b} value={b} />
           ))}
         </datalist>
+        </fieldset>
       </form>
-    </div>
+    </div>,document.body
   )
 }

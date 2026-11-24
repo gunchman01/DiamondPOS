@@ -1,3 +1,5 @@
+import UnitEditor from './UnitEditor'
+import type {CustomerUnit} from '../../../shared/workorders'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CustomerEquipment } from '../../../shared/customerEquipment'
@@ -6,16 +8,21 @@ import { stage, unitLabel } from '../../../shared/workorders'
 import { api } from '../api'
 import { dateTime, money } from '../format'
 export default function CustomerEquipmentPanel({customerId,onSale}:{customerId:number;onSale:(id:number)=>void}) {
+ const [editing,setEditing]=useState<CustomerUnit|null>(null),[brands,setBrands]=useState<string[]>([])
+ useEffect(()=>{setEditing(null)},[customerId])
+ useEffect(()=>{let live=true;api.mkOptions().then(o=>{if(live)setBrands(o.manufacturers)}).catch(()=>{});return()=>{live=false}},[])
  const [equipment,setEquipment]=useState<CustomerEquipment[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[refresh,setRefresh]=useState(0),[view,setView]=useState<number|null>(null)
  useEffect(()=>{let closed=false;setLoading(true);setEquipment([]);setError('');api.customerEquipment(customerId).then(rows=>{if(!closed)setEquipment(rows)}).catch(e=>{if(!closed)setError(e.message)}).finally(()=>{if(!closed)setLoading(false)});return()=>{closed=true}},[customerId,refresh])
  return <fieldset className="id-panel customer-equipment"><legend>Customer Equipment</legend><div className="row between"><span className="small muted">{equipment.length} linked unit{equipment.length===1?'':'s'}</span><button type="button" disabled={loading} onClick={()=>setRefresh(n=>n+1)}>Refresh equipment</button></div>
  {error&&<p className="error-text" role="alert">{error}</p>}{loading?<p className="muted small">Loading equipment…</p>:<div className="customer-equipment-list">
  {equipment.map(({unit:u,workOrders:orders})=><details key={u.id} className={u.active?'equipment-card':'equipment-card muted'}><summary><b>{unitLabel(u)||'Unit'}</b>{!u.active&&<span className="pill">Inactive</span>}<span className="small">Serial: {u.serial||'Not recorded'} · {orders.length} work order{orders.length===1?'':'s'}</span></summary>
+ <button type="button" onClick={()=>setEditing(u)}>Edit unit</button>
  <dl><dt>Unit type</dt><dd>{u.unitType||u.category}</dd><dt>Brand</dt><dd>{u.brand||'Not recorded'}</dd><dt>Model</dt><dd>{u.model||'Not recorded'}</dd><dt>Serial number</dt><dd>{u.serial||'Not recorded'}</dd>{u.hours!==null&&<><dt>Hours</dt><dd>{u.hours}</dd></>}<dt>Purchase</dt><dd>{u.purchasedHere?'Purchased at Diamond P':'Purchase not recorded at Diamond P'}{u.purchaseDate?' · '+u.purchaseDate:''} {u.saleId&&<button type="button" onClick={()=>onSale(u.saleId!)}>Receipt #{u.saleId}</button>}</dd>{u.notes&&<><dt>Unit notes</dt><dd className="pre-line">{u.notes}</dd></>}</dl>
  <h4>Work-order history</h4>{orders.length?orders.map(w=><button type="button" className="equipment-history" key={w.id} onClick={()=>setView(w.id)}><b>{w.number}</b> · {stage(w.status).label}<span>{dateTime(w.createdAt)}</span><span>{w.problem||'No problem description'}</span></button>):<p className="small muted">No work orders recorded for this unit.</p>}
  </details>)}{!equipment.length&&!error&&<p className="muted small">No equipment linked yet. Units added during work-order check-in and serialized units sold to this customer appear here automatically.</p>}
  </div>}
  <p className="small muted">Includes units brought in for service, whether or not purchased here. Uses existing records; viewing does not add another unit.</p>
+ {editing&&<UnitEditor key={editing.id} unit={editing} customerId={customerId} brands={brands} onCancel={()=>setEditing(null)} onSaved={u=>{setEquipment(rows=>rows.map(row=>row.unit.id===u.id?{...row,unit:u}:row));setEditing(null)}}/>}
  {view!==null&&<EquipmentTicketView id={view} customerId={customerId} onClose={()=>{setView(null);setRefresh(n=>n+1)}} onSale={onSale}/>}
  </fieldset>
 }

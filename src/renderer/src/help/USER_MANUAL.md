@@ -976,3 +976,12 @@ Use **Reports → Warranty by vendor** for one row per warranty work order, grou
 The main **Save settings** button on Work Order Settings also saves **Estimate approvals & customer follow-up**, including the calendar-day threshold. **Save approval settings** still saves that section alone; service-text settings retain their separate save button. Wait for the confirmation before leaving. Failed saves show an error; if one section saved before another failed, review the values and retry.
 
 The default unanswered-estimate threshold is **1 calendar day** after successfully sending the estimate. Upgrading from the old 3-day default changes that value to 1; other custom periods remain. “Remind again in days” on a ticket loads this saved period and can still be changed for that individual call. An explicitly scheduled follow-up date already recorded on a ticket remains in place.
+
+
+### Update equipment after check-in
+A serial number and model number are optional when adding a customer's service unit. Enter the known unit type and brand, check it in, then fill in the remaining details later.
+
+- From **Work Orders**, open the ticket and click **Edit unit** beside the unit description.
+- From **Customers**, open the customer, expand the unit under **Customer Equipment**, then click **Edit unit**.
+
+Edit the unit type/category, brand, model, serial number, current hours, purchase date or notes and click **Save unit**. Both locations use the same equipment record, so linked work orders and the customer equipment list reflect the change. The equipment remains with its owner, with the same work-order history. Existing work-order hour readings at check-in and original purchase receipt details remain historical records. No label prints automatically; reprint it manually after adding the serial if needed. Editing equipment from a ticket preserves any unsaved ticket notes.

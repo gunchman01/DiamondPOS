@@ -2,7 +2,7 @@
 
 > **For Claude / anyone picking this up:** read this file first. It records how the project is set up, what's done, and what's next. Keep it updated at the end of each work session.
 
-_Last updated: 24 November 2026 (split warranty billing and reporting)_
+_Last updated: 24 November 2026 (edit equipment from tickets and customers)_
 
 ---
 
@@ -70,6 +70,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 ---
 
 ## Progress log
+
+### v0.3.72 — 24 November 2026: edit equipment from customer and work order
+
+User needs check-in with serial unknown and later edits from both ticket/customer. Existing unit API already accepts blank model/serial and updates unit in place, but neither requested screen exposed existing UnitEditor. Added Edit unit next to ticket identity and inside each customer's equipment details. Shared editor now explicitly marks serial optional, includes purchase date, and uses a body portal to avoid nested customer forms; submit/key events stop propagation so editing does not save/close the customer form. Modal layer140, above history130. Disables controls during save and prevents duplicate submits. Ticket unit refresh sets only live WO state, preserves unsaved notes, and pauses background polling during editor. Customer updates existing equipment row without dropping history or adding unit. Brand suggestions reuse manufacturer list.
+
+Existing update API does not change owner or original sale linkage/purchased_here, preserves omitted fields, and leaves original sale serial/date and ticket hour-at-intake unchanged. Shared unit changes appear on all linked tickets, including historical ticket views; existing records use live unit data. No backend/schema/minimum-version change. Baseline mainf431441b358a834a2be96fbb5433790c76717913/version71. Validation:445 regression checks, typecheck and build passed before check-in; new API check-in-with-empty-serial → later update → WO/customer consistency and purchased-unit provenance assertions. Actual Windows modal interaction remains to verify; no physical printing, customer messages or QB sync performed. Next: update server/tills and verify Edit unit from both locations; continue previously noted warranty and outdoor-tag checks.
 
 ### v0.3.71 — 24 November 2026: reminder saving and one-day default
 

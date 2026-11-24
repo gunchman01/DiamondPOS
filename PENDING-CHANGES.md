@@ -1,2 +1,2 @@
-# v0.3.71
-Fix main work-order settings save for approval/reminders and default reminders to1day. See START-HERE.md. Direct main check-in authorized; no release tag or deployment performed.
+# v0.3.72
+Edit unit from work order and customer equipment; serial optional at service intake. See START-HERE.md. Direct main check-in authorized; no tag/deployment or real store changes performed.
