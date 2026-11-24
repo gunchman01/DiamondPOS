@@ -1,26 +1,24 @@
-# DiamondPOS v0.3.61 — work-order texts and kiosk customer verification
+# DiamondPOS v0.3.62 — unified Sales History
 
-No separate customer service-text opt-in is needed. Select Text, Email or both when manually sending an estimate or ready-for-pickup notice. Text starts unchecked; nothing auto-sends. Mobile Text Alerts STOP/provider restrictions remain.
-
-Open a saved customer (Customers or edit the selected sale customer), save changes, then click Verify customer on kiosk. The customer can accept their contact details or update and save to the same record. Account/tax/staff fields remain private. A changed email does not gain marketing permission. Conflicting staff contact edits require a new verification request.
+Home → Sales History now opens a dedicated transaction table for sales, voids, work-order checkout sales, refunds/exchanges, on-account sales and payments on account. Click a row for its receipt/payment; payment allocations link to original invoices. All dates by default, newest first, 50/page with search/date/type filters. Reports and End of Day remain separate.
 
 ## Publish and install
 
-After direct main check-in, publish v0.3.61 targeting main:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.61&target=main
+After direct main check-in, publish v0.3.62 targeting main:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.62&target=main
 
-Wait for Release installer assets. Back up and update Store Server first, then tills. Reload the paired kiosk browser page. No migration (schema43/minimum client0.3.59 retained); old till screens still show obsolete service-text restrictions until updated. No website file changes.
+Wait for Release installer assets. Back up and update Store Server first, then tills. No migration (schema43/minimum client0.3.59 retained). No website or kiosk changes in this version. Existing customized menus can add Sales History under Settings → Menus; the Home tile always opens the new page.
 
-## Verify at the store
+## Shop checks
 
-1. Existing customer without old service-text permission: Text should be selectable for estimates/pickup. Confirm the number and choose whether to send. Replies remain unmonitored. Provider opt-outs are not bypassed.
-2. Customer → Verify customer on kiosk: Accept details, then a second session Update details; confirm same customer, correct changes, refreshed staff view and unchanged balance/tax data.
-3. Cancel/re-send, and change contact details on another till during verification; stale submissions must be rejected. New-customer signup must still work. Kiosk clears contact fields on completion/timeout.
-4. Run a self-number text test only when you choose; no real text was sent during development.
+- Browse all transaction types, search customer/receipt/payment/WO/reference, date/type filters and Previous/Next.
+- Open sale/refund/work-order/void receipts; original void amounts are marked and refund signs remain negative. Reprint if desired. Closing after a void refreshes the table.
+- Open AP payment details; confirm amount/method, QuickBooks status and links to invoices paid. A payment is not another sale; no combined revenue total is shown.
+- Verify readable layout at 125% scaling, horizontal scrolling if needed, keyboard Enter/Space on rows. No real Windows visual/printing check was performed here.
 
 ## Git commands later on your laptop
 
-Changes are directly committed to main. Preserve uncommitted local edits before pulling.
+Changes are committed directly to main. Preserve any uncommitted local edits before pulling.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -32,9 +30,9 @@ npm test
 npm run build
 ```
 
-If publishing from Git instead of the release page (choose one):
+If publishing the tag with Git instead of the release page (choose one):
 
 ```bash
-git tag v0.3.61
-git push origin v0.3.61
+git tag v0.3.62
+git push origin v0.3.62
 ```

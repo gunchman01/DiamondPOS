@@ -1,3 +1,3 @@
-# v0.3.61 direct update
+# v0.3.62 direct update
 
-Per-notice manual work-order text selection without separate customer opt-in gate; legacy fields retained without fabricated consent. Existing-customer kiosk accept/update contact verification with session authorization and conflict protection. New signup preserved. Version0.3.61/schema43/minimum client0.3.59. Update server then tills; reload kiosk page. Direct main commit authorized; release tag via GitHub UI. No real messages or deployment.
+Dedicated Sales History table behind Home tile; includes all saved receipts and account payments with separate source/ID keys. Click opens receipt or read-only payment detail with invoice links. Server-side search/date/type filters and50/page. Existing Reports/End of Day unchanged. No schema change43/minimum client0.3.59. Update server then tills. Direct main commit authorized; release tag via GitHub UI. No live transactions, messages or deployment.

@@ -71,6 +71,15 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.62 — 24 November 2026: unified Sales History
+
+- User requested Home Sales History be a table of all Make a Sale activity including voids, work-order checkouts, refunds and account payments, each opening its source transaction. Repointed Home tile from Reports to dedicated history screen, registered App title/help/navigation, and added configurable menu entry. Report library and end-of-day screens retained.
+- Read-only paired GET transaction-history performs bounded UNION ALL of sales and account_payments (50/page), deterministic saved-date/source/ID order, count, escaped literal search, inclusive server-local date bounds and type filter. One row per sale/payment, no payment/line joins multiplying receipts. Void overrides kind, refund negative, returns/exchanges incl zero and older negative-qty items, work-order metadata and on-account metadata retained. No held/unfinished orders fabricated into sales. No cross-type grand total; void amounts labelled original and account payments labelled separately.
+- Row opens existing SaleDialog, or new read-only payment detail with whitelisted recorded fields and allocations linking to original invoice receipts. Staff API pairing and ID/query validation apply; request hashes/keys are not exposed. Opening/refreshing history has no stock, account, export or transaction mutation. Closing receipt dialog refreshes history after voids.
+- Validation:399 regression checks, typecheck and production build passed. New actual checkout/void/return/account-payment fixtures plus HTTP/SQLite queries verify all types, source/ID collisions, cash change vs amount, signed/zero/original amounts, correct details/allocations, date/search/type/literal wildcard filters, company names, pagination with tied timestamps, pairing/error handling and unchanged stock/allocations. Windows table layout and click/reprint flow remain shop checks; no live transaction or external sync performed.
+- Baseline main329b1ae03a5a36153fcb46ceef589e988056f1c3. Version0.3.62, no schema change43/minimum client0.3.59. Direct main check-in authorized. Update Store Server first for new endpoints, then tills for new navigation. No release tag/deployment by assistant.
+
+
 ### v0.3.61 — 24 November 2026: per-notice service texts and customer kiosk verification
 
 - User requested no separate saved customer service-text opt-in; staff select Text at the work-order notice. Removed customer-editor checkbox and work-order saved/per-send permission gates. Text still starts unchecked and sends only on explicit staff submission for estimates or ready_pickup. API settings/key/callback/phone checks, provider STOP restrictions, no marketing, manual send, audit, per-channel outcomes and request-ID idempotence remain. Legacy database permission fields are retained, unchanged and ignored by the new send path; no fake consent migration. Old clients should update to get usable controls.
@@ -660,6 +669,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Publish/install v0.3.62 server first then tills. Home → Sales History: verify all transaction types, date/type/search, pages, row-click receipts, void status after closing, and AP detail → invoice receipt links. Check 125% display/table scrolling and keyboard Enter/Space on actual shop PC. Read-only browsing must not change inventory/account/sync balances.
+
 
 - Install v0.3.61 Store Server first then tills and reload paired kiosk browser. Verify Accept/Update for an existing customer, confirm staff refresh and unchanged accounts/tax info, try cancellation and new signup. Verify Text available for customers previously unchecked, manually selected only, with a self-number test after reviewing provider settings. No real messages sent during development.
 

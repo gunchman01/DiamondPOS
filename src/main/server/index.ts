@@ -1,3 +1,4 @@
+import {registerTransactionHistoryRoutes} from './transactionHistory'
 import { resumeSmtpSockets } from '../lifecycle/smtpSockets'
 import { pauseBackgroundIO, resumeBackgroundIO } from '../lifecycle/backgroundIO'
 import { closeHttpServer } from '../lifecycle/httpClose'
@@ -324,6 +325,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
   registerReceivingRoutes(app, db)
   registerVendorRoutes(app, db)
   registerAccountRoutes(app, db,quickBooksSyncing)
+  registerTransactionHistoryRoutes(app,db)
   registerReportRoutes(app, db)
   registerEndOfDayRoutes(app, db)
 

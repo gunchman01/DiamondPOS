@@ -1,3 +1,4 @@
+import SalesHistory from './screens/SalesHistory'
 import EstimateResponseNotice from './EstimateResponseNotice'
 import DailyCloseout from './screens/DailyCloseout'
 import Vendors from './screens/Vendors'
@@ -33,6 +34,7 @@ type Tab =
   | 'products'
   | 'customers'
   | 'reports'
+  | 'history'
   | 'settings'
   | 'updates'
   | 'quickbooks'
@@ -54,6 +56,7 @@ const TITLES: Record<Tab, string> = {
   marketing: 'Marketing',
   workorders: 'Work Orders',
   reports: 'Reports',
+  history: 'Sales History',
   settings: 'Settings',
   updates: 'Updates',
   help: 'Help',
@@ -74,6 +77,7 @@ const HELP_TOPIC: Record<Tab, string> = {
   marketing: 'marketing-mailers',
   workorders: 'work-orders-repairs',
   reports: 'reports',
+  history: 'sales-history',
   settings: 'settings',
   updates: 'updates',
   help: 'getting-started',
@@ -278,6 +282,7 @@ export default function App() {
         )}
         {tab === 'endofday' && <DailyCloseout />}
         {tab === 'reports' && <Reports />}
+        {tab === 'history' && <SalesHistory />}
         {tab === 'settings' && <Settings boot={boot} onChange={setBoot} />}
         {tab === 'updates' && <Updates boot={boot} onChange={setBoot} health={health} />}
         {tab === 'help' && <Help topic={helpTopic} onFeedback={openFeedback} boot={boot} />}

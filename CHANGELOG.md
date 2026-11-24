@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.62 - 24 Nov 2026
+- Home → Sales History now opens a transaction table, separate from Reports. Includes sales, voids, work-order checkout sales, refunds, exchanges, on-account sales and payments received on account.
+- Search by receipt/payment number, customer, till, work-order number or reference. Filter dates and transaction type; browse all dates newest first with Previous/Next pages.
+- Click any row to open the original receipt or account-payment details. Payment details link to the invoices paid. Voids retain their original amounts for audit; account payments remain separate from sales.
+
 ## v0.3.61 - 24 Nov 2026
 - Service texts can be selected directly on an estimate or ready-for-pickup notice. Removed the separate customer-page opt-in checkbox and extra permission confirmation. Texts remain manually selected and sent; provider STOP handling still applies.
 - Verify existing customer details at the kiosk: open the customer, save any edits, then select Verify customer on kiosk. The customer can accept the contact details or edit and save them to the same customer record.

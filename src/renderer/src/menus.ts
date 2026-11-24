@@ -13,6 +13,7 @@ export type Screen =
   | 'products'
   | 'customers'
   | 'reports'
+  | 'history'
   | 'settings'
   | 'updates'
   | 'quickbooks'
@@ -50,6 +51,7 @@ export const MENU_ENTRIES: MenuEntry[] = [
   { id: 'receive', label: 'Receive items', icon: 'receivingHistory', screen: 'receiving', intent: 'receive' },
   { id: 'receivings', label: 'See receivings', icon: 'receivingHistory', screen: 'receiving' },
   { id: 'tags', label: 'Print price tags', icon: 'printer', screen: 'products', intent: 'tags' },
+  { id: 'history', label: 'Sales History', icon: 'salesHistory', screen: 'history' },
   { id: 'reports', label: "Reports", icon: 'reports', screen: 'reports' },
   { id: 'marketing', label: 'Send a mailer', icon: 'marketing', screen: 'marketing' },
   { id: 'quickbooks', label: 'Sync with QuickBooks', icon: 'sync', screen: 'quickbooks' },
@@ -67,8 +69,8 @@ export interface MenuConfig {
 }
 
 export const DEFAULT_MENUS: MenuConfig = {
-  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'vendors', 'receive', 'tags', 'reports', 'endofday', 'settings', 'help'],
-  home: ['sell', 'workorders', 'products', 'customers', 'reports', 'held', 'vendors', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
+  top: ['home', 'sell', 'return', 'held', 'checkin', 'workorders', 'customers', 'products', 'history', 'vendors', 'receive', 'tags', 'reports', 'endofday', 'settings', 'help'],
+  home: ['sell', 'workorders', 'products', 'customers', 'history', 'reports', 'held', 'vendors', 'receivings', 'marketing', 'quickbooks', 'help', 'feedback']
 }
 
 /** Saved ids -> entries (unknown ids dropped; nothing saved = defaults) */

@@ -270,7 +270,7 @@ The iPad on the counter shows the store logo until a till sends it the sign-up f
 > Tablet won't connect? See **Kiosk tablet won't connect** below for step-by-step checks.
 
 ## Sales history and reports
-Open **Sales History** or **Reports**, choose **End of Day & receipts**, and pick a date.
+For daily totals and end-of-day reports, open **Reports**, choose **End of Day & receipts**, and pick a date. For the full transaction list, use **Home → Sales History**.
 - Totals across all tills: number of sales, takings (after refunds), tax, **cash** (after change), **card**, tax-exempt sales and **returns**.
 - Every sale is listed with its till and customer. Refunds and exchanges are marked. Click a sale to open the full receipt, or **Reprint** for a printed copy.
 > Compare "Card (terminal)" with the settlement total printed by the card terminal at the end of the day.
@@ -894,3 +894,18 @@ Under **Income accounts**, choose the merchandise/parts Sales account and option
 Open a saved customer from **Customers** (or edit the selected customer on Make a Sale). Save any pending edits, then click **Verify customer on kiosk**. The paired, online kiosk for this till displays only that customer's name, company, address, phone/mobile and email. The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
 
 No account balance, staff notes, tax exemption, discount or marketing controls are shown in this review. Staff-only fields remain unchanged. Changing the email address does not grant marketing permission to the new address. If staff change contact details during the review, resend the verification request. Cancelling, replacing, unpairing or the five-minute timeout ends access. Contact fields clear when the kiosk returns to its welcome screen. After updating, reload the kiosk browser page to get the new Accept/Update form.
+
+
+## Sales History
+
+Open **Home → Sales History** for one table of all recorded checkout transactions: ordinary sales, voided receipts, completed work-order/estimate-fee checkouts, refunds, returns/exchanges, sales charged to a customer account, and payments received on account. It opens on all dates, newest sale/payment date first, with 50 rows per page. Held receipts and unfinished work orders remain in their own screens until checkout creates a receipt.
+
+Search by receipt/payment number, customer name, till, work-order number or reference. Receipt numbers show **#…** and account payments show **AP #…** so matching numeric IDs remain distinct. Use Type, From and Through to narrow the list; dates use the Store Server's local time and include both endpoints. Clear filters returns to all dates. Use Previous/Next to see the whole history.
+
+Click a row or its number to open the saved transaction. Keyboard users can tab to a row and press Enter/Space. Sales, refunds, exchanges, work-order and on-account receipts open the existing receipt window, including item lines, payments, tax, work-order reference, void information and reprint options. Closing the window refreshes the list after any void action.
+
+Account payments open a payment-details window with customer, amount, date, method/reference, till/staff, QuickBooks status/error and allocations to existing invoices. Click an allocated receipt number to open that sale. This screen does not take a new payment. An account payment is separate from its original on-account sale and must not be counted as additional sales revenue.
+
+Voids show their original receipt amount and original sale date, marked VOID; the receipt detail shows the void date/reason. Refunds retain negative amounts, zero exchanges remain zero. History does not add these different transaction types into a misleading sales total. Reports and End of Day remain available separately for totals.
+
+Sales History can also be added to the left/dropdown menus in **Settings → Menus**. Existing customized menu choices remain saved.

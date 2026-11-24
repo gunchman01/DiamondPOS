@@ -10,6 +10,7 @@ export type NavTarget =
   | 'products'
   | 'customers'
   | 'reports'
+  | 'history'
   | 'settings'
   | 'updates'
   | 'quickbooks'
@@ -46,7 +47,7 @@ const POS: Section = {
     { kind: 'arrow', col: 4, row: 1, dir: 'right' },
     { kind: 'tile', col: 5, row: 1, icon: 'makeSale', label: 'Make a Sale', go: 'sell' },
     { kind: 'arrow', col: 6, row: 1, dir: 'right' },
-    { kind: 'tile', col: 7, row: 1, icon: 'salesHistory', label: 'Sales History', go: 'reports' },
+    { kind: 'tile', col: 7, row: 1, icon: 'salesHistory', label: 'Sales History', go: 'history' },
     { kind: 'arrow', col: 8, row: 1, dir: 'right' },
     { kind: 'tile', col: 9, row: 1, icon: 'endOfDay', label: 'End of Day', go: 'endofday' },
     { kind: 'arrow', col: 5, row: 2, dir: 'both' },

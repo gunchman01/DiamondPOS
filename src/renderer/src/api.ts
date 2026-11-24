@@ -1,3 +1,4 @@
+import type {TransactionHistoryPage,AccountPaymentDetail} from '../../shared/transactionHistory'
 import type { CampaignAnalytics } from '../../shared/campaignAnalytics'
 import type { MarketingConsentView, MarketingSubscriber } from '../../shared/marketingConsent'
 import type { CustomerEquipment } from '../../shared/customerEquipment'
@@ -260,6 +261,8 @@ export const api = {
 
   createSale: (s: SaleRequest) => request<Sale>('POST', '/api/sales', s),
   getSale: (id: number) => request<Sale>('GET', `/api/sales/${id}`),
+  transactionHistory: (query:string) => request<TransactionHistoryPage>('GET',`/api/transaction-history?${query}`),
+  accountPaymentDetail: (id:number) => request<AccountPaymentDetail>('GET',`/api/transaction-history/account-payments/${id}`),
   listSales: (date: string) => request<SaleSummary[]>('GET', `/api/sales?date=${date}`),
   heldList: () => request<HeldSummary[]>('GET', '/api/held'),
   heldCount: () => request<number>('GET', '/api/held/count'),
