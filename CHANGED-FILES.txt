@@ -1,5 +1,5 @@
-DiamondPOS v0.3.60 direct check-in
-Baseline main a06e5ecb6bdeecd0272791a72d9b1c86d2e0f0a2
+DiamondPOS v0.3.61 direct check-in
+Baseline main 9d3da8fe64159fd841f427a288df932adaef80a6
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,18 +9,14 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
-src/main/server/quickbooks/accountSync.ts
-src/main/server/quickbooks/qbwc.ts
-src/main/server/quickbooks/qbxml.ts
-src/main/server/quickbooks/queue.ts
-src/main/server/quickbooks/store.ts
-src/main/server/quickbooks/summary.ts
-src/main/server/quickbooks/taxMapping.ts
+src/main/server/kiosk.ts
+src/main/server/kioskPage.ts
+src/main/server/workorders.ts
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
-src/renderer/src/screens/QuickBooks.tsx
-src/shared/quickbooks.ts
-tests/card-types.ts
-tests/qb-general.ts
-tests/qb-tax-mapping.ts
+src/renderer/src/screens/CustomerEditor.tsx
+src/renderer/src/screens/KioskSignup.tsx
+src/renderer/src/screens/WorkOrderTicket.tsx
+tests/kiosk-verification.ts
 tests/regressions.ts
-tests/sale-dates.ts
+tests/service-texts.ts

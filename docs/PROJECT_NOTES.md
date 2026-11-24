@@ -71,6 +71,14 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.61 — 24 November 2026: per-notice service texts and customer kiosk verification
+
+- User requested no separate saved customer service-text opt-in; staff select Text at the work-order notice. Removed customer-editor checkbox and work-order saved/per-send permission gates. Text still starts unchecked and sends only on explicit staff submission for estimates or ready_pickup. API settings/key/callback/phone checks, provider STOP restrictions, no marketing, manual send, audit, per-channel outcomes and request-ID idempotence remain. Legacy database permission fields are retained, unchanged and ignored by the new send path; no fake consent migration. Old clients should update to get usable controls.
+- Added optional customerId to staff-authenticated kiosk session start. Online paired kiosk retrieves only allowlisted contact fields for its assigned waiting session through no-store endpoint; no search/enumeration/customer ID provided by kiosk. Accept leaves contact unchanged; Update validates the allowlist and transactionally updates exactly that existing customer. Marketing/tax/account/discount/staff fields cannot be supplied by kiosk. Email address changes clear marketing permission for the new address, never grant it. Contact snapshot comparison blocks concurrent staff edits; current financial/staff changes remain intact. Existing signup flow and tax-card review preserved.
+- CustomerEditor button Verify customer on kiosk available for saved customers with no unsaved edits, including from Make a Sale. Kiosk uses Accept details / Update details / Save updated details; polling refreshes staff customer/list/selected sale. Cleanup cancels abandoned sessions; unpair cancels active session, timeout remains5min, DOM contact values clear on finish/cancel/idle. New browser page must be reloaded after upgrade. Session/GC timers unref so they do not hold shutdown/test process open.
+- Baseline main9d3da8fe64159fd841f427a288df932adaef80a6. Version0.3.61, no schema change43/minimum client0.3.59. Direct main update authorized. Validation:389 regression checks, typecheck and build. Automated real HTTP/SQLite kiosk tests cover staff/kiosk authorization, private fields, accept/update exact record, malicious fields, validation, conflict, replacement/cancellation/unpair and blank signup; inline kiosk JS syntax and simulated-browser accept/edit/timeout behavior checked. Service-text tests use mocked provider only. Windows/tablet visual checks and actual provider delivery remain user tests; no live messages or deployment performed.
+
+
 ### v0.3.60 direct check-in — 23 November 2026: tax-location and labor mappings
 
 - User clarified Exmark website orders are recorded as received/sold locally using the customer's applicable selected POS tax location; no shipping workflow. Existing sales already snapshot tax rate/id/name. Added mappings keyed by saved rate ID AND value, exposing current and historical rates. Default store item is permitted only for the default identity (or legacy missing ID) at a matching cached QuickBooks rate. Missing/changed/unknown QB items or rate mismatch block insertion with a retryable problem. No large tax difference is disguised as general income.
@@ -652,6 +660,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.61 Store Server first then tills and reload paired kiosk browser. Verify Accept/Update for an existing customer, confirm staff refresh and unchanged accounts/tax info, try cancellation and new signup. Verify Text available for customers previously unchecked, manually selected only, with a self-number test after reviewing provider settings. No real messages sent during development.
+
 
 - Release/install v0.3.60 server first then tills; select Sales and Labor accounts, map each POS tax location/rate to matching QuickBooks items. Refresh QB lists after creating items. Test store/Exmark rates and mixed parts/labor paid and on-account transactions in the test company; confirm tax liability and income account reports. Correct mapping errors then retry. Existing QB exports are not rewritten.
 

@@ -951,7 +951,7 @@ export function registerWorkOrderRoutes(app: express.Express, db: DB, readSettin
     if(email&&!wo.customerEmail)throw new WoError(400,'Add a customer email address first')
     const config=textSettings(db)
     let phone=''
-    if(text){if(!wo.customerServiceTextAllowed)throw new WoError(400,'Enable OK to text service updates on the customer record first, with their permission');if(!config.enabled||!config.apiKey||!config.callbackNumber)throw new WoError(400,'Configure and enable Mobile Text Alerts in Work Order Settings first');if(b.permission!==true)throw new WoError(400,'Confirm the customer agreed to receive service texts');phone=smsPhone(wo.customerPhone)}
+    if(text){if(!config.enabled||!config.apiKey||!config.callbackNumber)throw new WoError(400,'Configure and enable Mobile Text Alerts in Work Order Settings first');phone=smsPhone(wo.customerPhone)}
     db.transaction(()=>{db.prepare('INSERT INTO work_order_notifications(request_id,work_order_id,request_json) VALUES (?,?,?)').run(id,wo.id,payload);hist(wo.id,`Sending notification (${[email?'email':'',text?'text':''].filter(Boolean).join(' and ')}). Request ${id}. If no result follows, check provider before resending.`,by(req))})()
     const results:Record<string,ChannelResult>={}
     const deliver=async(link?:string)=>{

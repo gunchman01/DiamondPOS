@@ -796,7 +796,7 @@ Click the header notice to see the response list and acknowledge the responses s
 
 In Work Order Settings, enable **Work-order texts — Mobile Text Alerts**, enter the provider API key and the store phone number, and save. An account enabled for custom messages and a verified sender number is needed. Blank API key keeps the saved key. Keys are stored in the server database and backups; do not share them. Contacts sent by number may be added to the provider account: keep service recipients separate from marketing audiences.
 
-On an estimate or Ready for Pickup ticket, open **Send estimate for decision** or **Notify customer**. Check **Email**, **Text**, or both. Text uses the customer's mobile number, falling back to their phone. Verify the displayed number and confirm the customer agreed to receive service texts. Review the previews and send. These notices are manual; changing a stage does not automatically send anything.
+On an estimate or Ready for Pickup ticket, open **Send estimate for decision** or **Notify customer**. Check **Email**, **Text**, or both. Text uses the customer's mobile number, falling back to their phone. Verify the displayed number and select Text for this notice; no separate customer-page checkbox is required. Review the previews and send. These notices are manual; changing a stage does not automatically send anything.
 
 Both estimate messages contain the same revision's approval link. Customers approve or decline on that webpage. Replies to email and text are not monitored in DiamondPOS. Messages tell customers to use the link for decisions and call the store for questions. Mobile Text Alerts processes STOP requests; there is no conversation inbox in the POS.
 
@@ -811,11 +811,9 @@ On an open ticket with an unpaid fee, choose **Add estimate fee to bill** and co
 Type at least two characters in the customer field to see matching active customer names/company names, email/customer-number prefixes or phone prefixes. Use the arrow keys and Enter or click a result to select it. **Find** opens the full customer picker. Escape closes suggestions.
 
 
-### Saved permission for service texts (v0.3.52)
+### Service texts selected on the work order (v0.3.61)
 
-Open **Customers → Add/Edit customer → Contact Info**. Enter the mobile number (phone is used if mobile is blank), then check **OK to text service updates** only after the customer agrees to estimate and pickup texts. Save. Existing customers start unchecked. This is separate from marketing email permission. Phone-number edits clear the choice so permission can be confirmed for the new number. Provider STOP opt-outs still apply; the POS checkbox does not override them.
-
-Reopen the work order after saving the customer. **Text** is available in the estimate/pickup Notify dialog only when that customer's permission is saved. Email remains available independently. The server checks saved permission before sending. Replies are not monitored.
+For estimate approval and Ready for Pickup notices, open **Send estimate for decision / Notify customer**, then select **Email**, **Text**, or both. Text is available without first opting in on the customer page; the separate customer opt-in checkbox has been removed. Verify the displayed mobile number (phone if mobile is blank), review and send. Text is initially unchecked for each notice. Nothing sends automatically when you create/edit a customer or change a work-order stage. Marketing email permission is separate and unchanged. Mobile Text Alerts still handles STOP requests and provider restrictions; selecting Text does not override them. Replies are not monitored.
 
 For the API key, open **Work Orders → Work order settings**. The **Work-order texts — Mobile Text Alerts** section at the top contains Enable, API key, store phone and Save text settings. In v0.3.51 a routing bug could replace the form with Work order not found; update the Store Server and every till to v0.3.52 to fix it.
 
@@ -889,3 +887,10 @@ In **Settings → QuickBooks**, refresh the QuickBooks lists after adding tax it
 A missing, removed or mismatched mapping prevents a new sales receipt/account invoice from being added with the wrong tax rate. The queue/preview shows the problem. After correcting and saving the mapping, select the affected paid receipts in the transaction queue and queue/retry them; for on-account invoices use the account **Retry sync** action. Run Web Connector again. Already confirmed transactions are not resent or rewritten. Tax settings changes do not repair old QuickBooks entries automatically. The POS uses configured tax rates; it does not determine which jurisdiction applies.
 
 Under **Income accounts**, choose the merchandise/parts Sales account and optionally a separate Labor Income account. Work-order labor and catalog items in the **Service Labor** department export as **POS Labor**. Other parts, merchandise, estimate fees, shop supplies and miscellaneous charges remain **POS General**. Blank Labor uses the general income account for compatibility. New QuickBooks POS Labor items are created using the selected labor account; review existing QuickBooks item/account settings if you later change accounts. Separate income accounts do not change whether a line is taxable.
+
+
+### Verify an existing customer's contact details at the kiosk (v0.3.61)
+
+Open a saved customer from **Customers** (or edit the selected customer on Make a Sale). Save any pending edits, then click **Verify customer on kiosk**. The paired, online kiosk for this till displays only that customer's name, company, address, phone/mobile and email. The customer can **Accept details** or choose **Update details**, edit the fields, and **Save updated details**. The existing customer is updated, not duplicated; a verification note is recorded and the staff screen refreshes. New-customer Send to kiosk still opens a blank signup form.
+
+No account balance, staff notes, tax exemption, discount or marketing controls are shown in this review. Staff-only fields remain unchanged. Changing the email address does not grant marketing permission to the new address. If staff change contact details during the review, resend the verification request. Cancelling, replacing, unpairing or the five-minute timeout ends access. Contact fields clear when the kiosk returns to its welcome screen. After updating, reload the kiosk browser page to get the new Accept/Update form.

@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.61 - 24 Nov 2026
+- Service texts can be selected directly on an estimate or ready-for-pickup notice. Removed the separate customer-page opt-in checkbox and extra permission confirmation. Texts remain manually selected and sent; provider STOP handling still applies.
+- Verify existing customer details at the kiosk: open the customer, save any edits, then select Verify customer on kiosk. The customer can accept the contact details or edit and save them to the same customer record.
+- Kiosk verification shows contact details only, protects staff-only information, detects conflicting staff edits and clears displayed details after finishing. Reload the kiosk page after updating.
+
 ## v0.3.60 - 23 Nov 2026
 - Match each checkout tax location/rate to its own QuickBooks sales tax item. Exmark customer-location sales keep the tax rate saved on the sale when sent to QuickBooks.
 - Missing, removed or mismatched tax mappings show a clear problem and prevent adding the sale or account invoice with the wrong rate. Correct the mapping and retry; already confirmed transactions are not resent.

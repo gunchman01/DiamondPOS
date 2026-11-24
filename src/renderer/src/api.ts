@@ -168,7 +168,7 @@ export const api = {
     request<KioskInfo>('PUT', `/api/kiosks/${id}`, changes),
   removeKiosk: (id: number) => request<{ ok: boolean }>('POST', `/api/kiosks/${id}/remove`),
   setLogo: (dataUrl: string | null) => request<StoreSettings>('PUT', '/api/settings/logo', { dataUrl }),
-  startKioskSession: (tillName: string) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName }),
+  startKioskSession: (tillName: string, customerId?:number) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName, customerId }),
   getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
 
@@ -209,7 +209,7 @@ export const api = {
   woCancelEstimate: (id:number,by:string) => request<WorkOrder>('POST',`/api/workorders/${id}/cancel-estimate`,{by}),
   woTextSettings: () => request<{enabled:boolean;hasKey:boolean;callbackNumber:string}>('GET','/api/workorders/text-settings'),
   woSaveTextSettings: (s:{enabled:boolean;apiKey:string;callbackNumber:string;clearKey?:boolean}) => request<{enabled:boolean;hasKey:boolean;callbackNumber:string}>('PUT','/api/workorders/text-settings',s),
-  woNotify: (id:number,body:{requestId:string;by:string;estimate:boolean;email:boolean;text:boolean;permission:boolean}) => request<{workOrder:WorkOrder;results:Record<string,{status:string;detail:string}>}>('POST',`/api/workorders/${id}/notify`,body),
+  woNotify: (id:number,body:{requestId:string;by:string;estimate:boolean;email:boolean;text:boolean;permission?:boolean}) => request<{workOrder:WorkOrder;results:Record<string,{status:string;detail:string}>}>('POST',`/api/workorders/${id}/notify`,body),
   woEmailPreview: (id: number, estimate=false) => request<{ subject: string; html: string; text: string; textPreview:string }>('GET', `/api/workorders/${id}/email-preview${estimate?'?estimate=1':''}`),
   woEmail: (id: number, by: string, estimate=false) => request<WorkOrder>('POST', `/api/workorders/${id}/email`, { by, estimate }),
   woPickupNotFixed: (id: number, by: string) => request<WorkOrder>('POST', `/api/workorders/${id}/pickup-not-fixed`, { by }),

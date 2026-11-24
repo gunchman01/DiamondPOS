@@ -25,16 +25,13 @@ export async function testServiceTexts(check:(name:string,fn:()=>void)=>void,dir
   const settingsBefore=await call('/api/workorders/text-settings'),settingsSaved=await call('/api/workorders/text-settings',{enabled:true,apiKey:'api-test-key',callbackNumber:'918-341-3336'},'PUT'),settingsAfter=await call('/api/workorders/text-settings')
   check('text settings GET and PUT resolve as settings rather than work-order IDs and hide the key',()=>{assert.equal(settingsBefore.status,200);assert.equal(settingsSaved.status,200);assert.equal(settingsAfter.status,200);assert.equal(settingsAfter.data.hasKey,true);assert.equal(settingsAfter.data.callbackNumber,'918-341-3336');assert.ok(!JSON.stringify(settingsAfter.data).includes('api-test-key'))})
   globalThis.fetch=remote
-  const id=ticket(),request={requestId:'ready-notice-request-001',email:false,text:true,permission:true,by:'Test'}
-  const beforePermission=await call(`/api/workorders/${id}/notify`,{...request,requestId:'permission-required-request-001'})
-  check('existing customers default to text disabled and a forged per-send checkbox cannot bypass it',()=>{assert.equal(getCustomer(db,customer)?.okToServiceText,false);assert.equal(beforePermission.status,400);assert.equal(sent.length,0)})
-  const current=getCustomer(db,customer)!;updateCustomer(db,customer,validateCustomer({okToServiceText:true},current))
-  check('customer service-text checkbox persists independently from marketing email permission',()=>{assert.equal(getCustomer(db,customer)?.okToServiceText,true);assert.equal(getCustomer(db,customer)?.okToEmail,false)})
+  const id=ticket(),request={requestId:'ready-notice-request-001',email:false,text:true,by:'Test'}
+  check('legacy customer permission remains unchanged; texting is selected per work-order notice',()=>{assert.equal(getCustomer(db,customer)?.okToServiceText,false);assert.equal(getCustomer(db,customer)?.okToEmail,false)})
   const first=await call(`/api/workorders/${id}/notify`,request),again=await call(`/api/workorders/${id}/notify`,request)
   check('pickup text targets one normalized customer number, identifies unit and states replies unmonitored',()=>{assert.equal(first.status,200);assert.equal(first.data.results.text.status,'accepted');assert.equal(sent.length,1);assert.deepEqual(sent[0].subscribers,['+19185551234']);assert.ok(sent[0].message.includes('Chainsaw'));assert.ok(sent[0].message.includes('Replies are not monitored'));assert.ok(sent[0].message.includes('Reply STOP'));assert.equal(sent[0].allSubscribers,undefined)})
   check('replaying notification request does not send a duplicate paid text',()=>{assert.equal(again.status,200);assert.equal(sent.length,1)})
-  const changed=await call(`/api/workorders/${id}/notify`,{...request,email:true}),permission=await call(`/api/workorders/${id}/notify`,{...request,requestId:'no-permission-request-001',permission:false}),stage=await call(`/api/workorders/${ticket('on_bench')}/notify`,{...request,requestId:'bench-notice-request-001'})
-  check('notification guards reject reused choices, missing service-text permission and unsupported stages',()=>{assert.equal(changed.status,409);assert.equal(permission.status,400);assert.equal(stage.status,400);assert.equal(sent.length,1)})
+  const changed=await call(`/api/workorders/${id}/notify`,{...request,email:true}),permission=await call(`/api/workorders/${id}/notify`,{...request,requestId:'no-channel-request-001',text:false}),stage=await call(`/api/workorders/${ticket('on_bench')}/notify`,{...request,requestId:'bench-notice-request-001'})
+  check('notification guards reject reused choices, missing channel selection and unsupported stages',()=>{assert.equal(changed.status,409);assert.equal(permission.status,400);assert.equal(stage.status,400);assert.equal(sent.length,1)})
   mode='timeout';const uncertain=await call(`/api/workorders/${id}/notify`,{...request,requestId:'uncertain-notice-request-001'});await call(`/api/workorders/${id}/notify`,{...request,requestId:'uncertain-notice-request-001'})
   check('ambiguous text result is saved as unknown and never automatically resent',()=>{assert.equal(uncertain.data.results.text.status,'unknown');assert.equal(sent.length,2);assert.ok(!JSON.stringify(uncertain.data).includes('private-key'))})
   mode='zero';const zero=await sendServiceText({enabled:true,apiKey:'test',callbackNumber:'test'},'9185551234','Test','zero',remote)
@@ -48,6 +45,6 @@ export async function testServiceTexts(check:(name:string,fn:()=>void)=>void,dir
   check('failure on one channel remains visible without cancelling the successful text approval link',()=>{assert.equal(mixed.data.results.email.status,'failed');assert.equal(mixed.data.results.text.status,'accepted');assert.equal(mixed.data.workOrder.estimate?.state,'pending')})
   const existing=getCustomer(db,customer)!;updateCustomer(db,customer,validateCustomer({mobile:'9185552222'},existing))
   const numberChanged=await call(`/api/workorders/${id}/notify`,{...request,requestId:'changed-phone-request-001'})
-  check('changing the text destination without renewed permission disables service texts',()=>{assert.equal(getCustomer(db,customer)?.okToServiceText,false);assert.equal(numberChanged.status,400)})
+  check('updated phone is used by a manually selected notice without a customer opt-in gate',()=>{assert.equal(getCustomer(db,customer)?.okToServiceText,false);assert.equal(numberChanged.status,200);assert.deepEqual(sent.at(-1).subscribers,['+19185552222'])})
  }finally{globalThis.fetch=originalFetch;await new Promise<void>(r=>server.close(()=>r()));db.close()}
 }

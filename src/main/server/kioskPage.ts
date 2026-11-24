@@ -44,6 +44,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   .grid3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:16px; }
   .opt { font-weight:400; color:var(--muted); font-size:14px; }
   .req { color:var(--red); }
+  .verification .req { display:none; }
   .tax-box { border:2px solid var(--border); border-radius:14px; padding:8px 16px; margin:4px 0 12px; }
   .tax-box.on { border-color:var(--red); background:#fff8f9; padding-bottom:14px; }
   .tax-box > label.check { margin:0; }
@@ -95,14 +96,16 @@ export const kioskPageHtml = /* html */ `<!doctype html>
 
 <section id="form" class="screen" hidden>
   <form class="card" id="signup" autocomplete="off" novalidate>
-    <h1>Welcome! Tell us about you</h1>
-    <p class="sub">Your details will be added to your purchase.</p>
+    <h1 id="formTitle">Welcome! Tell us about you</h1>
+    <p class="sub" id="formSub">Your details will be added to your purchase.</p>
     <div class="grid2">
       <label>First name <span class="req">*</span><input type="text" id="firstName" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="60" autocomplete="given-name"></label>
       <label>Last name <span class="req">*</span><input type="text" id="lastName" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="60" autocomplete="family-name"></label>
     </div>
     <label>Business name <span class="opt">(optional)</span><input type="text" id="company" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="100" autocomplete="organization"></label>
     <label>Street address <span class="req">*</span><input type="text" id="street" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="120" autocomplete="street-address"></label>
+    <label>Address line 2 <span class="opt">(optional)</span><input type="text" id="street2" maxlength="120"></label>
+    <label>Mobile <span class="opt">(optional)</span><input type="tel" id="mobile" maxlength="30"></label>
     <div class="grid3">
       <label>City <span class="req">*</span><input type="text" id="city" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="60" autocomplete="address-level2"></label>
       <label>State <span class="req">*</span><input type="text" id="state" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" autocomplete="address-level1"></label>
@@ -112,7 +115,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
       <label>Phone <span class="req">*</span><input type="tel" id="phone" inputmode="tel" autocorrect="off" maxlength="30" autocomplete="tel"></label>
       <label>Email <span class="req">*</span><input type="email" id="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="100" autocomplete="email"></label>
     </div>
-    <label class="check"><input type="checkbox" id="okToEmail"> Yes, email me receipts, news and offers</label>
+    <label class="check" id="marketingChoice"><input type="checkbox" id="okToEmail"> Yes, email me receipts, news and offers</label>
     <div class="tax-box" id="taxBox">
       <label class="check"><input type="checkbox" id="taxExempt"> I'm tax exempt</label>
       <div id="taxFields" hidden>
@@ -127,6 +130,8 @@ export const kioskPageHtml = /* html */ `<!doctype html>
     <div class="error" id="error"></div>
     <div class="buttons">
       <button type="button" id="cancelBtn">Cancel</button>
+      <button type="button" id="editBtn" hidden>Update details</button>
+      <button type="button" class="primary" id="confirmBtn" hidden>Accept details</button>
       <button type="submit" class="primary" id="submitBtn">Submit</button>
     </div>
   </form>
@@ -147,9 +152,9 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   var TOKEN_KEY = 'diamondpos_kiosk_token';
   var token = null;
   try { token = localStorage.getItem(TOKEN_KEY); } catch (e) {}
-  var es = null, sessionId = null, storeName = 'our store', thanksTimer = null, busy = false;
+  var es = null, sessionId = null, storeName = 'our store', thanksTimer = null, formTimer = null, busy = false;
   var $ = function (id) { return document.getElementById(id); };
-  var FIELDS = ['firstName', 'lastName', 'company', 'street', 'city', 'state', 'zip', 'phone', 'email', 'taxExemptId', 'taxExemptExpires'];
+  var FIELDS = ['mobile','street2','firstName', 'lastName', 'company', 'street', 'city', 'state', 'zip', 'phone', 'email', 'taxExemptId', 'taxExemptExpires'];
   var REQUIRED = [['firstName', 'first name'], ['lastName', 'last name'], ['street', 'street address'], ['city', 'city'],
     ['state', 'state'], ['zip', 'ZIP code'], ['phone', 'phone number'], ['email', 'email']];
   function todayIso() {
@@ -164,6 +169,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   }
 
   function show(id) {
+    if(id!=='form'){clearTimeout(formTimer);FIELDS.forEach(function(f){$(f).value='';});$('okToEmail').checked=false;$('taxExempt').checked=false;}
     ['pair', 'idle', 'form', 'thanks'].forEach(function (s) { $(s).hidden = s !== id; });
     if (id !== 'form' && document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
@@ -238,7 +244,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
 
   function handle(ev) {
     if (ev.type === 'form') openForm(ev.sessionId);
-    else if (ev.type === 'idle') { sessionId = null; show('idle'); }
+    else if (ev.type === 'idle') { sessionId = null; FIELDS.forEach(function(f){$(f).value='';}); show('idle'); }
     else if (ev.type === 'thanks') showThanks(ev.firstName, ev.taxExempt);
     else if (ev.type === 'branding') loadInfo();
     else if (ev.type === 'unpaired') { forgetToken(); startPairing(); }
@@ -257,6 +263,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   }
 
   // ---------- Sign-up form ----------
+  var verification = false;
   function openForm(id) {
     if (sessionId === id && !$('form').hidden) return;
     sessionId = id;
@@ -268,11 +275,26 @@ export const kioskPageHtml = /* html */ `<!doctype html>
     $('error').textContent = '';
     busy = false;
     $('submitBtn').disabled = false;
-    show('form');
+    $('submitBtn').textContent='Submit';$('confirmBtn').disabled=false;
+    show('idle');
+    formTimer=setTimeout(function(){if(sessionId===id){sessionId=null;show('idle');api('POST','/kiosk/api/cancel',{token:token,sessionId:id}).catch(function(){});}},5*60*1000);
+    api('GET','/kiosk/api/session?token='+encodeURIComponent(token)+'&sessionId='+encodeURIComponent(id)).then(function(j){
+      if(sessionId!==id)return;
+      verification=j.mode==='verify';
+      $('signup').className=verification?'card verification':'card';
+      $('formTitle').textContent=verification?'Please verify your details':'Welcome! Tell us about you';
+      $('formSub').textContent=verification?'Check your information below. Accept it as shown or choose Update details.':'Your details will be added to your purchase.';
+      $('marketingChoice').hidden=verification;$('taxBox').hidden=verification;
+      $('confirmBtn').hidden=!verification;$('editBtn').hidden=!verification;$('submitBtn').hidden=verification;
+      FIELDS.forEach(function(f){$(f).readOnly=verification;if(verification && j.contact){var key=f==='state'?'region':f==='zip'?'postcode':f;$(f).value=j.contact[key] || '';}});
+      show('form');
+    }).catch(function(){if(sessionId===id){sessionId=null;show('idle');}});
+
   }
 
   function showThanks(firstName, taxExempt) {
     sessionId = null;
+    FIELDS.forEach(function(f){$(f).value='';});
     $('thanksTitle').textContent = firstName ? 'Thank you, ' + firstName + '!' : 'Thank you!';
     $('thanksCard').hidden = !taxExempt;
     show('thanks');
@@ -283,9 +305,11 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   $('signup').addEventListener('submit', function (e) {
     e.preventDefault();
     if (busy || !sessionId) return;
+    var submittingId=sessionId;
     var data = { token: token, sessionId: sessionId, okToEmail: $('okToEmail').checked, taxExempt: $('taxExempt').checked };
     FIELDS.forEach(function (f) { data[f] = $(f).value.trim(); $(f).style.borderColor = ''; });
-    var missing = REQUIRED.filter(function (r) { return !data[r[0]]; });
+    data.region=data.state;data.postcode=data.zip;
+    var missing = (verification ? [] : REQUIRED).filter(function (r) { return !data[r[0]]; });
     if (data.taxExempt && !data.taxExemptId) missing.push(['taxExemptId', 'Farm Tax ID']);
     if (data.taxExempt && !data.taxExemptExpires) missing.push(['taxExemptExpires', 'expiration date']);
     var fail = function (ids, msg) {
@@ -294,20 +318,27 @@ export const kioskPageHtml = /* html */ `<!doctype html>
     };
     if (missing.length) return fail(missing.map(function (m) { return m[0]; }),
       'Please fill in: ' + missing.map(function (m) { return m[1]; }).join(', ') + '.');
-    if (data.phone.replace(/\\D/g, '').length < 7) return fail(['phone'], 'Please check your phone number.');
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email)) return fail(['email'], 'Please check your email address.');
+    if (data.phone && data.phone.replace(/\\D/g, '').length < 7) return fail(['phone'], 'Please check your phone number.');
+    if (data.email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email)) return fail(['email'], 'Please check your email address.');
     if (data.taxExempt && data.taxExemptExpires < todayIso())
       return fail(['taxExemptExpires'], 'That Farm Tax ID has expired. Please see the cashier about your exemption.');
     busy = true;
     $('submitBtn').disabled = true;
     $('error').textContent = '';
     api('POST', '/kiosk/api/submit', data).then(function (j) {
-      showThanks(j.firstName, j.taxExempt);
+      if(sessionId===submittingId)showThanks(j.firstName, j.taxExempt);
     }).catch(function (err) {
+      if(sessionId!==submittingId)return;
       busy = false;
       $('submitBtn').disabled = false;
       $('error').textContent = err.message;
     });
+  });
+
+  $('editBtn').addEventListener('click',function(){FIELDS.forEach(function(f){$(f).readOnly=false;});$('editBtn').hidden=true;$('confirmBtn').hidden=true;$('submitBtn').hidden=false;$('submitBtn').textContent='Save updated details';});
+  $('confirmBtn').addEventListener('click',function(){
+    if(busy||!sessionId)return;var confirmingId=sessionId;busy=true;$('confirmBtn').disabled=true;
+    api('POST','/kiosk/api/submit',{token:token,sessionId:confirmingId,confirm:true}).then(function(j){if(sessionId===confirmingId)showThanks(j.firstName,false);}).catch(function(e){if(sessionId===confirmingId){busy=false;$('confirmBtn').disabled=false;$('error').textContent=e.message;}});
   });
 
   $('taxExempt').addEventListener('change', function () {
@@ -318,6 +349,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   $('cancelBtn').addEventListener('click', function () {
     var id = sessionId;
     sessionId = null;
+    FIELDS.forEach(function(f){$(f).value='';});
     show('idle');
     if (id) api('POST', '/kiosk/api/cancel', { token: token, sessionId: id }).catch(function () {});
   });

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Customer, CustomerDetail, CustomerInput } from '../../../shared/types'
 import { api } from '../api'
 import { customerDisplayName } from '../../../shared/types'
+import KioskSignup from './KioskSignup'
 import SaleDialog from './SaleDialog'
 import { DELETE_EXPLAIN, deleteSummary } from '../deleteText'
 import { dateTime, money } from '../format'
@@ -102,6 +103,7 @@ export interface CustomerEditorProps {
 /** Add / edit customer window. */
 export default function CustomerEditor(props: CustomerEditorProps) {
   /** Receipt opened from the History list */
+  const [kioskTill,setKioskTill]=useState<string|null>(null)
   const [viewAccount,setViewAccount]=useState(false)
   const [viewSale, setViewSale] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(props.customerId)
@@ -203,6 +205,9 @@ export default function CustomerEditor(props: CustomerEditorProps) {
           </button>
         </div>
 
+        {editingId && <div className="row gap"><button disabled={busy || JSON.stringify(form)!==JSON.stringify(toForm(detail?.customer ?? null))} onClick={async()=>{try{const b=await window.pos.getBootInfo();setKioskTill(b.config.tillName)}catch(e){setError((e as Error).message)}}}>Verify customer on kiosk</button><span className="small muted">Save any edits first. Send saved contact details for the customer to confirm or update.</span></div>}
+        {kioskTill && editingId && <KioskSignup tillName={kioskTill} customerId={editingId} onClose={()=>setKioskTill(null)} onDone={async c=>{setKioskTill(null);setForm(toForm(c));props.onSaved(c);setNotice('Customer details verified at kiosk');try{const d=await api.getCustomer(c.id);setDetail(d);setForm(toForm(d.customer))}catch(e){setError((e as Error).message)}}}/>}
+
         {/* ----- Customer info (big fields across the top) ----- */}
         <div className="cust-info">
           <label>
@@ -244,9 +249,6 @@ export default function CustomerEditor(props: CustomerEditorProps) {
               </Row>
               <Row label="Mobile">
                 <input {...text('mobile')} />
-              </Row>
-              <Row label="OK to text service updates">
-                <input {...check('okToServiceText')} className="lone-check" /><span className="muted small"> Customer agreed to estimate approval and ready-for-pickup texts at the mobile number above (phone if mobile is blank). No marketing texts. Replies are not monitored; use the estimate link or call the shop. Changing the number clears this choice; check again only with permission for the new number.</span>
               </Row>
               <Row label="E-mail">
                 <input type="email" {...text('email')} />

@@ -15,7 +15,7 @@
  *
  * Security: kiosk endpoints live under /kiosk (no store pairing code needed)
  * but can only show the logo and submit a form for an open session. They never
- * return customer data. Till endpoints live under /api and need the pairing code.
+ * return customer data except a limited, staff-initiated contact verification form, scoped to the assigned active kiosk session. Till endpoints live under /api and need the pairing code.
  */
 import type express from 'express'
 import type { Response } from 'express'
@@ -25,6 +25,12 @@ import { ValidationError } from './products'
 import { CUSTOMER_DEFAULTS, getCustomer, insertCustomer, isIsoDate, updateCustomer, validateCustomer } from './customers'
 import type { Customer, KioskInfo, KioskSession, StoreSettings } from '../../shared/types'
 import { kioskPageHtml } from './kioskPage'
+
+const CONTACT_FIELDS = ['firstName','lastName','company','phone','mobile','email','street','street2','city','region','postcode'] as const
+function contactDetails(c: Customer) {
+  return Object.fromEntries(CONTACT_FIELDS.map(k=>[k,c[k] ?? ''])) as Record<(typeof CONTACT_FIELDS)[number],string>
+}
+type LiveSession = KioskSession & { created:number; timer:ReturnType<typeof setTimeout>; targetId?:number; originalContact?:ReturnType<typeof contactDetails> }
 
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000 // form returns to the logo after 5 minutes
 const PAIR_CODE_TTL_MS = 10 * 60 * 1000
@@ -47,7 +53,7 @@ class HttpErr extends Error {
 // ---- In-memory state (fine to lose on restart: kiosks reconnect, sessions are short-lived)
 const pairCodes = new Map<string, { created: number; token: string | null; name: string | null }>()
 const streams = new Map<number, Set<Response>>() // kioskId -> open event streams
-const sessions = new Map<string, KioskSession & { created: number; timer: ReturnType<typeof setTimeout> }>()
+const sessions = new Map<string, LiveSession>()
 
 function send(kioskId: number, event: Record<string, unknown>) {
   for (const res of streams.get(kioskId) ?? []) res.write(`data: ${JSON.stringify(event)}\n\n`)
@@ -66,7 +72,7 @@ function finish(s: KioskSession & { timer: ReturnType<typeof setTimeout> }, stat
   clearTimeout(s.timer)
   s.status = status
   // Forget finished sessions after a minute (the till only needs to read the result once)
-  setTimeout(() => sessions.delete(s.id), 60_000)
+  setTimeout(() => sessions.delete(s.id), 60_000).unref()
 }
 
 export function registerKioskRoutes(app: express.Express, db: DB, readSettings: (db: DB) => StoreSettings) {
@@ -164,6 +170,14 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     })
   )
 
+  // Only the paired kiosk assigned to this live session can retrieve the limited contact form.
+  app.get('/kiosk/api/session', wrap((req,res)=>{
+    res.setHeader('Cache-Control','no-store')
+    const k=kioskByToken(req.query.token),s=sessions.get(String(req.query.sessionId || ''))
+    if(!s || s.kioskId!==k.id || s.status!=='waiting') throw new HttpErr(409,'This request has finished. Ask staff to send it again.')
+    res.json(s.targetId ? {mode:'verify',contact:s.originalContact} : {mode:'signup'})
+  }))
+
   // The customer submits the sign-up form
   app.post(
     '/kiosk/api/submit',
@@ -173,6 +187,29 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       const s = sessions.get(String(b.sessionId ?? ''))
       if (!s || s.kioskId !== k.id || s.status !== 'waiting')
         throw new HttpErr(409, 'This sign-up has finished. Please ask the staff member to send it again.')
+
+      if(s.targetId) {
+        const customer=db.transaction(()=>{
+          const current=getCustomer(db,s.targetId!)
+          if(!current || !current.active)throw new HttpErr(409,'This customer is no longer available. Please see staff.')
+          if(JSON.stringify(contactDetails(current))!==JSON.stringify(s.originalContact))throw new HttpErr(409,'Staff changed these details while you were reviewing them. Please ask staff to send them again.')
+          const changes:Record<string,unknown>={}
+          if(b.confirm!==true){
+            for(const key of CONTACT_FIELDS){
+              if(typeof b[key]!=='string')throw new ValidationError('Please complete the contact form')
+              changes[key]=String(b[key]).trim()
+            }
+          }
+          if(b.confirm!==true && String(changes.email || '').trim().toLowerCase()!==String(current.email || '').trim().toLowerCase())changes.okToEmail=false
+          // Marketing, tax exemptions, account balances and all other staff-only fields are never accepted here.
+          changes.notes=`${new Date().toLocaleString()} - Customer ${b.confirm===true?'confirmed':'updated'} contact details at kiosk "${k.name}"\n${current.notes || ''}`
+          updateCustomer(db,current.id,validateCustomer(changes,current))
+          return getCustomer(db,current.id)!
+        })()
+        s.customer=customer;s.matchedExisting=true;finish(s,'submitted')
+        send(k.id,{type:'thanks',firstName:customer.firstName,taxExempt:false})
+        return res.json({ok:true,firstName:customer.firstName,taxExempt:false})
+      }
 
       const f = readKioskForm(b)
       const digits = f.phone.replace(/\D/g, '')
@@ -208,6 +245,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
               phone: fill(c.phone, f.phone),
               email: fill(c.email, f.email),
               street: fill(c.street, f.street),
+              street2: fill(c.street2, f.street2 || null),
+              mobile: fill(c.mobile, f.mobile || null),
               city: fill(c.city, f.city),
               region: fill(c.region, f.state),
               postcode: fill(c.postcode, f.zip),
@@ -235,6 +274,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
               email: f.email,
               okToEmail: f.okToEmail,
               street: f.street,
+              street2: f.street2,
+              mobile: f.mobile || null,
               city: f.city,
               region: f.state,
               postcode: f.zip,
@@ -318,6 +359,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     wrap((req, res) => {
       const id = Number(req.params.id)
       db.prepare('UPDATE kiosks SET active = 0, token = token || ? WHERE id = ?').run(`-removed-${Date.now()}`, id)
+      const open=openSessionFor(id)
+      if(open)finish(open,'cancelled')
       send(id, { type: 'unpaired' })
       for (const r of streams.get(id) ?? []) r.end()
       streams.delete(id)
@@ -352,6 +395,10 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       const tillName = String(b.tillName ?? '').trim()
       const all = db.prepare('SELECT * FROM kiosks WHERE active = 1 ORDER BY id').all() as KioskRow[]
       if (all.length === 0) throw new HttpErr(404, 'No kiosk is paired yet. Pair the iPad in Settings first.')
+      if(b.customerId!==undefined && (!Number.isSafeInteger(b.customerId) || Number(b.customerId)<=0))throw new ValidationError('Choose a valid customer')
+      const target=b.customerId===undefined ? null : getCustomer(db,Number(b.customerId))
+      if(b.customerId!==undefined && (!target || !target.active))throw new HttpErr(404,'Active customer not found')
+      if(b.kioskId && !all.some(k=>k.id===Number(b.kioskId)))throw new HttpErr(404,'Kiosk not found')
       const kiosk =
         (b.kioskId ? all.find((k) => k.id === Number(b.kioskId)) : undefined) ??
         all.find((k) => k.till_name.toLowerCase() === tillName.toLowerCase()) ??
@@ -372,7 +419,10 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
           send(kiosk.id, { type: 'idle' })
         }
       }, SESSION_TIMEOUT_MS)
-      const session = {
+      timer.unref()
+      const session: LiveSession = {
+        targetId: target?.id,
+        originalContact: target ? contactDetails(target) : undefined,
         id,
         kioskId: kiosk.id,
         kioskName: kiosk.name,
@@ -424,6 +474,8 @@ export function readKioskForm(b: Record<string, unknown>) {
     lastName: str(b.lastName, 60),
     company: str(b.company, 100),
     street: str(b.street, 120),
+    street2: str(b.street2,120),
+    mobile: str(b.mobile,30),
     city: str(b.city, 60),
     state: str(b.state, 40),
     zip: str(b.zip, 12),

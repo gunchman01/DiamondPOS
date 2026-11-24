@@ -1,3 +1,3 @@
-# v0.3.60 direct update
+# v0.3.61 direct update
 
-Per-saved-tax-location/rate mappings for paid receipts and account invoices; safe blocking and retry for missing/mismatched QB tax items. Historical choices remain. Separate Sales and optional Labor income account with POS Labor for Service Labor department. No vendor mappings restored, no shipping workflow, no website/schema change. Schema43/minimum client0.3.59 retained. Update server first then tills for v0.3.60. Direct GitHub authorized; tag/release publication remains GitHub UI step. Automated regression/typecheck/build results in testing notes; real test-company verification still required.
+Per-notice manual work-order text selection without separate customer opt-in gate; legacy fields retained without fabricated consent. Existing-customer kiosk accept/update contact verification with session authorization and conflict protection. New signup preserved. Version0.3.61/schema43/minimum client0.3.59. Update server then tills; reload kiosk page. Direct main commit authorized; release tag via GitHub UI. No real messages or deployment.

@@ -8,6 +8,7 @@ import { api } from '../api'
  */
 export default function KioskSignup(props: {
   tillName: string
+  customerId?: number
   onDone: (c: Customer, matchedExisting: boolean) => void
   onClose: () => void
 }) {
@@ -23,7 +24,7 @@ export default function KioskSignup(props: {
     setError('')
     setSession(null)
     api
-      .startKioskSession(props.tillName)
+      .startKioskSession(props.tillName,props.customerId)
       .then((s) => {
         if (stopped) return api.cancelKioskSession(s.id)
         sessionRef.current = s
@@ -53,6 +54,8 @@ export default function KioskSignup(props: {
     return () => {
       stopped = true
       clearTimeout(timer)
+      const current=sessionRef.current
+      if(current?.status==='waiting')api.cancelKioskSession(current.id).catch(()=>{})
     }
   }, [attempt])
 
@@ -85,7 +88,7 @@ export default function KioskSignup(props: {
   const needsCard = status === 'submitted' && !!session?.customer?.taxExempt && !session.customer.taxExemptCardCopied
   return (
     <div className="modal-backdrop">
-      <div className="modal kiosk-wait" onKeyDown={(e) => e.key === 'Escape' && close()}>
+      <div className="modal kiosk-wait" onKeyDown={(e) => {if(e.key==='Escape'){e.stopPropagation();close()}}}>
         <h2>Customer kiosk</h2>
         {error ? (
           <>
@@ -107,7 +110,7 @@ export default function KioskSignup(props: {
               <div>
                 {session ? (
                   <>
-                    Waiting for the customer to fill in their details on <b>{session.kioskName}</b>…
+                    Waiting for the customer to {props.customerId ? 'verify or update' : 'fill in'} their details on <b>{session.kioskName}</b>…
                   </>
                 ) : (
                   'Sending to the kiosk…'
