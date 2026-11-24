@@ -1,23 +1,17 @@
-# DiamondPOS v0.3.70 — split warranty billing and vendor report
+# DiamondPOS v0.3.71 — reminder settings save correctly
 
-Back up the Store Server first. Update the Store Server before all tills (schema44, minimum client0.3.70). No website upload required.
+Update Store Server first, then all tills. Back up before updating (settings migration45). The old3-day default becomes1day; other custom reminder periods and explicitly scheduled ticket follow-ups are preserved.
 
-1. QuickBooks settings: refresh lists and choose customer Accounts Receivable; optionally choose a separate warranty A/R. Keep Sales/Labor income mapping.
-2. Add the warranty company to Vendors and add its billing identity as an account-enabled company customer. Keep the real owner on each work order.
-3. Ticket → Warranty / manufacturer billing: choose vendor/billing customer, claim and coverage per line before tax. Save before estimate approval.
-4. At Ready for Pickup, collect only the customer share in Make a Sale. Provider share is an unpaid account invoice. Fully covered jobs use Bill warranty provider.
-5. Reports → Warranty by vendor: filter, inspect linked work orders/receipts, print or export. Sync QuickBooks to refresh back-office payments.
+Work Order Settings → Flag after this many calendar days →1 → Save settings. Both main Save buttons now save the approval/reminder section too. Reopen to confirm1. Ticket “Remind again in days” loads the saved value. Service-text settings still have their own Save button. No website upload or connection test required for a reminder change.
 
-Verify with test jobs before store use: split coverage, fully covered job, customer estimate deposit, correct taxes for both payers, separate invoices in QuickBooks, payment on provider account and outstanding report. A deposit exceeding the customer share blocks checkout until resolved. Claims are tracked, not submitted automatically.
+Publish the committed update:
+https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.71&target=main
 
-Publish targeting main after the commit:
-https://github.com/gunchman01/DiamondPOS/releases/new?tag=v0.3.70&target=main
-
-Wait for Windows installer assets before updating. Actual Windows UI/printer and QuickBooks-company testing remain necessary.
+Wait for Windows installer assets, then install server/tills. Actual Windows Save/reopen verification remains.
 
 ## Git commands
 
-Preserve local edits before pulling. These changes are committed directly to main, so do not reapply an older source ZIP.
+Preserve local edits first; changes are committed directly to main.
 
 ```bash
 cd /drives/c/dev/DiamondPOS
@@ -29,9 +23,9 @@ npm test
 npm run build
 ```
 
-If publishing via Git instead of the release page (only once):
+Only if publishing via Git instead of the release page:
 
 ```bash
-git tag v0.3.70
-git push origin v0.3.70
+git tag v0.3.71
+git push origin v0.3.71
 ```

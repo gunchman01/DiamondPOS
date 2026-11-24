@@ -14,6 +14,12 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.71 - 24 November 2026
+> Update the Store Server PC first, then all tills.
+- Fixed: the main Work Order Settings Save button now also saves approval and reminder settings. It previously saved only labor, fees, colors and templates.
+- Unanswered-estimate reminders now default to 1 calendar day. Existing 3-day defaults move to 1 day; other custom periods stay unchanged.
+- The work-order “Remind again in days” field now uses the saved reminder period instead of always starting at 3.
+
 ## v0.3.70 - 24 November 2026
 > Update the Store Server PC first, then every till. Make a verified backup before updating.
 - Warranty work orders can split each parts/labor charge between the customer and a manufacturer/vendor billing account. Checkout saves separate linked receipts, keeps the unit under its owner, and charges the provider on account.

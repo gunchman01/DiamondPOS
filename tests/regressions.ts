@@ -168,7 +168,7 @@ async function main() {
   db.close()
   db = openDatabase(file)
   check('v21 upgrade backs up first and disables the changed QuickBooks format', () => {
-    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 44)
+    assert.equal(db.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v, 45)
     assert.equal(getQbConfig(db).enabled, false)
     assert.ok(fs.readdirSync(path.join(dir, 'backups')).some((n) => n.startsWith('store-before-v22')))
   })

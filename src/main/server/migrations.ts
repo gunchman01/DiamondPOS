@@ -714,6 +714,10 @@ export const migrations: Migration[] = [
  ALTER TABLE work_order_lines ADD COLUMN warranty_cents INTEGER NOT NULL DEFAULT 0 CHECK(warranty_cents>=0);
  CREATE TABLE warranty_checkouts(work_order_id INTEGER PRIMARY KEY REFERENCES work_orders(id),request_id TEXT NOT NULL UNIQUE,customer_sale_id INTEGER REFERENCES sales(id),provider_sale_id INTEGER NOT NULL UNIQUE REFERENCES sales(id),vendor_id INTEGER NOT NULL REFERENCES vendors(id),payer_id INTEGER NOT NULL REFERENCES customers(id),claim_reference TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT (datetime('now')));
  `}
+ ,{version:45,name:'one day default estimate follow-up',up:`
+ UPDATE settings SET value=json_set(value,'$.afterDays',1)
+ WHERE key='approval_config' AND json_valid(value) AND json_extract(value,'$.afterDays')=3;
+ `}
 ]
 
 export const LATEST_SCHEMA_VERSION = Math.max(...migrations.map((m) => m.version))

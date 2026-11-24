@@ -1,6 +1,6 @@
 import ServiceTextSettings from './ServiceTextSettings'
-import ApprovalSettings from './ApprovalSettings'
-import { useEffect, useState } from 'react'
+import ApprovalSettings, {type ApprovalSettingsHandle} from './ApprovalSettings'
+import { useEffect, useRef, useState } from 'react'
 import {
   DEFAULT_WO_SETTINGS,
   STAGES,
@@ -20,6 +20,8 @@ const centsText = (c: number) => (c / 100).toFixed(2)
 
 /** Work order setup: labor rate, default shop supplies, and the email template for each stage. */
 export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
+  const approvals=useRef<ApprovalSettingsHandle>(null)
+  const [saving,setSaving]=useState(false)
   const [mechanics,setMechanics]=useState<import('../../../shared/workorders').Mechanic[]>([])
   const [mechanicName,setMechanicName]=useState('')
   const [mechanicBusy,setMechanicBusy]=useState(false)
@@ -54,6 +56,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
   const loadedShop = shop
   const loadedFees = fees
   async function save() {
+    if(saving)return
     const shop = loadedShop
     const fees = loadedFees!
     setMsg('')
@@ -72,12 +75,15 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
       if (isNaN(f)) return setError(`Enter the ${CAT_LABEL[c].toLowerCase()} estimate fee like 35.00 (0 = no fee)`)
       feeCents[c] = f
     }
+    setSaving(true)
     try {
+      if(!approvals.current)throw new Error('Approval settings are not ready. Reload before saving.')
+      await approvals.current.save()
       show(await api.woSaveSettings({ ...s!, laborRateCents, shopSupplies, estimateFee: { ...s!.estimateFee, cents: feeCents } }))
-      setMsg('Work order settings saved')
+      setMsg('Work order and approval/reminder settings saved')
     } catch (e) {
-      setError((e as Error).message)
-    }
+      setError('Save did not complete: '+(e as Error).message+' Some sections may already be saved. Review and try again.')
+    } finally {setSaving(false)}
   }
 
   const setTemplate = (k: EmailableStatus, changes: Partial<WoSettings['templates'][EmailableStatus]>) =>
@@ -89,13 +95,13 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         <button className="link" onClick={onBack}>
           ← Work orders
         </button>
-        <button className="primary" onClick={save}>
+        <button className="primary" disabled={saving} onClick={save}>
           Save settings
         </button>
       </div>
       <h2>Work order settings</h2>
       <ServiceTextSettings />
-      <ApprovalSettings/>
+      <ApprovalSettings ref={approvals} disabled={saving}/>
       <div className="card form"><h3>Mechanics</h3><p className="muted">Removing a mechanic hides them from new assignments. Existing tickets and history keep their name. Adding the same name restores them.</p>
       <div className="row gap"><input aria-label="Mechanic name" maxLength={80} value={mechanicName} onChange={e=>setMechanicName(e.target.value)} placeholder="Mechanic name"/><button disabled={mechanicBusy||!mechanicName.trim()} onClick={async()=>{setMechanicBusy(true);try{await api.woAddMechanic(mechanicName);await reloadMechanics();setMechanicName('')}catch(e){setError((e as Error).message)}finally{setMechanicBusy(false)}}}>Add mechanic</button></div>
       {mechanics.filter(m=>m.active).map(m=><div className="row between" key={m.id}><span>{m.name}</span><button disabled={mechanicBusy} onClick={async()=>{setMechanicBusy(true);try{await api.woRemoveMechanic(m.id);await reloadMechanics()}catch(e){setError((e as Error).message)}finally{setMechanicBusy(false)}}}>Remove</button></div>)}
@@ -217,7 +223,7 @@ export default function WorkOrderSettings({ onBack }: { onBack: () => void }) {
         <p className="muted small">Ready for Review is for staff only, so it has no customer email.</p>
       </div>
       <div>
-        <button className="primary" onClick={save}>
+        <button className="primary" disabled={saving} onClick={save}>
           Save settings
         </button>
       </div>

@@ -21,7 +21,7 @@ export function approvalConfig(db: DB): Config {
     serviceId: '',
     cursor: 0,
     followUpEnabled: true,
-    afterDays: 3,
+    afterDays: 1,
     lastSyncAt: null,
     error: null,
     ...v,

@@ -71,6 +71,12 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.71 — 24 November 2026: reminder saving and one-day default
+
+User reports Work Order Settings save does not retain reminders; requests1day rather than3. Main page's two Save buttons saved wo_settings only; ApprovalSettings owned separate state/save endpoint. Both main buttons now await the child imperative save, report completion only after both operations, prevent repeat clicks and clearly warn of partial completion on error. Child save buttons remain. Draft key clears on successful persist; approval controls disabled during local/main save. No website call for ordinary Save. WorkOrderTicket hard-coded3 replaced with1fallback + saved approvalConfig.afterDays on ticket opening. Default afterDays1; schema45 updates only stored afterDays3 to1, preserving other custom values, credentials, cursor and explicit ticket follow_up_at dates. Server-first/all-till update; minclient70 unchanged because no schema column change. Baseline main1b3bb5d2dd8e689d809ca44341e34c7d0ae38903.
+
+Validation:443 regression checks/typecheck/build passed before check-in; added migration preservation and API save/fresh-read checks, adjusted existing default assertion. Windows interactive Save/reopen still to verify. No real customer messages, website reconfiguration or QuickBooks sync. Next: user install71, confirm reminder1 persists after leaving/reopening Settings and ticket call reminder defaults1; publish release via supplied link.
+
 ### v0.3.70 — 24 November 2026: split warranty billing, A/R mapping and vendor report
 
 User requested ordinary account purchases and reimbursed warranty work mapped to QuickBooks A/R, clarified split provider/customer charges, and requested vendor-grouped warranty report. Baseline main98a01523bc7e267fa18ff108467b03da5c48fed7 v69. Schema44 adds invoice AR/kind, WO vendor/payer/claim, per-line covered cents and linked checkout record. Minimum client70: update server then all tills, verified backup first.

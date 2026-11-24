@@ -1,9 +1,10 @@
 import { confirmAction } from '../dialogs'
-import { useEffect, useState } from 'react'
+import { forwardRef, useImperativeHandle, useEffect, useState } from 'react'
 import type { ApprovalConfig } from '../../../shared/approvals'
 import { api } from '../api'
 import { dateTime } from '../format'
-export default function ApprovalSettings() {
+export interface ApprovalSettingsHandle {save:()=>Promise<void>}
+export default forwardRef<ApprovalSettingsHandle,{disabled?:boolean}>(function ApprovalSettings({disabled=false},ref) {
   const [config, setConfig] = useState<ApprovalConfig | null>(null),
     [key, setKey] = useState(''),
     [show, setShow] = useState(false),
@@ -16,6 +17,11 @@ export default function ApprovalSettings() {
       .then(setConfig)
       .catch((e) => setError(e.message))
   }, [])
+  async function persist(){
+    if(!config)throw new Error('Approval settings have not loaded. Reload this page before saving.')
+    const saved=await api.saveApprovalConfig({...config,key});setConfig(saved);setKey('');return saved
+  }
+  useImperativeHandle(ref,()=>({save:async()=>{if(busy)throw new Error('Wait for the approval settings action to finish.');setBusy(true);setError('');setMessage('');try{await persist();setMessage('Approval and follow-up settings saved.')}catch(e){setError((e as Error).message);throw e}finally{setBusy(false)}}}))
   async function run(action: 'save' | 'test' | 'sync') {
     if (!config) return
     setBusy(true)
@@ -23,7 +29,7 @@ export default function ApprovalSettings() {
     setMessage('')
     try {
       let c = config
-      if (action !== 'sync') c = await api.saveApprovalConfig({ ...config, key })
+      if (action !== 'sync') c = await persist()
       if (action === 'test') c = await api.testApprovalConnection()
       if (action === 'sync') c = await api.syncApprovals()
       setConfig(c)
@@ -46,7 +52,7 @@ export default function ApprovalSettings() {
       {error && <p className="error-text">{error}</p>}
       {message && <p className="ok-text">{message}</p>}
       {config && (
-        <>
+        <fieldset disabled={busy||disabled} style={{border:0,padding:0,margin:0,minWidth:0}}>
           <label className="check">
             <input
               type="checkbox"
@@ -130,8 +136,8 @@ export default function ApprovalSettings() {
             reconnects. Last successful check: {config.lastSyncAt ? dateTime(config.lastSyncAt) : 'Not yet'}
           </p>
           {config.error && <p className="error-text">Last connection problem: {config.error}</p>}
-        </>
+        </fieldset>
       )}
     </section>
   )
-}
+})

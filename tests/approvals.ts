@@ -1,3 +1,4 @@
+import {migrations} from '../src/main/server/migrations'
 import crypto from 'node:crypto'
 import assert from 'node:assert/strict'
 import {
@@ -46,9 +47,9 @@ export async function testApprovals(
     if (op === 'decisions') return { serviceId: 'test-service', events: events.filter((e) => e.sequence > payload.after) }
     throw new Error('Unknown operation')
   }
-  check('approval defaults are disabled, follow-up defaults to 3 days, and secret is not returned', () => {
+  check('approval defaults are disabled, follow-up defaults to 1 day, and secret is not returned', () => {
     assert.equal(approvalView(db).enabled, false)
-    assert.equal(approvalView(db).afterDays, 3)
+    assert.equal(approvalView(db).afterDays, 1)
     assert.equal(approvalView(db).followUpEnabled, true)
     assert.ok(!('key' in approvalView(db)))
     for (const url of [
@@ -60,6 +61,17 @@ export async function testApprovals(
       assert.throws(() => saveApprovalConfig(db, { url }))
     for (const afterDays of [0, 1.5, 91]) assert.throws(() => saveApprovalConfig(db, { afterDays }))
   })
+  check('reminder upgrade changes the old three-day default without replacing custom days or credentials',()=>{
+    for(const [days,expected] of [[3,1],[1,1],[7,7]]){
+      db.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES ('approval_config',?)").run(JSON.stringify({afterDays:days,key:'b'.repeat(64),url:'https://morethanmowers.com/pos-approval/',cursor:42}))
+      db.exec(migrations.find(m=>m.version===45)!.up)
+      assert.equal(approvalView(db).afterDays,expected);assert.equal(approvalConfig(db).key,'b'.repeat(64));assert.equal(approvalConfig(db).cursor,42)
+    }
+    db.prepare("DELETE FROM settings WHERE key='approval_config'").run()
+  })
+  const savedReminder=await call('/api/workorders/approval/config','PUT',{afterDays:1,followUpEnabled:true})
+  const loadedReminder=await call('/api/workorders/approval/config')
+  check('saving one-day follow-up through the API survives a fresh settings read',()=>{assert.equal(savedReminder.status,200);assert.equal(loadedReminder.data.afterDays,1);assert.equal(loadedReminder.data.followUpEnabled,true)})
   saveApprovalConfig(db, { key: 'a'.repeat(64) })
   await testApprovalConnection(db, remote)
   saveApprovalConfig(db, { enabled: true })
