@@ -169,7 +169,10 @@ export const api = {
     request<KioskInfo>('PUT', `/api/kiosks/${id}`, changes),
   removeKiosk: (id: number) => request<{ ok: boolean }>('POST', `/api/kiosks/${id}/remove`),
   setLogo: (dataUrl: string | null) => request<StoreSettings>('PUT', '/api/settings/logo', { dataUrl }),
-  startKioskSession: (tillName: string, customerId?:number) => request<KioskSession>('POST', '/api/kiosk-sessions', { tillName, customerId }),
+  startKioskSession: async (tillName:string,customerId?:number):Promise<KioskSession> => {
+    if(customerId!==undefined && !(await api.health()).kioskVerification)throw new Error('Update the Store Server to v0.3.66 or newer before validating customer information. No signup form was sent.')
+    return request<KioskSession>('POST',customerId!==undefined?'/api/kiosk-sessions/verify':'/api/kiosk-sessions',{tillName,customerId})
+  },
   getKioskSession: (id: string) => request<KioskSession>('GET', `/api/kiosk-sessions/${id}`),
   cancelKioskSession: (id: string) => request<{ ok: boolean }>('POST', `/api/kiosk-sessions/${id}/cancel`),
 

@@ -183,6 +183,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
   function api(method, path, body) {
     return fetch(path, {
       method: method,
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store'
@@ -239,7 +240,7 @@ export const kioskPageHtml = /* html */ `<!doctype html>
 
   function connect() {
     if (es) es.close();
-    es = new EventSource('/kiosk/api/events?token=' + encodeURIComponent(token));
+    es = new EventSource('/kiosk/api/events?review=2&token=' + encodeURIComponent(token));
     es.onopen = function () { $('offline').hidden = true; };
     es.onmessage = function (e) { try { handle(JSON.parse(e.data)); } catch (x) {} };
     es.onerror = function () {

@@ -197,6 +197,7 @@ export function createApp(db: DB, opts: ServerOptions): express.Express {
       ok: true,
       serverVersion: opts.appVersion,
       saleDates: true,
+      kioskVerification:true,
       schemaVersion: getSchemaVersion(db),
       minClientVersion: MIN_CLIENT_VERSION
     }

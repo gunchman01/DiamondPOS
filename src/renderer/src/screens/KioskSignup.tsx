@@ -27,6 +27,7 @@ export default function KioskSignup(props: {
       .startKioskSession(props.tillName,props.customerId)
       .then((s) => {
         if (stopped) return api.cancelKioskSession(s.id)
+        if(props.customerId!==undefined && s.verificationCustomerId!==props.customerId){void api.cancelKioskSession(s.id).catch(()=>{});throw new Error('The server did not confirm the selected customer. Update the Store Server and reload the kiosk page before trying again.')}
         sessionRef.current = s
         setSession(s)
         // Poll for the customer's answer
@@ -57,7 +58,7 @@ export default function KioskSignup(props: {
       const current=sessionRef.current
       if(current?.status==='waiting')api.cancelKioskSession(current.id).catch(()=>{})
     }
-  }, [attempt])
+  }, [attempt,props.customerId,props.tillName])
 
   function close() {
     const s = sessionRef.current

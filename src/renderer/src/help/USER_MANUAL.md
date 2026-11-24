@@ -924,3 +924,10 @@ Sales History lists one transaction per horizontal row aligned with the column h
 ### Tax exemption during kiosk validation (v0.3.65)
 
 The existing-customer validation screen shows **Tax exempt: Yes/No**, with exemption ID and expiration when applicable. An expired date is labelled EXPIRED. This section stays read-only even after choosing Update details. The message tells the customer to notify the cashier if anything needs correcting; only staff can change exemption information from the customer record. Kiosk submissions do not change exemption status, ID, expiry or the card-copy flag. If the cashier changes exemption details during review, send a fresh validation request. Reload the kiosk browser page after installing this update. New-customer signup keeps its existing intake process.
+
+
+### Validation opens a blank customer form
+
+Update the **Store Server first**, then all tills to **v0.3.66 or newer**. On the kiosk, close any duplicate kiosk browser tabs and reload the kiosk page. Send Validate on kiosk again. A saved customer's name/contact details and read-only tax exemption should appear with Accept details / Update details. New-customer signup is a separate blank form.
+
+From v0.3.66, the validation action checks server support and whether every connected page for that kiosk supports verification. An old page produces a clear reload instruction instead of a blank signup. Reloading does not require pairing again unless the browser token was cleared. If the kiosk says Welcome! Tell us about you rather than Please verify your details, do not fill it out as a new customer; cancel and check server/till versions and reload the kiosk.

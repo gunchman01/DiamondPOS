@@ -1,5 +1,5 @@
-DiamondPOS v0.3.65 direct check-in
-Baseline main 9d3190f5e41de1a12fc6f2230950942fb7e14b68
+DiamondPOS v0.3.66 direct check-in
+Baseline main 7ed28a8fe57a701e31a67eab633c0da5877d12a0
 
 CHANGED-FILES.txt
 CHANGELOG.md
@@ -9,7 +9,11 @@ TESTING-NOTES.md
 docs/PROJECT_NOTES.md
 package-lock.json
 package.json
+src/main/server/index.ts
 src/main/server/kiosk.ts
 src/main/server/kioskPage.ts
+src/renderer/src/api.ts
 src/renderer/src/help/USER_MANUAL.md
+src/renderer/src/screens/KioskSignup.tsx
+src/shared/types.ts
 tests/kiosk-verification.ts

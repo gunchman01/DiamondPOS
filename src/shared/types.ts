@@ -384,6 +384,7 @@ export type KioskSessionStatus = 'waiting' | 'submitted' | 'cancelled' | 'expire
 
 /** A "please fill in your details" request sent from a till to a kiosk */
 export interface KioskSession {
+  verificationCustomerId?:number
   id: string
   kioskId: number
   kioskName: string
@@ -396,6 +397,7 @@ export interface KioskSession {
 }
 
 export interface Health {
+  kioskVerification?:boolean
   saleDates?: boolean
   ok: boolean
   serverVersion: string

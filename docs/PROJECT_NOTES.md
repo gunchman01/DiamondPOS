@@ -71,6 +71,13 @@ git tag vX.Y.Z-beta.1 && git push origin vX.Y.Z-beta.1   # beta (pre-release)
 
 ## Progress log
 
+### v0.3.66 — 24 November 2026: prevent blank signup during customer validation
+
+- User reports customer-page Validate opens a blank customer. Current local flow already passes editingId through KioskSignup/API and server stores target/contact; HTTP/simulated-browser prefill tests pass. Exact shop version/browser state not observed, so do not claim a reproduced unique root cause. Identified real mixed-version paths: older server ignores customerId on generic signup route; already-open old kiosk page ignores server's saved-customer snapshot. Added guardrails for both.
+- Validation client checks explicit health capability before sending; uses dedicated paired POST /api/kiosk-sessions/verify requiring ID, distinct from normal blank signup. Session result includes verified target ID and staff modal rejects mismatches. Kiosk SSE advertises review capability; server refuses verification dispatch if any connected page for that kiosk is old, and never replays an active verification form to an old reconnecting page. Error directs staff to reload kiosk/close duplicate tabs. Existing generic route retains older client/signup compatibility but applies same target guard. Kiosk fetch requests use no-store. Effect restarts if customer/till target changes.
+- No migration/schema43/min client0.3.59. Version0.3.66; update server first then tills and reload kiosk browser. Baseline main7ed28a8fe57a701e31a67eab633c0da5877d12a0; direct main update authorized.406 regression checks include client transport tests for old-server no-POST and exact verify route/customer ID, real old-page SSE rejection vs new-page prefill, mandatory target and unchanged new signup. Typecheck/build before check-in. Actual Windows/tablet verification remains; no live customer changes/messages/deployment performed.
+
+
 ### v0.3.65 — 24 November 2026: read-only kiosk tax-exemption validation
 
 - User requested exemption status on kiosk review, then explicitly clarified customers must not edit it and must tell cashier about corrections. Existing-customer review endpoint now exposes a limited separate taxExemption snapshot (Yes/No, ID/expiry only when exempt). New read-only text panel remains shown in Accept and Update modes, with expiration warning and cashier instruction. Existing editable signup tax controls stay hidden for verification. No customer tax write paths added; contact allowlist still ignores forged tax fields, including card-copy flag.
@@ -689,6 +696,9 @@ Store setup: **QuickBooks Enterprise Gold (latest)** on the same network; QuickB
 ---
 
 ## Next up (backlog, in rough priority order)
+
+- Install v0.3.66 on server/tills, close duplicate kiosk tabs and reload browser. Customer page Validate must show existing contact and read-only exemption with Accept/Update. Test sale-selected customer too. Old server should block before sending, old browser should show reload error; signup with no selected customer remains blank. Actual shop version/browser state was not available during development.
+
 
 - Install v0.3.65 server first/tills and reload kiosk browser. Validate exempt and non-exempt customers: show Yes/No and applicable ID/expiry, expiry warning, no editable tax controls, cashier-correction message; Update contact details must leave exemption data unchanged. Staff change during review must require resend.
 

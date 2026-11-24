@@ -1,5 +1,5 @@
-# v0.3.65 kiosk exemption validation
+# v0.3.66 kiosk validation compatibility
 
-401 regressions passed. Real HTTP/SQLite tests cover separate read-only exemption projection, no financial/staff data leakage, forged tax status/ID/expiry/card-copy changes ignored, cashier-change conflict, contact updates and normal signup behavior. Simulated browser checks cover read-only panel, editable tax controls hidden, cashier instructions and clearing exemption details on completion. Typecheck/build required before check-in. Actual Windows/tablet visual check remains at shop.
+406 regressions: actual frontend API transport mocked against older/newer health response to verify no POST to old server, exact selected customer ID to dedicated verification route, and separate new signup. Real HTTP/SQLite/SSE tests reject legacy open kiosk pages with reload instruction, reject missing target on verify route, acknowledge target ID and load correct saved details through scoped kiosk endpoint. Existing privacy/readonly exemption/conflict/cancel/timeout/signup tests remain. Typecheck/build required before check-in.
 
-Check exempt/non-exempt customers and expired ID: Yes/No, applicable ID/expiry, warning, read-only even after Update details, and cashier-correction message. No live customer record, SMS/email or QuickBooks sync was performed during development.
+Actual shop browser/server versions and Windows/tablet screen were not observed. Update server/tills then reload kiosk/close duplicate tabs; verify customer-page and selected-sale validation show saved details rather than blank form. No live customer edit, message or financial sync performed.

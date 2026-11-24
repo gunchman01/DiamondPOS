@@ -64,9 +64,9 @@ function openSessionFor(kioskId: number) {
   return [...sessions.values()].find((s) => s.kioskId === kioskId && s.status === 'waiting')
 }
 
-function publicSession(s: KioskSession): KioskSession {
+function publicSession(s: KioskSession & {targetId?:number}): KioskSession {
   const { id, kioskId, kioskName, tillName, status, customer, matchedExisting } = s
-  return { id, kioskId, kioskName, tillName, status, customer, matchedExisting }
+  return { id, kioskId, kioskName, tillName, status, customer, matchedExisting, verificationCustomerId:s.targetId }
 }
 
 function finish(s: KioskSession & { timer: ReturnType<typeof setTimeout> }, status: KioskSession['status']) {
@@ -152,6 +152,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
     '/kiosk/api/events',
     wrap((req, res) => {
       const k = kioskByToken(req.query.token)
+      res.locals.kioskReviewVersion=req.query.review==='2'?2:0
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -161,7 +162,7 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       if (!streams.has(k.id)) streams.set(k.id, new Set())
       streams.get(k.id)!.add(res)
       const open = openSessionFor(k.id)
-      res.write(`data: ${JSON.stringify(open ? { type: 'form', sessionId: open.id } : { type: 'idle' })}\n\n`)
+      res.write(`data: ${JSON.stringify(open && (!open.targetId || res.locals.kioskReviewVersion===2) ? { type: 'form', sessionId: open.id } : { type: 'idle' })}\n\n`)
       const ping = setInterval(() => res.write(': ping\n\n'), 20_000) // keeps Wi-Fi / proxies from closing it
       // Note: listen on the RESPONSE. req 'close' fires as soon as the request has been read.
       res.on('close', () => {
@@ -390,10 +391,9 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
   )
 
   // Send the sign-up form to the kiosk that belongs to this till
-  app.post(
-    '/api/kiosk-sessions',
-    wrap((req, res) => {
+  const startSession = (verificationOnly:boolean) => wrap((req, res) => {
       const b = (req.body ?? {}) as Record<string, unknown>
+      if(verificationOnly && b.customerId===undefined)throw new ValidationError('Select the customer to validate')
       const tillName = String(b.tillName ?? '').trim()
       const all = db.prepare('SELECT * FROM kiosks WHERE active = 1 ORDER BY id').all() as KioskRow[]
       if (all.length === 0) throw new HttpErr(404, 'No kiosk is paired yet. Pair the iPad in Settings first.')
@@ -408,6 +408,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       if (!kiosk) throw new HttpErr(404, `No kiosk is linked to till "${tillName}". Link one in Settings.`)
       if (!(streams.get(kiosk.id)?.size ?? 0))
         throw new HttpErr(409, `The kiosk "${kiosk.name}" is offline. Check the iPad is on, on Wi-Fi and showing the kiosk page.`)
+
+      if(target && [...(streams.get(kiosk.id)??[])].some(r=>r.locals.kioskReviewVersion!==2))throw new HttpErr(409,'Reload the kiosk browser page and close any other kiosk tabs, then try Validate on kiosk again. The open page does not support customer validation.')
 
       // A newer request replaces an older unanswered one on the same kiosk
       const old = openSessionFor(kiosk.id)
@@ -440,7 +442,8 @@ export function registerKioskRoutes(app: express.Express, db: DB, readSettings: 
       send(kiosk.id, { type: 'form', sessionId: id })
       res.status(201).json(publicSession(session))
     })
-  )
+  app.post('/api/kiosk-sessions/verify',startSession(true))
+  app.post('/api/kiosk-sessions',startSession(false))
 
   app.get(
     '/api/kiosk-sessions/:id',

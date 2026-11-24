@@ -14,6 +14,11 @@ How to write a section (newest at the top):
 
 ---
 
+## v0.3.66 - 24 Nov 2026
+- Customer validation uses a dedicated request that requires the selected customer. It no longer shares the blank-signup request used for new customers.
+- Added Store Server and kiosk-page compatibility checks. Older servers/pages show an update or reload instruction instead of silently opening a blank signup form.
+- Update the Store Server and tills, then reload the kiosk browser and close other kiosk tabs before validating again. Existing contact editing and read-only tax exemption remain.
+
 ## v0.3.65 - 24 Nov 2026
 - Customer kiosk validation now shows tax-exempt status and, when applicable, the exemption ID and expiration date. Expired dates are flagged.
 - Tax exemption information is read-only on the validation screen. Customers are directed to the cashier for corrections; they can still accept or edit contact details.

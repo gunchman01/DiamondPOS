@@ -1,3 +1,4 @@
+import {api as kioskClient} from '../src/renderer/src/api'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import vm from 'node:vm'
@@ -13,14 +14,23 @@ export async function testKioskVerification(check:(n:string,f:()=>void)=>void,di
  const kiosk=Number(db.prepare("INSERT INTO kiosks(name,till_name,token) VALUES ('Review kiosk','Review till','review-token')").run().lastInsertRowid)
  db.prepare("INSERT INTO kiosks(name,till_name,token) VALUES ('Other kiosk','Other till','other-token')").run()
  const id=Number(db.prepare("INSERT INTO customers(first_name,last_name,company,phone,mobile,email,street,street2,city,region,postcode,notes,past_due_cents,on_account_enabled,ok_to_email,tax_exempt_id) VALUES ('Before','Customer','Company','9185551111','9185552222','before@example.com','Street','Suite 1','Claremore','OK','74019','Private staff note',12345,1,1,'PRIVATE-TAX')").run().lastInsertRowid)
- const abort=new AbortController(),stream=await fetch(base+'/kiosk/api/events?token=review-token',{signal:abort.signal}),reader=stream.body!.getReader();await reader.read()
- const start=async(customerId=id)=>{const r=await call('/api/kiosk-sessions',{tillName:'Review till',customerId},true);assert.equal(r.status,201);return r.data.id as string}
+ const abort=new AbortController(),stream=await fetch(base+'/kiosk/api/events?review=2&token=review-token',{signal:abort.signal}),reader=stream.body!.getReader();await reader.read()
+ const start=async(customerId=id)=>{const r=await call('/api/kiosk-sessions/verify',{tillName:'Review till',customerId},true);assert.equal(r.status,201);assert.equal(r.data.verificationCustomerId,customerId);return r.data.id as string}
  const form=(sessionId:string,token='review-token')=>call(`/kiosk/api/session?token=${token}&sessionId=${sessionId}`)
  try{
   check('kiosk inline JavaScript parses and contains explicit accept/update controls',()=>{new vm.Script(kioskPageHtml.match(/<script>([\s\S]*?)<\/script>/)![1]);assert.ok(kioskPageHtml.includes('Accept details'));assert.ok(kioskPageHtml.includes('Save updated details'))})
+  await testKioskClientCompatibility(check)
   await testKioskScript(check)
   const denied=await call('/api/kiosk-sessions',{tillName:'Review till',customerId:id})
   check('only a paired staff API request can send a customer to the kiosk',()=>assert.equal(denied.status,401))
+  const noTarget=await call('/api/kiosk-sessions/verify',{tillName:'Review till'},true)
+  check('dedicated validation route never silently creates a blank signup without a selected customer',()=>assert.equal(noTarget.status,400))
+  const staleAbort=new AbortController(),staleStream=await fetch(base+'/kiosk/api/events?token=review-token',{signal:staleAbort.signal}),staleReader=staleStream.body!.getReader();await staleReader.read()
+  try{
+   const blocked=await call('/api/kiosk-sessions/verify',{tillName:'Review till',customerId:id},true)
+   const legacyBlocked=await call('/api/kiosk-sessions',{tillName:'Review till',customerId:id},true)
+   check('older open kiosk page prevents verification dispatch with a reload instruction instead of a blank signup',()=>{assert.equal(blocked.status,409);assert.match(blocked.data.error,/Reload the kiosk browser/);assert.equal(legacyBlocked.status,409)})
+  }finally{staleAbort.abort();await staleReader.cancel().catch(()=>{});await new Promise<void>(r=>setTimeout(r,20))}
   const session=await start(),details=await form(session),wrong=await form(session,'other-token')
   check('verification form is scoped to its assigned paired kiosk and excludes financial, marketing and staff data while showing read-only exemption status',()=>{assert.equal(details.status,200);assert.equal(details.data.mode,'verify');assert.equal(details.data.contact.mobile,'9185552222');assert.equal(details.data.contact.street2,'Suite 1');assert.equal(wrong.status,409);assert.equal(details.data.taxExemption.taxExempt,false);const output=JSON.stringify(details.data);for(const secret of ['Private staff note','12345','okToEmail','accountEnabled'])assert.ok(!output.includes(secret))})
   const count=()=>Number((db.prepare('SELECT COUNT(*) AS n FROM customers').get() as any).n),beforeCount=count()
@@ -76,4 +86,17 @@ async function testKioskScript(check:(n:string,f:()=>void)=>void){
  check('edit action sends all contact fields with state/ZIP aliases and clears after success',()=>{assert.equal(node('firstName').readOnly,false);assert.equal(posts.at(-1).body.street,'Changed Street');assert.equal(posts.at(-1).body.street2,'Suite 2');assert.equal(posts.at(-1).body.region,'OK');assert.equal(posts.at(-1).body.postcode,'74019');assert.equal(node('street').value,'')})
  events.onmessage({data:JSON.stringify({type:'form',sessionId:'timeout-session'})});await flush();const deadline=[...timers.values()].find(t=>t.ms===300000)!;assert.ok(deadline);deadline.fn();await flush()
  check('local kiosk timeout clears private contact details even without receiving a server event',()=>{assert.equal(node('firstName').value,'');assert.equal(node('form').hidden,true);assert.equal(posts.at(-1).url,'/kiosk/api/cancel')})
+}
+
+async function testKioskClientCompatibility(check:(n:string,f:()=>void)=>void){
+ const original=globalThis.fetch;let supports=false;const calls:{url:string;body:any}[]=[]
+ globalThis.fetch=async(url,options)=>{const path=String(url);calls.push({url:path,body:options?.body?JSON.parse(String(options.body)):null});return new Response(JSON.stringify(path.endsWith('/api/health')?{kioskVerification:supports}:{id:'test-session',verificationCustomerId:42}),{status:200})}
+ try{
+  await assert.rejects(kioskClient.startKioskSession('Customer till',42),/Update the Store Server/)
+  check('customer validation against an older server stops before posting any blank signup request',()=>{assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/api/health'))})
+  supports=true;calls.length=0;const result=await kioskClient.startKioskSession('Customer till',42)
+  check('customer-page and sale validation client sends selected ID on the explicit verify route',()=>{assert.equal(result.verificationCustomerId,42);assert.ok(calls[1].url.endsWith('/api/kiosk-sessions/verify'));assert.equal(calls[1].body.customerId,42);assert.equal(calls[1].body.tillName,'Customer till')})
+  calls.length=0;await kioskClient.startKioskSession('Customer till')
+  check('new-customer signup client remains separate and never posts to verification',()=>{assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/api/kiosk-sessions'));assert.equal(calls[0].body.customerId,undefined)})
+ }finally{globalThis.fetch=original}
 }
